@@ -346,9 +346,8 @@ export const versionEdits = sqliteTable(
 // Ingredient catalog and ingredient lines (BRIEF §7)
 // ---------------------------------------------------------------------------------------------------------------
 
-export type IngredientFlags = Partial<
-  Record<'chametz' | 'kitniyot' | 'gebrokts' | 'animal_derived', FlagValue>
->
+/** chametz, kitniyot, gebrokts, animal_derived, egg, honey, grain, pat, meat_derived, ... */
+export type IngredientFlags = Partial<Record<string, FlagValue>>
 export type IngredientAllergens = { tag: string; source: FlagSource }[]
 
 export const ingredients = sqliteTable(
@@ -421,6 +420,8 @@ export const meals = sqliteTable(
       .notNull()
       .default('draft'),
     acceptedAt: integer('accepted_at'),
+    /** When the passed meal was settled: serving history written and pantry stock used. Null until then. */
+    settledAt: integer('settled_at'),
   },
   (t) => [index('meals_household_date_idx').on(t.householdId, t.date)],
 )
@@ -612,4 +613,67 @@ export const apiKeys = sqliteTable(
     revokedAt: integer('revoked_at'),
   },
   (t) => [uniqueIndex('api_keys_hash_uq').on(t.hashedKey), index('api_keys_user_idx').on(t.userId)],
+)
+
+// ---------------------------------------------------------------------------------------------------------------
+// Invites, saved filters and display preferences (added with the service layer)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** An invite link: whoever opens it while signed in joins the household. Unguessable token, expires, revocable. */
+export const householdInvites = sqliteTable(
+  'household_invites',
+  {
+    ...base(),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => households.id),
+    token: text('token').notNull(),
+    createdBy: text('created_by').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+    acceptedBy: text('accepted_by'),
+    acceptedAt: integer('accepted_at'),
+    revokedAt: integer('revoked_at'),
+  },
+  (t) => [uniqueIndex('household_invites_token_uq').on(t.token), index('household_invites_household_idx').on(t.householdId)],
+)
+
+export type RecipeFilterSpec = {
+  q?: string
+  course?: string
+  kashrut?: 'meat' | 'dairy' | 'parve'
+  safeFor?: string[]
+  pesach?: boolean
+  maxMinutes?: number
+  notServedWeeks?: number
+  difficulty?: 'easy' | 'average' | 'a_pain'
+  maxCost?: number
+  dimension?: string
+}
+
+/** Collections: saved recipe filters, usually on a dimension ("Shabbat staples", "Thanksgiving"). */
+export const collections = sqliteTable(
+  'collections',
+  {
+    ...base(),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => households.id),
+    name: text('name').notNull(),
+    filters: text('filters', { mode: 'json' }).$type<RecipeFilterSpec>().notNull(),
+  },
+  (t) => [index('collections_household_idx').on(t.householdId)],
+)
+
+export type UnitOverride = { system?: 'us' | 'metric'; dimension?: 'weight' | 'volume' }
+
+/** Per-user display preferences: US or metric, plus per-category overrides (flour and sugar in grams, ...). */
+export const userPrefs = sqliteTable(
+  'user_prefs',
+  {
+    ...base(),
+    userId: text('user_id').notNull(),
+    system: text('system', { enum: ['us', 'metric'] }).notNull().default('us'),
+    overrides: text('overrides', { mode: 'json' }).$type<Record<string, UnitOverride>>(),
+  },
+  (t) => [uniqueIndex('user_prefs_user_uq').on(t.userId)],
 )
