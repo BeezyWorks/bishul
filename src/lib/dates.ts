@@ -83,3 +83,19 @@ export function hebrewDate(iso: ISODate): string {
     return ''
   }
 }
+
+/** "16:28" to "4:28 PM". */
+export function clock12(hhmm: string | null | undefined): string {
+  if (!hhmm) return ''
+  const [h, m] = hhmm.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+const ORDINAL = /^(\d+)(?:st|nd|rd|th) of (.+?)(?:, \d+)?$/
+/** The server's "4th of Kislev, 5787" as "4 Kislev". */
+export function shortHebrew(text: string | undefined | null): string {
+  if (!text) return ''
+  const m = ORDINAL.exec(text)
+  return m ? `${m[1]} ${m[2]}` : text
+}

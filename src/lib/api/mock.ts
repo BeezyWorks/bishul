@@ -916,6 +916,14 @@ export const mockApi: BishulApi = {
 
   acceptMeals: async (ids) => {
     for (const id of ids) mealById(id).status = 'accepted'
+    return delay({ accepted: ids, blocked: [] })
+  },
+  reopenMeals: async (ids) => {
+    for (const id of ids) mealById(id).status = 'draft'
+    return delay(undefined)
+  },
+  deleteMeal: async (id) => {
+    meals = meals.filter((m) => m.id !== id)
     return delay(undefined)
   },
 
@@ -1004,13 +1012,12 @@ export const mockApi: BishulApi = {
     else shop.checked.delete(id)
     return delay(undefined)
   },
-  moveShoppingLine: async (id, dir) => {
-    const ids = shoppingLines().map((l) => l.id)
-    const i = ids.indexOf(id)
-    const j = dir === 'up' ? i - 1 : i + 1
-    if (i < 0 || j < 0 || j >= ids.length) return delay(undefined)
-    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+  setShoppingOrder: async (ids) => {
     shop.order = ids
+    return delay(undefined)
+  },
+  removeShoppingLine: async (id) => {
+    shop.custom = shop.custom.filter((l) => l.id !== id)
     return delay(undefined)
   },
   addShoppingLine: async (name) => {
@@ -1095,4 +1102,39 @@ export const mockApi: BishulApi = {
     ]
     return delay(undefined)
   },
+
+  // ---- Added with the real API; the demo supports these only in part. ----
+  getHouseholdInfo: () =>
+    delay({
+      id: HOST_HOUSEHOLD,
+      name: 'The Levins',
+      location: { lat: 40.8, lng: -74, timeZone: 'America/New_York', israel: false },
+      locationSet: true,
+      today: TODAY,
+      isOwner: true,
+    }),
+  updateHousehold: async () => demoOnly(),
+  getPrefs: () => delay({ system: 'us' as const }),
+  setPrefs: async (p) => delay({ system: p.system ?? 'us' }),
+  listApiKeys: () => delay([]),
+  createApiKey: async () => demoOnly(),
+  revokeApiKey: async () => demoOnly(),
+  previewImport: async () => demoOnly(),
+  importRecipe: async () => demoOnly(),
+  saveVersion: async () => demoOnly(),
+  createVariation: async () => demoOnly(),
+  addPerson: async () => demoOnly(),
+  addConstraint: async () => demoOnly(),
+  removeConstraint: async () => demoOnly(),
+  setPersonRules: async () => demoOnly(),
+  recordReaction: async () => demoOnly(),
+  updatePantryItem: async () => demoOnly(),
+  removePantryItem: async (id) => {
+    pantry = pantry.filter((p) => p.id !== id)
+    return delay(undefined)
+  },
+}
+
+function demoOnly(): never {
+  throw new Error('That isn’t available in the offline demo.')
 }

@@ -31,10 +31,12 @@ function roundG(g: number): string {
 
 /** Format one ingredient line for display. Returns text and whether it is approximate. */
 export function formatAmount(
-  line: Pick<IngredientLine, 'amount' | 'unit' | 'density'>,
+  line: Pick<IngredientLine, 'amount' | 'unit' | 'density'> &
+    Partial<Pick<IngredientLine, 'unquantified' | 'original'>>,
   scale: number,
   system: UnitSystem,
 ): { text: string; approx: boolean } {
+  if (line.unquantified) return { text: 'as needed', approx: false }
   const a = line.amount * scale
   if (line.unit === 'pc') return { text: fraction(a), approx: false }
   if (system === 'metric') {

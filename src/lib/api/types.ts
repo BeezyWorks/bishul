@@ -49,6 +49,13 @@ export interface Constraint {
   fromProfile: boolean
 }
 
+export interface PersonReaction {
+  versionId: Id
+  title: string
+  kind: 'like' | 'dislike'
+  note?: string
+}
+
 export interface ServedEntry {
   date: ISODate
   versionId: Id
@@ -64,6 +71,13 @@ export interface Person {
   constraints: Constraint[]
   /** Linked ghost: the real user's profile, live. */
   link?: { profileName: string; mode: 'merge' | 'overwrite' }
+  isChild?: boolean
+  /** A signed-in member of the household (cannot be removed). */
+  isMember?: boolean
+  /** Opt-in combination and equipment rules (`no_fish_dairy`, ...). */
+  rules?: string[]
+  /** Likes and dislikes with the version they are about (the badges below show titles). */
+  reactions?: PersonReaction[]
   /** Private layer: notes, likes, dislikes, history. Never visible to the real person. */
   notes: string[]
   likes: string[]
@@ -99,6 +113,8 @@ export interface IngredientLine {
   density?: number
   /** True when allergen/kashrut data was filled by the AI rather than the seed or the user. */
   aiFilled?: boolean
+  /** No quantity could be read ("salt to taste"): show `original` as written. */
+  unquantified?: boolean
 }
 
 export interface RecipeStep {
@@ -222,7 +238,8 @@ export interface MealChip {
   id: Id
   name: string
   status: 'draft' | 'accepted'
-  kind: Kind
+  /** Null while the meal has no declared type and no dishes. */
+  kind: Kind | null
   itemCount: number
 }
 
@@ -237,6 +254,12 @@ export interface CalendarDay {
   hebrew: string
   parasha?: string
   holidays: CalendarHoliday[]
+  isShabbat?: boolean
+  isYomTov?: boolean
+  /** "4:28 PM", on the evening before Shabbat and Yom Tov. */
+  candleLighting?: string
+  /** "5:48 PM", at the end of Shabbat and Yom Tov. */
+  havdalah?: string
   meals: MealChip[]
   /** What has to be cooked on this day, from accepted and draft menus. */
   cooking: CookingTask[]
@@ -246,6 +269,8 @@ export interface OccasionDay {
   date: ISODate
   label?: string
   hebrew: string
+  candleLighting?: string
+  havdalah?: string
   meals: MealChip[]
 }
 
@@ -283,6 +308,8 @@ export interface Meal {
   date: ISODate
   name: string
   kind: Kind
+  /** False when the meal has no declared type yet (`kind` is then only a fallback). */
+  kindDeclared?: boolean
   status: 'draft' | 'accepted'
   time: string
   /** People who are not coming. */
@@ -319,6 +346,8 @@ export interface MealReview {
   handsOnMin: number
   adjustments: { item: string; text: string }[]
   issues: string[]
+  /** Problems that do not block accepting. */
+  warnings?: string[]
   sourcing: string[]
   shopping: string[]
   nextMealId?: Id
@@ -408,9 +437,107 @@ export interface PantryItem {
   expires?: ISODate
   /** Held aside for an accepted menu. */
   heldFor?: string
+  expired?: boolean
+  expiringSoon?: boolean
 }
 
 export interface PantryList {
   today: ISODate
   items: PantryItem[]
 }
+
+// ---- Settings, keys, import, editing ----
+
+export interface HouseholdLocation {
+  lat: number
+  lng: number
+  timeZone: string
+  israel: boolean
+  name?: string
+}
+
+export interface HouseholdInfo {
+  id: Id
+  name: string
+  location: HouseholdLocation
+  locationSet: boolean
+  /** Today in the household's time zone. */
+  today: ISODate
+  isOwner: boolean
+}
+
+export interface DisplayPrefs {
+  system: 'us' | 'metric'
+}
+
+export interface ApiKey {
+  id: Id
+  prefix: string
+  scope: 'read' | 'write'
+  createdAt: number
+  lastUsedAt?: number | null
+  revoked: boolean
+}
+
+export interface CreatedApiKey extends ApiKey {
+  /** The full key. Shown once. */
+  key: string
+}
+
+export interface ImportPreview {
+  title?: string
+  servings?: number
+  ingredients: { line: string; name: string; skipImpact: SkipImpact }[]
+  steps: string[]
+}
+
+export interface ImportResult {
+  recipeId: Id
+  versionId: Id
+  needsReview: string[]
+  unquantified: string[]
+}
+
+/** What the version editor can change. Ingredients and steps are plain text, one per line. */
+export interface VersionEdit {
+  /** Recipe title (the dish). */
+  recipeTitle?: string
+  /** This version's name. */
+  label?: string
+  course?: Course
+  kind?: Kind
+  servings?: number
+  activeMin?: number
+  totalMin?: number
+  description?: string
+  ingredients?: string[]
+  steps?: string[]
+}
+
+export type ConstraintTagInput =
+  'allergen' | 'ingredient' | 'diet' | 'kashrut-dish' | 'kashrut-sourcing'
+
+export interface ConstraintInput {
+  tagType: ConstraintTagInput
+  tag: string
+  kind: ConstraintKind
+  severity: Severity
+  /** `always`, a period (`pesach`, `aseret_yemei_teshuva`, `nine_days`, `sefirah`) or a custom range. */
+  activeWhen: string | { from: ISODate; to: ISODate }
+  note?: string
+}
+
+export const PERSON_RULES: { id: string; label: string }[] = [
+  { id: 'no_fish_dairy', label: 'No fish with dairy' },
+  { id: 'no_fish_meat', label: 'No fish with meat' },
+  { id: 'no_parve_from_dairy_at_meat', label: 'No parve dish from a dairy pot at a meat meal' },
+  { id: 'no_parve_from_meat_at_dairy', label: 'No parve dish from a meat pot at a dairy meal' },
+  { id: 'pesach_equipment_only', label: 'Pesach equipment only' },
+]
+
+export const PERIODS: { id: string; label: string }[] = [
+  { id: 'pesach', label: 'Pesach' },
+  { id: 'aseret_yemei_teshuva', label: 'Aseret Yemei Teshuva' },
+  { id: 'nine_days', label: 'The Nine Days' },
+  { id: 'sefirah', label: 'Sefirat HaOmer' },
+]
