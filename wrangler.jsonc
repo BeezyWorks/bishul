@@ -23,6 +23,8 @@
   ],
   // Sessions are checked against the accounts Worker over a service binding.
   "services": [{ "binding": "AUTH", "service": "beezyworks-accounts" }],
+  // Throttles repeated bad API keys and bad tokens (per client IP).
+  "ratelimits": [{ "name": "AUTH_LIMIT", "namespace_id": "4101", "simple": { "limit": 20, "period": 60 } }],
   "vars": {
     "AUTH_URL": "https://auth.baderech.app",
     "PUBLIC_URL": "https://bishul.baderech.app",
