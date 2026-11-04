@@ -15,7 +15,7 @@ export function MealChipView({ meal, compact }: { meal: MealChip; compact?: bool
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${meal.name}, ${meal.status}, ${KIND_LABEL[meal.kind]}`}
+      accessibilityLabel={`${meal.name}, ${meal.status}${meal.kind ? `, ${KIND_LABEL[meal.kind]}` : ''}`}
       onPress={() => router.push(`/meal/${meal.id}` as Href)}
       style={[styles.chip, accepted ? styles.solid : styles.dashed, compact && styles.compact]}
     >
@@ -32,8 +32,9 @@ export function MealChipView({ meal, compact }: { meal: MealChip; compact?: bool
       {compact ? null : (
         <View>
           <Text variant="small">
-            {KIND_LABEL[meal.kind]} {'·'} {accepted ? 'Accepted' : 'Draft'} {'·'} {meal.itemCount}{' '}
-            dish{meal.itemCount === 1 ? '' : 'es'}
+            {meal.kind ? `${KIND_LABEL[meal.kind]} · ` : ''}
+            {accepted ? 'Accepted' : 'Draft'} {'·'} {meal.itemCount} dish
+            {meal.itemCount === 1 ? '' : 'es'}
           </Text>
         </View>
       )}

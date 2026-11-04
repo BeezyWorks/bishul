@@ -13,7 +13,7 @@ export function Segmented<T extends string>({
   dark,
 }: {
   options: { value: T; label: string }[]
-  value: T
+  value: T | null
   onChange: (v: T) => void
   dark?: boolean
 }) {

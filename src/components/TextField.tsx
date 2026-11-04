@@ -8,17 +8,20 @@ import { Text } from './Text'
 interface Props extends Omit<TextInputProps, 'style'> {
   label?: string
   hint?: string
+  /** Makes it a multi-line box this many lines tall. */
+  lines?: number
 }
 
-export function TextField({ label, hint, accessibilityLabel, ...rest }: Props) {
+export function TextField({ label, hint, lines, accessibilityLabel, ...rest }: Props) {
   return (
     <View style={styles.wrap}>
       {label ? <Text variant="label">{label}</Text> : null}
       <TextInput
         accessibilityLabel={accessibilityLabel ?? label ?? rest.placeholder}
         placeholderTextColor={colors.muted}
+        multiline={lines ? true : rest.multiline}
         {...rest}
-        style={styles.input}
+        style={[styles.input, lines ? { minHeight: lines * 22 + 22, textAlignVertical: 'top', paddingVertical: space.md } : null]}
       />
       {hint ? <Text variant="small">{hint}</Text> : null}
     </View>

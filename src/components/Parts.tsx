@@ -9,7 +9,8 @@ import { Badge } from './Pill'
 import { Text } from './Text'
 
 /** Meat / dairy / parve as a text label (never colour alone). */
-export function KindLabel({ kind }: { kind: Kind }) {
+export function KindLabel({ kind }: { kind: Kind | null }) {
+  if (!kind) return null
   return <Badge label={KIND_LABEL[kind]} tone="neutral" />
 }
 

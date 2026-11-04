@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native'
 
 import { Badge, Button, KindLabel, Text } from '@/components'
 import { COURSES, type MealItem } from '@/lib/api/types'
-import { COURSE_LABEL } from '@/lib/strings'
+import { COURSE_LABEL, dishName } from '@/lib/strings'
 import { colors, space } from '@/theme/tokens'
 
 /** The menu grouped by course. Shows brought dishes and any adjustment notes. */
@@ -24,12 +24,7 @@ export function MenuList({
             .map((it) => (
               <View key={it.id} style={styles.item}>
                 <View style={styles.main}>
-                  <Text variant="bodyStrong">
-                    {it.title}
-                    {it.versionLabel && it.versionLabel !== 'Classic'
-                      ? ` (${it.versionLabel})`
-                      : ''}
-                  </Text>
+                  <Text variant="bodyStrong">{dishName(it.title, it.versionLabel)}</Text>
                   <View style={styles.badges}>
                     <KindLabel kind={it.kind} />
                     {it.broughtBy ? (
