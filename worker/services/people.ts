@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 
 import * as s from '../db/schema'
 import {
+  chunks,
   forbidden,
   inChunks,
   insertMany,
@@ -652,25 +653,51 @@ export async function unlinkContact(db: Db, actor: Actor, ghostPersonId: string)
 }
 
 /**
- * Account deletion (BRIEF §3): the user's own person rows and every link to them go; hosts' private layers stay.
- * Called by the accounts-deletion webhook once BeezyWorks Accounts sends one (not wired up yet).
+ * Erases a deleted user's profile (BRIEF §3). Everything they entered about themselves goes: the links that let
+ * hosts see it (each linked contact goes back to being a plain ghost), their self-entered constraints and rules, the
+ * snapshots of their shared profile links, and their own Person rows (renamed, then retired). A host's private layer
+ * (notes, constraints they entered, likes, serving history) stays. Safe to run again.
  */
 export async function eraseUserProfile(db: Db, userId: string) {
   const mine = await db.select().from(s.persons).where(eq(s.persons.userId, userId))
-  const ids = mine.map((p) => p.id)
-  if (!ids.length) return
   const now = Date.now()
-  for (const part of [ids]) {
+  for (const part of chunks(mine.map((p) => p.id))) {
     await db.batch([
-      db.update(s.personLinks).set({ deletedAt: now }).where(inArray(s.personLinks.realPersonId, part)),
+      db
+        .update(s.personLinks)
+        .set({ deletedAt: now })
+        .where(and(inArray(s.personLinks.realPersonId, part), isNull(s.personLinks.deletedAt))),
+      // Their own layer only; a host's layer has `layer_household_id` set and stays.
       db
         .update(s.constraints)
         .set({ deletedAt: now })
-        .where(and(inArray(s.constraints.personId, part), isNull(s.constraints.layerHouseholdId))),
+        .where(
+          and(
+            inArray(s.constraints.personId, part),
+            isNull(s.constraints.layerHouseholdId),
+            isNull(s.constraints.deletedAt),
+          ),
+        ),
       db
         .update(s.personRules)
         .set({ deletedAt: now })
-        .where(and(inArray(s.personRules.personId, part), isNull(s.personRules.layerHouseholdId))),
+        .where(
+          and(
+            inArray(s.personRules.personId, part),
+            isNull(s.personRules.layerHouseholdId),
+            isNull(s.personRules.deletedAt),
+          ),
+        ),
+      // A profile link holds a snapshot of the profile: revoke it and drop the copy.
+      db
+        .update(s.shareLinks)
+        .set({ revokedAt: now, snapshot: {} })
+        .where(and(eq(s.shareLinks.kind, 'profile'), inArray(s.shareLinks.targetId, part))),
+      db
+        .update(s.mealAttendees)
+        .set({ deletedAt: now })
+        .where(and(inArray(s.mealAttendees.personId, part), isNull(s.mealAttendees.deletedAt))),
+      db.update(s.persons).set({ name: 'Former member', deletedAt: now }).where(inArray(s.persons.id, part)),
     ])
   }
 }
