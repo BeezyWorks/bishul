@@ -11,4 +11,6 @@ export interface Env {
   /** Local dev only (`.dev.vars`): "1" accepts `Bearer dev-<name>` as user `dev-<name>`
    * and allows the Expo dev server's origin. Never set in production. */
   DEV_AUTH?: string
+  /** Per-IP limit on bad API keys and tokens. Absent in plain local dev. */
+  AUTH_LIMIT?: RateLimit
 }
