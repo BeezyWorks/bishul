@@ -171,6 +171,8 @@ export interface RecipeVersion {
   occasionFit: OccasionFit[]
   source?: { label: string; url: string }
   pesachFriendly: boolean
+  /** Pesach-friendly only for those who eat kitniyot. */
+  pesachKitniyot?: boolean
   ingredients: IngredientLine[]
   steps: RecipeStep[]
   reactions: Reaction[]
@@ -199,6 +201,8 @@ export interface RecipeSummary {
   difficulty: Difficulty
   cost: Cost
   pesachFriendly: boolean
+  /** Pesach-friendly only for those who eat kitniyot. */
+  pesachKitniyot?: boolean
   lastServed?: ISODate
   fits: OccasionFit[]
   /** For the chosen "safe for" people, who can't have it and why. */

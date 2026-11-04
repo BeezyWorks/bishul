@@ -188,7 +188,12 @@ function VersionView({
       <Text color={colors.muted}>{v.description}</Text>
       <View style={styles.wrapRow}>
         <KindLabel kind={v.kind} />
-        {v.pesachFriendly ? <Badge label="Pesach-friendly" tone="info" /> : null}
+        {v.pesachFriendly ? (
+          <Badge
+            label={v.pesachKitniyot ? 'Pesach, with kitniyot' : 'Pesach-friendly'}
+            tone="info"
+          />
+        ) : null}
         {v.easyToDeliver ? <Badge label="Easy to deliver" tone="muted" /> : null}
         {v.flags.map((f) => (
           <Badge key={f} label={f} tone="warn" />
