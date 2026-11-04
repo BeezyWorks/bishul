@@ -11,6 +11,9 @@ export interface Env {
   /** Local dev only (`.dev.vars`): "1" accepts `Bearer dev-<name>` as user `dev-<name>`
    * and allows the Expo dev server's origin. Never set in production. */
   DEV_AUTH?: string
+  /** Shared secret (`wrangler secret put ACCOUNT_EVENTS_SECRET`) the accounts Worker sends with account-deleted
+   * notices. Unset: the notice endpoint refuses everything. */
+  ACCOUNT_EVENTS_SECRET?: string
   /** Per-IP limit on bad API keys and tokens. Absent in plain local dev. */
   AUTH_LIMIT?: RateLimit
 }

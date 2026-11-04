@@ -5,6 +5,9 @@ import { mountApi, onError } from './api/router'
 import { currentUser } from './auth'
 import type { Env } from './env'
 import { handleMcp } from './mcp'
+import { countBadSecret } from './ratelimit'
+import { eraseUserAccount } from './services/accounts'
+import { openDb, sha256Hex } from './services/ctx'
 
 export type { Env } from './env'
 
@@ -43,6 +46,22 @@ app.get('/health', (c) => c.json({ ok: true }))
 app.all('/mcp', (c) => handleMcp(c.req.raw, c.env))
 app.get('/.well-known/oauth-protected-resource/mcp', (c) => handleMcp(c.req.raw, c.env))
 app.get('/.well-known/oauth-protected-resource', (c) => handleMcp(c.req.raw, c.env))
+
+// BeezyWorks Accounts tells us when an account is deleted (BRIEF §3): a POST with the shared secret as bearer token.
+app.post('/internal/account-deleted', async (c) => {
+  const secret = c.env.ACCOUNT_EVENTS_SECRET
+  const given = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')?.[1]
+  const ok = !!secret && !!given && (await sha256Hex(given)) === (await sha256Hex(secret))
+  if (!ok) {
+    await countBadSecret(c.req.raw, c.env)
+    return c.json({ error: { code: 'unauthorized', message: 'not allowed' } }, 401)
+  }
+  const body = (await c.req.json().catch(() => null)) as { userId?: unknown } | null
+  if (typeof body?.userId !== 'string' || !body.userId)
+    return c.json({ error: { code: 'invalid', message: 'userId is required' } }, 400)
+  await eraseUserAccount(openDb(c.env.DB), body.userId)
+  return c.json({ ok: true })
+})
 
 // Session API (the web app): the Baderech bearer token, checked with the accounts Worker.
 app.get('/api/me', async (c) => {
