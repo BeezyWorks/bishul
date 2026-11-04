@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 
+import { buildOpenApi } from './api/openapi'
+import { mountApi, onError } from './api/router'
 import { currentUser } from './auth'
 import type { Env } from './env'
 import { handleMcp } from './mcp'
@@ -33,6 +35,8 @@ app.use('*', async (c, next) => {
   if (dev) c.res.headers.set('access-control-allow-origin', origin)
 })
 
+app.onError(onError)
+
 app.get('/health', (c) => c.json({ ok: true }))
 
 // The hosted MCP server and the discovery document a chat app reads before signing in.
@@ -43,10 +47,20 @@ app.get('/.well-known/oauth-protected-resource', (c) => handleMcp(c.req.raw, c.e
 // Session API (the web app): the Baderech bearer token, checked with the accounts Worker.
 app.get('/api/me', async (c) => {
   const user = await currentUser(c.req.raw, c.env)
-  return user ? c.json({ user }) : c.json({ error: 'sign in required' }, 401)
+  return user
+    ? c.json({ user })
+    : c.json({ error: { code: 'unauthorized', message: 'sign in required' } }, 401)
 })
 
-app.all('/api/*', (c) => c.json({ error: 'not found' }, 404))
+// The OpenAPI 3.1 document for /v1, generated from the same operations the server runs.
+app.get('/v1/openapi.json', (c) =>
+  c.json(buildOpenApi(c.env.PUBLIC_URL), 200, { 'cache-control': 'public, max-age=300' }),
+)
+
+// /api/* (session token) and /v1/* (API key): the same operations, one service layer (api/ops.ts).
+mountApi(app)
+
+app.all('/api/*', (c) => c.json({ error: { code: 'not_found', message: 'not found' } }, 404))
 app.all('/v1/*', (c) => c.json({ error: { code: 'not_found', message: 'not found' } }, 404))
 
 // Everything else is the exported Expo web app.
