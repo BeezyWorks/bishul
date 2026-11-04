@@ -80,7 +80,7 @@ describe('mcp', () => {
     })
   })
 
-  it('initializes, pings and lists no tools', async () => {
+  it('initializes, pings and rejects unknown methods', async () => {
     const token = await sign()
     const init = await rpc(token, 'initialize', { protocolVersion: '2025-06-18' })
     expect(init.data.result).toMatchObject({
@@ -88,7 +88,7 @@ describe('mcp', () => {
       serverInfo: { name: 'bishul' },
     })
     expect((await rpc(token, 'ping')).data.result).toEqual({})
-    expect((await rpc(token, 'tools/list')).data.result).toEqual({ tools: [] })
+    expect((await rpc(token, 'tools/list')).data.result.tools.length).toBeGreaterThan(30)
     expect((await rpc(token, 'nope')).data.error.code).toBe(-32601)
     expect((await call('GET', '/mcp', undefined, token)).status).toBe(405)
   })
