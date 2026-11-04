@@ -1,3 +1,5 @@
+import { Platform } from 'react-native'
+
 export const colors = {
   ground: '#FBFAF7',
   surface: '#FFFFFF',
@@ -23,11 +25,18 @@ export const colors = {
   cookAccent: '#7FC8A0',
 } as const
 
+/**
+ * On the web a family that has not loaded (or never does) must fall back to a sans, not the browser's
+ * default serif, so each face carries a fallback stack there. Native needs the bare family name.
+ */
+const SANS = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+const face = (name: string) => (Platform.OS === 'web' ? `${name}, ${SANS}` : name)
+
 export const fonts = {
-  display: 'BricolageGrotesque_700Bold',
-  body: 'InstrumentSans_400Regular',
-  bodyMedium: 'InstrumentSans_500Medium',
-  bodySemiBold: 'InstrumentSans_600SemiBold',
+  display: face('BricolageGrotesque_700Bold'),
+  body: face('InstrumentSans_400Regular'),
+  bodyMedium: face('InstrumentSans_500Medium'),
+  bodySemiBold: face('InstrumentSans_600SemiBold'),
 } as const
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, huge: 48 } as const
