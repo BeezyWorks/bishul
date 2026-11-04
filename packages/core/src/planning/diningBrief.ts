@@ -1,4 +1,5 @@
 import { isActive } from './calendar'
+import { effectiveFlags } from './kashrutFlags'
 import type {
   Constraint,
   ConstraintTag,
@@ -322,7 +323,7 @@ const SOURCING_TARGET: Record<SourcingStandard, (i: DishIngredient) => boolean> 
   chalav_yisrael: (i) => i.category === 'dairy',
   glatt: (i) => i.category === 'meat',
   pat_yisrael: (i) => i.flags.includes('pat') || i.flags.includes('baked'),
-  yashan: (i) => i.flags.includes('grain'),
+  yashan: (i) => effectiveFlags(i).includes('grain'),
 }
 
 const hasFish = (d: DishVersion) =>
@@ -333,7 +334,7 @@ const hasMeat = (d: DishVersion) =>
   d.kashrut === 'meat' || d.ingredients.some((i) => i.category === 'meat')
 
 function dishFlags(d: DishVersion): string[] {
-  return unique([...(d.flags ?? []), ...d.ingredients.flatMap((i) => i.flags)])
+  return unique([...(d.flags ?? []), ...d.ingredients.flatMap(effectiveFlags)])
 }
 
 /** Ingredient lines a (non-rule, non-sourcing) tag matches, and whether the dish itself carries the flag. */
@@ -366,7 +367,7 @@ function matchTag(
       )
     }
     case 'kashrut': {
-      const ing = dish.ingredients.filter((i) => i.flags.includes(tag.value))
+      const ing = dish.ingredients.filter((i) => effectiveFlags(i).includes(tag.value))
       const dishLevel = (dish.flags ?? []).includes(tag.value)
       return ing.length || dishLevel ? { lines: ing, dishLevel } : null
     }

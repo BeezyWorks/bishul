@@ -401,8 +401,8 @@ export const realApi: BishulApi = {
   },
 
   recordReaction: async (personId, versionId, reaction, note) => {
-    await http.post(`/people/${personId}/reactions`, {
-      versionId,
+    await http.put(`/versions/${versionId}/reactions`, {
+      personId,
       reaction,
       ...(note?.trim() && { note: note.trim() }),
     })

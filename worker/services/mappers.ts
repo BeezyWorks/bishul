@@ -127,6 +127,12 @@ export const ingredientFlagList = (ing: IngredientRow | null): string[] =>
     .filter(([, v]) => v?.value)
     .map(([k]) => k)
 
+/** Flags the catalog row explicitly says do not apply: they stop core's name-based inference for that flag. */
+export const ingredientFlagsOff = (ing: IngredientRow | null): string[] =>
+  Object.entries(ing?.flags ?? {})
+    .filter(([, v]) => v && !v.value)
+    .map(([k]) => k)
+
 export function toDishIngredient(line: LineRow, ing: IngredientRow | null): DishIngredient {
   return {
     name: ing?.name ?? line.originalText,
@@ -134,6 +140,7 @@ export function toDishIngredient(line: LineRow, ing: IngredientRow | null): Dish
     category: ing?.category ?? 'parve',
     allergens: (ing?.allergens ?? []).map((a) => a.tag),
     flags: ingredientFlagList(ing),
+    ...(ingredientFlagsOff(ing).length && { flagsOff: ingredientFlagsOff(ing) }),
     dataSource: ingredientDataSource(ing),
     skipImpact: line.skipImpact,
   }

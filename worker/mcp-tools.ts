@@ -367,9 +367,10 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'record_reaction',
     title: 'Record a reaction',
-    description: 'Record that a person liked or disliked a recipe version ("George loved the kugel"). A like boosts it for that person, fading if they were served it recently; a dislike pushes it down for good but never hides it. Private to the host.',
-    input: z.object({ personId: S.id, versionId: S.id, reaction: z.enum(['like', 'dislike']), note: z.string().max(500).optional() }),
-    run: async (c, a) => ok('Reaction recorded.', await people.recordReaction(c.db, c.actor, a)),
+    description: 'Record that a person liked or disliked a recipe version ("George loved the kugel"), replacing their earlier reaction; reaction "none" clears it. A like boosts it for that person, fading if they were served it recently; a dislike pushes it down for good but never hides it. Private to the host. Returns everyone\'s reactions to that version.',
+    input: z.object({ personId: S.id, versionId: S.id, reaction: z.enum(['like', 'dislike', 'none']), note: z.string().max(500).optional() }),
+    run: async (c, a) =>
+      ok(a.reaction === 'none' ? 'Reaction cleared.' : 'Reaction recorded.', await recipes.setVersionReaction(c.db, c.actor, a.versionId, a)),
   }),
 
   // ---------------------------------------------------------------------------------------------------------------
