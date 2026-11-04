@@ -803,14 +803,14 @@ interface ServerResult {
   lastServed: string | null
   versionCount: number
   unsafeFor?: { personId: string; personName: string; reasons: string[] }[]
+  /** Every matching version of the recipe, the lead one first. */
+  versions?: { kashrut: string }[]
 }
 
-/** The server lists versions; the library lists dishes. Keeps the first (best-ranked) version of each. */
+/** The server returns one result per recipe, led by its best-ranked version; the library lists dishes. */
 export function adaptResults(results: ServerResult[]): RecipeSummary[] {
-  const byRecipe = new Map<string, ServerResult[]>()
-  for (const r of results) byRecipe.set(r.recipeId, [...(byRecipe.get(r.recipeId) ?? []), r])
-  return [...byRecipe.values()].map((group) => {
-    const r = group[0]
+  return results.map((r) => {
+    const group = r.versions?.length ? r.versions : [r]
     return {
       id: r.recipeId,
       title: r.title,

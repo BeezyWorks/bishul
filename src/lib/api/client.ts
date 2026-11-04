@@ -103,7 +103,8 @@ export interface BishulApi {
   recordReaction(
     personId: Id,
     versionId: Id,
-    reaction: 'like' | 'dislike',
+    /** `none` clears the person's reaction to that version. */
+    reaction: 'like' | 'dislike' | 'none',
     note?: string,
   ): Promise<void>
 
