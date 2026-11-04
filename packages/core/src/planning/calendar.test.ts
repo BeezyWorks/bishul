@@ -95,11 +95,10 @@ describe('calendarDays: Pesach 5787', () => {
   it('names the periods', () => {
     expect(by(ny, '2027-04-21').periods).toContain('pesach')
     expect(by(ny, '2027-04-20').periods).not.toContain('pesach')
-    expect(by(ny, '2027-04-23').periods).toEqual(['pesach', 'sefirah'])
+    expect(by(ny, '2027-04-23').periods).toEqual(['pesach'])
     // Last day of Pesach in the diaspora is the 22nd; in Israel the 22nd is already over.
     expect(by(ny, '2027-04-29').periods).toContain('pesach')
     expect(by(il, '2027-04-29').periods).not.toContain('pesach')
-    expect(by(il, '2027-04-29').periods).toContain('sefirah')
   })
 })
 
@@ -158,15 +157,6 @@ describe('periods and isActive', () => {
     expect(isActive(when, '2029-07-22', NEW_YORK, 10 * 60)).toBe(true)
     expect(isActive(when, '2029-07-22', NEW_YORK, 23 * 60)).toBe(false) // fast over, meat allowed
     expect(isActive(when, '2029-07-23', NEW_YORK, 8 * 60)).toBe(false)
-  })
-
-  it('Sefirah runs 16 Nisan through 5 Sivan', () => {
-    const when = { period: 'sefirah' } as const
-    expect(periodsOnDay('2027-04-21', NEW_YORK)).not.toContain('sefirah')
-    expect(isActive(when, '2027-04-22', NEW_YORK, 12 * 60)).toBe(false) // night 2 is 16 Nisan evening
-    expect(isActive(when, '2027-04-22', NEW_YORK, 22 * 60)).toBe(true)
-    expect(isActive(when, '2027-05-20', NEW_YORK, 12 * 60)).toBe(true)
-    expect(isActive(when, '2027-06-12', NEW_YORK, 12 * 60)).toBe(false)
   })
 })
 

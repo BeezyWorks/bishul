@@ -131,7 +131,4 @@ export const PERIOD_ALIASES: Record<string, string> = {
   'ten days of repentance': 'aseret_yemei_teshuva',
   'nine days': 'nine_days',
   'the nine days': 'nine_days',
-  sefirah: 'sefirah',
-  sefira: 'sefirah',
-  'omer': 'sefirah',
 }

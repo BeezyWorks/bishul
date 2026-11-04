@@ -20,7 +20,6 @@ import {
 
 // Hebcal month numbers.
 const NISAN = 1
-const SIVAN = 3
 const AV = 5
 const TISHREI = 7
 
@@ -273,8 +272,6 @@ interface Span {
  * - Aseret Yemei Teshuva: sunset beginning Rosh Hashana through nightfall ending Yom Kippur.
  * - The Nine Days: sunset beginning Rosh Chodesh Av through midday on 10 Av (when Tish'a B'Av is pushed off Shabbat,
  *   through the end of its fast).
- * - Sefirah: nightfall of 15 Nisan (the first count) through sunset of 5 Sivan (the 49th day). Customs about which
- *   of those days to observe differ; use a `range` for a specific minhag.
  */
 function periodSpan(period: PeriodName, year: number, loc: HouseholdLocation): Span {
   const cal = engineCalendar(loc)
@@ -306,14 +303,6 @@ function periodSpan(period: PeriodName, year: number, loc: HouseholdLocation): S
           ? at(tenth, cal.zmanimOn(tenth).tzeis, 1260)
           : at(tenth, cal.zmanimOn(tenth).chatzos, 720)
       return { from: at(eve, cal.zmanimOn(eve).sunset, 1080), to: end }
-    }
-    case 'sefirah': {
-      const first = civil(15, NISAN)
-      const last = civil(5, SIVAN)
-      return {
-        from: at(first, cal.zmanimOn(first).tzeis, 1200),
-        to: at(last, cal.zmanimOn(last).sunset, 1080),
-      }
     }
   }
 }

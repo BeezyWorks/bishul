@@ -24,7 +24,7 @@ export interface HouseholdLocation {
   civilCalendar?: 'us' | 'uk' | 'ca' | 'ca-qc' | 'fr' | 'none'
 }
 
-export const PERIOD_NAMES = ['pesach', 'aseret_yemei_teshuva', 'nine_days', 'sefirah'] as const
+export const PERIOD_NAMES = ['pesach', 'aseret_yemei_teshuva', 'nine_days'] as const
 export type PeriodName = (typeof PERIOD_NAMES)[number]
 
 export type ActiveWhen =

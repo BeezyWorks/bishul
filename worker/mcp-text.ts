@@ -29,7 +29,7 @@ Bishul is for the question "plan Shabbat for these guests". AI for judgment, cod
 A constraint is { person, tag, kind, severity, active_when, note, source }.
 - kind: medical (allergy, intolerance), religious (kashrut, minhag) or preference. Medical and religious show as warnings, preferences as hints.
 - severity: strict means the person cannot be at the meal with that dish; flexible means they can eat around it or skip it. A flexible constraint gets a per-dish verdict from each ingredient's skip impact (none, minor, ruins).
-- active_when: always, a named period (pesach, aseret_yemei_teshuva, nine_days, sefirah) or a date range, resolved for the household's location.
+- active_when: always, a named period (pesach, aseret_yemei_teshuva, nine_days) or a date range, resolved for the household's location.
 - tag types: allergen (peanut, sesame), ingredient (cilantro), diet (vegetarian, vegan, pescatarian), kashrut_dish (kitniyot, gebrokts: they can exclude a dish) and kashrut_sourcing (chalav_yisrael, pat_yisrael, yashan, glatt). Sourcing standards never exclude a dish; they add a "buy chalav Yisrael butter" note, and only when a guest's standard is stricter than the host household's own.
 - Opt-in rules per person: no_fish_dairy, no_fish_meat, no_parve_from_dairy_at_meat, no_parve_from_meat_at_dairy, pesach_equipment_only.
 - Meat and dairy in one meal is always a hard error. Fish with dairy (or meat) is flagged for guests who keep that minhag.
