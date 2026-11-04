@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Bishul",
+    "slug": "bishul",
+    "version": "0.1.0",
+    "scheme": "bishul",
+    "userInterfaceStyle": "light",
+    "platforms": ["web"],
+    "web": {
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "owner": "beezyworkstudios"
+  }
+}

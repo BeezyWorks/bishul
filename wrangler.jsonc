@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bishul",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+  // Served at bishul.baderech.app (the zone baderech.app is on Cloudflare).
+  "routes": [{ "pattern": "bishul.baderech.app", "custom_domain": true }],
+  "build": { "command": "pnpm build:web" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/v1/*", "/mcp", "/.well-known/*", "/health"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bishul",
+      "database_id": "c1427926-bb1b-4f3a-8ee7-0c730c909fb2",
+      "migrations_dir": "migrations",
+    },
+  ],
+  // Sessions are checked against the accounts Worker over a service binding.
+  "services": [{ "binding": "AUTH", "service": "beezyworks-accounts" }],
+  "vars": {
+    "AUTH_URL": "https://auth.baderech.app",
+    "PUBLIC_URL": "https://bishul.baderech.app",
+  },
+}

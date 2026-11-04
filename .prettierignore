@@ -1,0 +1,10 @@
+node_modules
+.expo
+dist
+web-build
+pnpm-lock.yaml
+CHANGELOG.md
+
+# Hand-formatted prose, not reflowed by prettier
+*.md
+packages/engine
