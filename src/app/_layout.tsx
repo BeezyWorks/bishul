@@ -4,10 +4,11 @@ import {
   InstrumentSans_500Medium,
   InstrumentSans_600SemiBold,
 } from '@expo-google-fonts/instrument-sans'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import React from 'react'
+import React, { useState } from 'react'
 
 import { colors } from '@/theme/tokens'
 
@@ -19,12 +20,15 @@ export default function RootLayout() {
     InstrumentSans_500Medium,
     InstrumentSans_600SemiBold,
   })
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { staleTime: 5_000, retry: 1 } } }),
+  )
   return (
-    <>
+    <QueryClientProvider client={client}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}
       />
-    </>
+    </QueryClientProvider>
   )
 }
