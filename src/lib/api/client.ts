@@ -61,6 +61,8 @@ export interface BishulApi {
   createMeal(date: ISODate, name: string, time?: string): Promise<Meal>
   deleteMeal(mealId: Id): Promise<void>
   setMealKind(mealId: Id, kind: Kind): Promise<MealDetail>
+  /** Rename a meal and/or change its time (24-hour "18:30"; empty clears it). */
+  updateMealDetails(mealId: Id, change: { name?: string; time?: string }): Promise<MealDetail>
   /** `guestIds`: contacts invited; `notComing`: people dropped from this meal. */
   setAttendees(mealId: Id, attendees: { guestIds: Id[]; notComing: Id[] }): Promise<MealDetail>
   addMenuItem(mealId: Id, course: Course, item: MenuItemInput): Promise<MealDetail>

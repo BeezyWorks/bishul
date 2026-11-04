@@ -869,6 +869,13 @@ export const mockApi: BishulApi = {
     return delay(mealDetail(id))
   },
 
+  updateMealDetails: async (id, { name, time }) => {
+    const m = mealById(id)
+    if (name !== undefined && name.trim()) m.name = name.trim()
+    if (time !== undefined) m.time = time.trim()
+    return delay(mealDetail(id))
+  },
+
   setAttendees: async (id, a) => {
     const m = mealById(id)
     m.guestIds = a.guestIds

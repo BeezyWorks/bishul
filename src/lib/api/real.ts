@@ -139,27 +139,29 @@ export const realApi: BishulApi = {
   },
 
   getCalendar: async ({ from, to }) => {
-    const [cal, prep] = await Promise.all([
-      http.get<{ days: Parameters<typeof adaptDay>[0][] }>('/calendar', { from, to }),
-      http.get<{
-        days: {
-          date: string
-          meals: { mealId: string; label: string }[]
-          tasks: { mealId: string; label: string; dish: string; startText: string | null }[]
-        }[]
-      }>('/prep', { from, to, includeDrafts: true }),
-    ])
-    const cooking = new Map<string, { mealId: string; mealName: string; text: string }[]>()
-    for (const d of prep.days)
-      cooking.set(
-        d.date,
-        d.tasks.map((t) => ({
+    const cal = await http.get<{
+      days: (Parameters<typeof adaptDay>[0] & {
+        cooking?: {
+          tasks: {
+            mealId: string
+            mealName: string
+            label: string
+            dish: string
+            startText: string | null
+          }[]
+        }
+      })[]
+    }>('/calendar', { from, to, includeDrafts: true })
+    return cal.days.map((d) =>
+      adaptDay(
+        d,
+        (d.cooking?.tasks ?? []).map((t) => ({
           mealId: t.mealId,
-          mealName: d.meals.find((m) => m.mealId === t.mealId)?.label ?? '',
+          mealName: t.mealName,
           text: `${clock12(t.startText)}: ${t.dish ? `${t.label} (${t.dish})` : t.label}`,
         })),
-      )
-    return cal.days.map((d) => adaptDay(d, cooking.get(d.date)))
+      ),
+    )
   },
 
   getMeal: meal,
@@ -179,6 +181,14 @@ export const realApi: BishulApi = {
 
   setMealKind: async (id, kind: Kind) =>
     adaptMealDetail(await http.patch<ServerMealDetail>(`/meals/${id}`, { kind })),
+
+  updateMealDetails: async (id, { name, time }) =>
+    adaptMealDetail(
+      await http.patch<ServerMealDetail>(`/meals/${id}`, {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(time !== undefined && { time: time.trim() || null }),
+      }),
+    ),
 
   setAttendees: async (id, { guestIds, notComing }) => {
     const current = await meal(id)

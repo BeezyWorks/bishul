@@ -48,7 +48,7 @@ export const location = z.object({
 export const activeWhen = z
   .union([
     z.literal('always'),
-    z.string().describe('A period: pesach, aseret_yemei_teshuva, nine_days or sefirah'),
+    z.string().describe('A period: pesach, aseret_yemei_teshuva or nine_days'),
     z.object({ from: date, to: date }).describe('A custom date range (inclusive)'),
   ])
   .describe('When it applies. Default always.')

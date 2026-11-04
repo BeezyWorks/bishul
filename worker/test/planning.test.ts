@@ -131,6 +131,46 @@ describe('meal planning flow', () => {
     expect(edited.meal.status).toBe('draft')
   })
 
+  it('calendar marks civil holidays apart from Jewish ones and carries each day\'s cooking', async () => {
+    const who = 'planner-cal'
+    await api(who, 'PATCH', '/household', { location: NY })
+    const holidays = await api(who, 'GET', '/calendar?from=2026-11-26&to=2026-11-26')
+    const thanksgiving = holidays.days[0].holidayDetails.find((h: any) => /thanksgiving/i.test(h.name))
+    expect(thanksgiving.kind).toBe('civil')
+    expect(holidays.days[0].civilHolidays).toContain(thanksgiving.name)
+    expect(holidays.days[0].cooking).toMatchObject({ taskCount: 0, tasks: [] })
+    const rosh = await api(who, 'GET', '/calendar?from=2027-10-03&to=2027-10-05')
+    const kinds = rosh.days.flatMap((d: any) => d.holidayDetails.map((h: any) => h.kind))
+    expect(kinds).toContain('jewish')
+    expect(kinds).not.toContain('civil')
+
+    const r = await importAll(who)
+    const date = await nextFriday(who)
+    const m = await api(who, 'POST', '/meals', { date, name: 'Friday dinner', time: '19:00', kind: 'meat', items: [{ versionId: r.chicken.id }] }, 201)
+    const drafts = await api(who, 'GET', `/calendar?from=${date}&to=${date}`)
+    expect(drafts.days[0].cooking.taskCount).toBe(0)
+    await api(who, 'POST', '/meals/accept', { mealIds: [m.meal.id] })
+    const cal = await api(who, 'GET', `/calendar?from=${date}&to=${date}`)
+    const cooking = cal.days[0].cooking
+    expect(cooking.taskCount).toBeGreaterThan(0)
+    expect(cooking.summary).toMatch(/Roast chicken/)
+    expect(cooking.tasks[0]).toMatchObject({ mealName: 'Friday dinner' })
+  })
+
+  it('renames a meal and changes its time over REST', async () => {
+    const who = 'planner-edit'
+    await api(who, 'PATCH', '/household', { location: NY })
+    const date = await nextFriday(who)
+    const m = await api(who, 'POST', '/meals', { date, name: 'Dinner', time: '18:30' }, 201)
+    const edited = await api(who, 'PATCH', `/meals/${m.meal.id}`, { name: '  Leil Shabbat  ', time: '19:15' })
+    expect(edited.meal.name).toBe('Leil Shabbat')
+    expect(edited.meal.timeText).toBe('19:15')
+    expect(edited.reopened).toBe(false)
+    const cleared = await api(who, 'PATCH', `/meals/${m.meal.id}`, { time: null })
+    expect(cleared.meal.timeText).toBeNull()
+    await api(who, 'PATCH', `/meals/${m.meal.id}`, { name: '   ' }, 400)
+  })
+
   it('meat and dairy in one meal is a hard error', async () => {
     const who = 'planner-2'
     const r = await importAll(who)

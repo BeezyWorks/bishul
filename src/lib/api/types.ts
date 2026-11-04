@@ -522,7 +522,7 @@ export interface ConstraintInput {
   tag: string
   kind: ConstraintKind
   severity: Severity
-  /** `always`, a period (`pesach`, `aseret_yemei_teshuva`, `nine_days`, `sefirah`) or a custom range. */
+  /** `always`, a period (`pesach`, `aseret_yemei_teshuva`, `nine_days`) or a custom range. */
   activeWhen: string | { from: ISODate; to: ISODate }
   note?: string
 }
@@ -539,5 +539,4 @@ export const PERIODS: { id: string; label: string }[] = [
   { id: 'pesach', label: 'Pesach' },
   { id: 'aseret_yemei_teshuva', label: 'Aseret Yemei Teshuva' },
   { id: 'nine_days', label: 'The Nine Days' },
-  { id: 'sefirah', label: 'Sefirat HaOmer' },
 ]

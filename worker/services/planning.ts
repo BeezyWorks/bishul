@@ -56,6 +56,7 @@ import {
 } from './plans'
 import { getPrefs } from './prefs'
 import { loadAllVersions, loadVersions } from './recipes'
+import { getPrepSchedule } from './shopping'
 
 const MAX_RANGE_DAYS = 400
 
@@ -314,6 +315,13 @@ function dayLabel(d: CalendarDay) {
     hebrew: d.hebrew.text,
     parasha: d.parasha ?? null,
     holidays: [...d.jewishHolidays, ...d.civilHolidays],
+    /** The same holidays, each marked `jewish` or `civil` (Thanksgiving, ...) so they can be styled apart. */
+    holidayDetails: [
+      ...d.jewishHolidays.map((name) => ({ name, kind: 'jewish' as const })),
+      ...d.civilHolidays.map((name) => ({ name, kind: 'civil' as const })),
+    ],
+    jewishHolidays: d.jewishHolidays,
+    civilHolidays: d.civilHolidays,
     isShabbat: d.isShabbat,
     isYomTov: d.isYomTov,
     isErevShabbat: d.isErevShabbat,
@@ -598,7 +606,10 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
     input.personIds || input.addPersonIds || input.removePersonIds || input.addItems || input.removeItemIds || input.updateItems || input.order
   if (meal.settledAt && content) throw conflict('That meal has already happened; its menu is now history.')
   const patch: Partial<typeof s.meals.$inferInsert> = {}
-  if (input.name) patch.name = input.name
+  if (input.name !== undefined) {
+    if (!input.name.trim()) throw invalid('A meal needs a name')
+    patch.name = input.name.trim()
+  }
   if (input.date) {
     if (!isDate(input.date)) throw invalid('date must be YYYY-MM-DD')
     patch.date = input.date
@@ -863,7 +874,11 @@ function checkRange(from: string, to: string) {
   if (n > MAX_RANGE_DAYS) throw invalid(`Ask for at most ${MAX_RANGE_DAYS} days at a time`)
 }
 
-export async function getCalendar(db: Db, actor: Actor, input: { from?: string; to?: string; days?: number }) {
+export async function getCalendar(
+  db: Db,
+  actor: Actor,
+  input: { from?: string; to?: string; days?: number; includeDrafts?: boolean },
+) {
   await settlePassedMeals(db, actor.householdId)
   const loc = await householdLocation(db, actor.householdId)
   const today = todayIn(loc.timeZone)
@@ -872,7 +887,14 @@ export async function getCalendar(db: Db, actor: Actor, input: { from?: string; 
   checkRange(from, to)
   const days = calendarDays(from, to, loc)
   const meals = await mealsInRange(db, actor.householdId, from, to)
-  const items = await itemsOfMeals(db, meals.map((m) => m.id))
+  const items = await itemsOfMeals(
+    db,
+    meals.map((m) => m.id),
+  )
+  // The cooking to do on each day, from the prep schedule (accepted meals; drafts too on request).
+  const prep = await getPrepSchedule(db, actor, { from, to, includeDrafts: input.includeDrafts })
+  const mealName = new Map(meals.map((m) => [m.id, m.name]))
+  const cookingOn = new Map(prep.days.map((d) => [d.date, d.tasks]))
   return {
     today,
     location: { name: (loc as { name?: string }).name ?? null, timeZone: loc.timeZone, israel: loc.israel },
@@ -888,6 +910,7 @@ export async function getCalendar(db: Db, actor: Actor, input: { from?: string; 
       eruvTavshilin: d.eruvTavshilin,
       candleLightingKind: d.candleLightingKind ?? null,
       periods: d.periods,
+      cooking: cookingSummary(cookingOn.get(d.date) ?? [], mealName),
       meals: meals
         .filter((m) => m.date === d.date)
         .map((m) => ({
@@ -899,6 +922,44 @@ export async function getCalendar(db: Db, actor: Actor, input: { from?: string; 
           status: m.status,
           itemCount: (items.get(m.id) ?? []).length,
         })),
+    })),
+  }
+}
+
+function cookingSummary(
+  tasks: {
+    mealId: string
+    start: number
+    startText: string | null
+    end?: number
+    endText: string | null
+    endDate?: string
+    label: string
+    dish: string
+    kind: string
+    notes: string[]
+  }[],
+  mealName: Map<string, string>,
+) {
+  const dishes = unique(tasks.map((t) => t.dish).filter(Boolean))
+  const n = tasks.length
+  return {
+    taskCount: n,
+    summary: n
+      ? `${n} cooking task${n === 1 ? '' : 's'}${dishes.length ? `: ${dishes.join(', ')}` : ''}`
+      : null,
+    tasks: tasks.map((t) => ({
+      mealId: t.mealId,
+      mealName: mealName.get(t.mealId) ?? '',
+      start: t.start,
+      startText: t.startText,
+      end: t.end ?? null,
+      endText: t.endText,
+      endDate: t.endDate ?? null,
+      label: t.label,
+      dish: t.dish,
+      kind: t.kind,
+      notes: t.notes,
     })),
   }
 }
