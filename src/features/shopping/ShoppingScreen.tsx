@@ -13,20 +13,28 @@ import {
   TextField,
 } from '@/components'
 import { api } from '@/lib/api/client'
-import { useApiMutation, useShopping } from '@/lib/api/hooks'
+import { stale, useApiMutation, useShopping } from '@/lib/api/hooks'
 import type { ShoppingLine } from '@/lib/api/types'
 import { colors, space } from '@/theme/tokens'
 
 export function ShoppingScreen() {
   const { data, isLoading } = useShopping()
   const [name, setName] = useState('')
-  const check = useApiMutation((a: { id: string; checked: boolean }) =>
-    api.setShoppingChecked(a.id, a.checked),
+  const check = useApiMutation(
+    (a: { id: string; checked: boolean }) => api.setShoppingChecked(a.id, a.checked),
+    stale.shopping,
   )
-  const move = useApiMutation((a: { id: string; dir: 'up' | 'down' }) =>
-    api.moveShoppingLine(a.id, a.dir),
-  )
-  const add = useApiMutation((n: string) => api.addShoppingLine(n))
+  const order = useApiMutation((ids: string[]) => api.setShoppingOrder(ids), stale.shopping)
+  const add = useApiMutation((n: string) => api.addShoppingLine(n), stale.shopping)
+  const del = useApiMutation((id: string) => api.removeShoppingLine(id), stale.shopping)
+  const move = (id: string, dir: 'up' | 'down') => {
+    const ids = (data ?? []).map((l) => l.id)
+    const i = ids.indexOf(id)
+    const j = dir === 'up' ? i - 1 : i + 1
+    if (i < 0 || j < 0 || j >= ids.length) return
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    order.mutate(ids)
+  }
   const submit = async () => {
     if (!name.trim()) return
     await add.mutateAsync(name.trim())
@@ -47,7 +55,7 @@ export function ShoppingScreen() {
             {left} to buy, {data.length - left} checked
           </Text>
           {data.length === 0 ? (
-            <Empty>Nothing to buy. Accept a meal and its ingredients appear here.</Empty>
+            <Empty>Nothing to buy yet. Accept a meal and its ingredients appear here, or add your own.</Empty>
           ) : null}
           {data.map((l, i) => (
             <Line
@@ -56,7 +64,8 @@ export function ShoppingScreen() {
               first={i === 0}
               last={i === data.length - 1}
               onCheck={(checked) => check.mutate({ id: l.id, checked })}
-              onMove={(dir) => move.mutate({ id: l.id, dir })}
+              onMove={(dir) => move(l.id, dir)}
+              onRemove={l.custom ? () => del.mutate(l.id) : undefined}
             />
           ))}
           <View style={styles.add}>
@@ -81,12 +90,14 @@ function Line({
   last,
   onCheck,
   onMove,
+  onRemove,
 }: {
   line: ShoppingLine
   first: boolean
   last: boolean
   onCheck: (c: boolean) => void
   onMove: (d: 'up' | 'down') => void
+  onRemove?: () => void
 }) {
   return (
     <View style={styles.row}>
@@ -105,6 +116,15 @@ function Line({
         {line.note ? <Badge label={line.note} tone="info" /> : null}
       </View>
       <View style={styles.move}>
+        {onRemove ? (
+          <Button
+            label="Remove"
+            accessibilityLabel={`Remove ${line.name}`}
+            variant="ghost"
+            small
+            onPress={onRemove}
+          />
+        ) : null}
         <Button
           label={'↑'}
           accessibilityLabel={`Move ${line.name} up`}

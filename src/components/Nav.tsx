@@ -68,7 +68,7 @@ const TABS = [
 export function BottomTabs() {
   const path = usePathname()
   const router = useRouter()
-  const more = ['/more', '/prep', '/people', '/pantry']
+  const more = ['/more', '/prep', '/people', '/pantry', '/settings']
   return (
     <View style={styles.tabs} accessibilityRole="tablist">
       {TABS.map((t) => {

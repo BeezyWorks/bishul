@@ -17,11 +17,13 @@ import {
 } from '@/components'
 import { api } from '@/lib/api/client'
 import {
+  stale,
   useApiMutation,
   useCollections,
   useContacts,
   useHousehold,
   useRecipes,
+  useToday,
 } from '@/lib/api/hooks'
 import {
   COURSES,
@@ -47,7 +49,6 @@ const SORTS: { value: RecipeSort; label: string }[] = [
 const DIFFS: Difficulty[] = ['easy', 'average', 'a pain']
 const COSTS: Cost[] = ['$', '$$', '$$$']
 const KINDS: Kind[] = ['meat', 'dairy', 'parve']
-const TODAY = '2026-11-10'
 
 const same = (a: RecipeFilters, b: RecipeFilters) =>
   JSON.stringify(strip(a)) === JSON.stringify(strip(b))
@@ -68,8 +69,10 @@ export function RecipesScreen() {
   const collections = useCollections()
   const household = useHousehold()
   const contacts = useContacts()
-  const saveCollection = useApiMutation((name: string) =>
-    api.saveCollection(name, { ...filters, sort: undefined }),
+  const today = useToday()
+  const saveCollection = useApiMutation(
+    (name: string) => api.saveCollection(name, { ...filters, sort: undefined }),
+    stale.collections,
   )
 
   const set = (patch: Partial<RecipeFilters>) => setFilters((f) => ({ ...f, ...patch }))
@@ -86,6 +89,7 @@ export function RecipesScreen() {
     <Screen
       title="Recipes"
       subtitle="Your household library. Search in any spelling: Shabbos or Shabbat, it finds both."
+      actions={<Button label="Import a recipe" href="/recipes/import" variant="soft" />}
     >
       <SearchField
         value={query}
@@ -234,6 +238,8 @@ export function RecipesScreen() {
 
       {recipes.isLoading || !recipes.data ? (
         <Loading />
+      ) : recipes.data.length === 0 && activeCount === 0 && !query.trim() ? (
+        <FirstRun />
       ) : recipes.data.length === 0 ? (
         <Empty>No recipes match. Loosen a filter.</Empty>
       ) : (
@@ -245,7 +251,13 @@ export function RecipesScreen() {
             <ListRow
               key={r.id}
               title={r.title}
-              subtitle={`${COURSE_LABEL[r.course]} · ${r.form} · ${r.versionCount} version${r.versionCount === 1 ? '' : 's'}`}
+              subtitle={[
+                COURSE_LABEL[r.course],
+                r.form,
+                `${r.versionCount} version${r.versionCount === 1 ? '' : 's'}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
               href={`/recipes/${r.id}`}
               last={i === recipes.data.length - 1}
             >
@@ -260,7 +272,7 @@ export function RecipesScreen() {
                 <Badge
                   label={
                     r.lastServed
-                      ? `Served ${shortDate(r.lastServed)} (${Math.round(diffDays(r.lastServed, TODAY) / 7)} wk ago)`
+                      ? `Served ${shortDate(r.lastServed)}${today ? ` (${Math.round(diffDays(r.lastServed, today) / 7)} wk ago)` : ''}`
                       : 'Never served'
                   }
                   tone="muted"
@@ -277,6 +289,25 @@ export function RecipesScreen() {
       )}
       {safeFor.length ? <Disclaimer /> : null}
     </Screen>
+  )
+}
+
+/** A new household has no recipes: point at the two ways to get some. */
+function FirstRun() {
+  return (
+    <Card tone="subtle">
+      <Text variant="h2" accessibilityRole="header">
+        No recipes yet
+      </Text>
+      <Text>
+        Paste one in, or let your AI do the typing: ask it to add your recipes, and it will
+        structure them for you.
+      </Text>
+      <View style={styles.wrapRow}>
+        <Button label="Import a recipe" href="/recipes/import" />
+        <Button label="Connect your AI" href="/settings" variant="secondary" />
+      </View>
+    </Card>
   )
 }
 

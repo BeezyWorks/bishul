@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import {
@@ -10,10 +10,11 @@ import {
   SectionHeader,
   Segmented,
   Text,
+  TextField,
   useLayout,
 } from '@/components'
 import { api } from '@/lib/api/client'
-import { useApiMutation, useContacts } from '@/lib/api/hooks'
+import { stale, useApiMutation, useContacts } from '@/lib/api/hooks'
 import type { BriefTone, Constraint, Kind, MealDetail } from '@/lib/api/types'
 import { colors, radius, size, space, type Tone } from '@/theme/tokens'
 
@@ -40,10 +41,27 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
   const { wide } = useLayout()
   const { meal, people, brief } = detail
   const contacts = useContacts()
-  const setKind = useApiMutation((k: Kind) => api.setMealKind(meal.id, k))
-  const setAtt = useApiMutation((a: { guestIds: string[]; notComing: string[] }) =>
-    api.setAttendees(meal.id, a),
+  const setKind = useApiMutation((k: Kind) => api.setMealKind(meal.id, k), stale.who)
+  const setAtt = useApiMutation(
+    (a: { guestIds: string[]; notComing: string[] }) => api.setAttendees(meal.id, a),
+    stale.who,
   )
+  const [guestName, setGuestName] = useState('')
+  const [guestHousehold, setGuestHousehold] = useState('')
+  const newGuest = useApiMutation(async () => {
+    const name = guestName.trim()
+    const p = await api.addPerson({
+      name,
+      newContactHousehold: guestHousehold.trim() || name,
+    })
+    await api.setAttendees(meal.id, {
+      guestIds: [...meal.guestIds, p.id],
+      notComing: meal.notComing,
+    })
+    setGuestName('')
+    setGuestHousehold('')
+    return p
+  }, [...stale.who, ['contacts']])
 
   const toggle = (id: string) =>
     setAtt.mutate({
@@ -70,7 +88,16 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
             title="Meal type"
             hint="Meat, dairy or parve. Dishes of the other kind are hidden."
           />
-          <Segmented options={kindOptions} value={meal.kind} onChange={(k) => setKind.mutate(k)} />
+          <Segmented
+            options={kindOptions}
+            value={meal.kindDeclared === false ? null : meal.kind}
+            onChange={(k) => setKind.mutate(k)}
+          />
+          {meal.kindDeclared === false ? (
+            <Text variant="small">
+              Not set yet. It follows the first dish you add, or choose it now.
+            </Text>
+          ) : null}
         </Card>
 
         <Card>
@@ -102,11 +129,13 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
               title={g.person.name}
               subtitle={g.person.relation}
               last={i === guests.length - 1}
+              href={`/people/${g.person.id}`}
               right={
                 <Button
                   label="Remove"
                   variant="ghost"
                   small
+                  accessibilityLabel={`Remove ${g.person.name} from this meal`}
                   onPress={() => removeGuest(g.person.id)}
                 />
               }
@@ -129,6 +158,35 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
               ))}
             </View>
           ) : null}
+          <View style={styles.addList}>
+            <Text variant="label">New guest</Text>
+            <View style={styles.newGuest}>
+              <TextField
+                label="Name"
+                value={guestName}
+                onChangeText={setGuestName}
+                placeholder="e.g. George"
+              />
+              <TextField
+                label="Household (optional)"
+                value={guestHousehold}
+                onChangeText={setGuestHousehold}
+                placeholder="e.g. The Levins"
+              />
+              <Button
+                label="Add guest"
+                disabled={!guestName.trim()}
+                loading={newGuest.isPending}
+                onPress={() => newGuest.mutate(undefined)}
+              />
+            </View>
+            <Text variant="small">
+              Open a guest to add their allergies, diets and minhagim; the menu checks them live.
+            </Text>
+            {newGuest.error ? (
+              <Text color={colors.danger}>{(newGuest.error as Error).message}</Text>
+            ) : null}
+          </View>
           <Button label="Manage contacts" href="/people" variant="ghost" small />
         </Card>
       </View>
@@ -139,6 +197,11 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
             title="What this means for the menu"
             hint="Updates as you change who is coming."
           />
+          {brief.lines.length === 0 ? (
+            <Text color={colors.muted}>
+              No allergies, diets or minhagim to plan around. Add guests to see what they bring.
+            </Text>
+          ) : null}
           {brief.lines.map((l) => (
             <View key={l.id} style={styles.brief}>
               <Badge label={BRIEF_TONE[l.tone].label} tone={BRIEF_TONE[l.tone].tone} />
@@ -219,6 +282,7 @@ const styles = StyleSheet.create({
   },
   divider: { borderBottomWidth: 1, borderBottomColor: colors.line },
   struck: { textDecorationLine: 'line-through', color: colors.muted },
+  newGuest: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'flex-end' },
   addList: {
     gap: 0,
     borderTopWidth: 1,

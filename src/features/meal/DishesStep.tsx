@@ -16,10 +16,10 @@ import {
   TextField,
 } from '@/components'
 import { api } from '@/lib/api/client'
-import { useApiMutation, useSuggestions } from '@/lib/api/hooks'
+import { stale, useApiMutation, useSuggestions } from '@/lib/api/hooks'
 import { COURSES, type Course, type Kind, type MealDetail, type Reason } from '@/lib/api/types'
 import { formatMinutes } from '@/lib/units'
-import { COURSE_LABEL } from '@/lib/strings'
+import { COURSE_LABEL, dishName } from '@/lib/strings'
 import { colors, space, type Tone } from '@/theme/tokens'
 
 import { MenuList } from './MenuList'
@@ -36,8 +36,8 @@ type Adding = null | 'choose' | { course: Course }
 export function DishesStep({ detail }: { detail: MealDetail }) {
   const { meal } = detail
   const [adding, setAdding] = useState<Adding>(null)
-  const remove = useApiMutation((id: string) => api.removeMenuItem(meal.id, id))
-  const suggest = useApiMutation(() => api.suggestMenu(meal.id))
+  const remove = useApiMutation((id: string) => api.removeMenuItem(meal.id, id), stale.menu)
+  const suggest = useApiMutation(() => api.suggestMenu(meal.id), stale.menu)
 
   return (
     <View style={styles.wrap}>
@@ -55,6 +55,9 @@ export function DishesStep({ detail }: { detail: MealDetail }) {
         ) : (
           <MenuList items={meal.items} onRemove={(id) => remove.mutate(id)} />
         )}
+        {suggest.error ? (
+          <Text color={colors.danger}>{(suggest.error as Error).message}</Text>
+        ) : null}
         <View style={styles.actions}>
           <Button label="+ Add item" onPress={() => setAdding('choose')} />
           <Button
@@ -103,7 +106,10 @@ function Picker({
 }) {
   const { meal } = detail
   const { data, isLoading } = useSuggestions(meal.id, course)
-  const add = useApiMutation((versionId: string) => api.addMenuItem(meal.id, course, { versionId }))
+  const add = useApiMutation(
+    (versionId: string) => api.addMenuItem(meal.id, course, { versionId }),
+    stale.menu,
+  )
   const [showHidden, setShowHidden] = useState(false)
   const [bringing, setBringing] = useState(false)
 
@@ -125,10 +131,7 @@ function Picker({
             <Card key={s.versionId}>
               <View style={styles.sHead}>
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Text variant="h3">
-                    {s.title}
-                    {s.versionLabel !== 'Classic' ? ` (${s.versionLabel})` : ''}
-                  </Text>
+                  <Text variant="h3">{dishName(s.title, s.versionLabel)}</Text>
                   <View style={styles.pills}>
                     <KindLabel kind={s.kind} />
                     <Badge label={`${formatMinutes(s.activeMin)} hands-on`} tone="muted" />
@@ -180,7 +183,7 @@ function Picker({
                 <Text color={colors.muted}>Nothing is hidden.</Text>
               ) : (
                 data.hidden.map((h) => (
-                  <View key={h.title} style={styles.hiddenRow}>
+                  <View key={h.recipeId} style={styles.hiddenRow}>
                     <Text variant="bodyStrong">{h.title}</Text>
                     <Text variant="small">{h.why}</Text>
                   </View>
@@ -206,11 +209,13 @@ function Brought({
 }) {
   const [name, setName] = useState('')
   const [by, setBy] = useState('')
-  const [kind, setKind] = useState<Kind>(detail.meal.kind === 'parve' ? 'parve' : detail.meal.kind)
-  const add = useApiMutation(() =>
-    api.addMenuItem(detail.meal.id, course, {
-      brought: { name: name.trim(), by: by.trim(), kind },
-    }),
+  const [kind, setKind] = useState<Kind>(detail.meal.kind)
+  const add = useApiMutation(
+    () =>
+      api.addMenuItem(detail.meal.id, course, {
+        brought: { name: name.trim(), by: by.trim(), kind },
+      }),
+    stale.menu,
   )
   return (
     <Card>

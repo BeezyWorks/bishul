@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, View } from 'react-native'
 
 import {
   AddMeal,
-  Badge,
   Button,
   Card,
   KindLabel,
@@ -14,7 +13,7 @@ import {
 } from '@/components'
 import { MealChipView } from '@/components/MealChipView'
 import { api } from '@/lib/api/client'
-import { useApiMutation, useCalendar } from '@/lib/api/hooks'
+import { stale, useApiMutation, useCalendar, useToday } from '@/lib/api/hooks'
 import type { CalendarDay } from '@/lib/api/types'
 import { dayNum, longDate, monthGrid, monthName, rangeDays, toDate, weekday } from '@/lib/dates'
 import { colors, fontSize, fonts, radius, space } from '@/theme/tokens'
@@ -22,12 +21,23 @@ import { colors, fontSize, fonts, radius, space } from '@/theme/tokens'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Shabbat']
 
 export function CalendarScreen() {
+  const today = useToday()
+  if (!today)
+    return (
+      <Screen title="Calendar">
+        <Loading />
+      </Screen>
+    )
+  return <CalendarView today={today} />
+}
+
+function CalendarView({ today }: { today: string }) {
   const { wide, phone } = useLayout()
-  const [ym, setYm] = useState({ y: 2026, m: 10 }) // November 2026
-  const [sel, setSel] = useState<{ start: string; end?: string }>({
-    start: '2026-11-13',
-    end: '2026-11-14',
+  const [ym, setYm] = useState(() => {
+    const d = toDate(today)
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth() }
   })
+  const [sel, setSel] = useState<{ start: string; end?: string }>({ start: today })
   const grid = useMemo(() => monthGrid(ym.y, ym.m), [ym])
   const cal = useCalendar(grid[0], grid[grid.length - 1])
   const byDate = useMemo(() => new Map((cal.data ?? []).map((d) => [d.date, d])), [cal.data])
@@ -76,6 +86,7 @@ export function CalendarScreen() {
                     day={byDate.get(d)}
                     inMonth={toDate(d).getUTCMonth() === ym.m}
                     selected={inRange(d)}
+                    today={d === today}
                     edge={d === from || d === to}
                     phone={phone}
                     onPress={() => pick(d)}
@@ -111,6 +122,7 @@ function DayCell({
   inMonth,
   selected,
   edge,
+  today,
   phone,
   onPress,
 }: {
@@ -119,6 +131,7 @@ function DayCell({
   inMonth: boolean
   selected: boolean
   edge: boolean
+  today: boolean
   phone: boolean
   onPress: () => void
 }) {
@@ -140,10 +153,17 @@ function DayCell({
       ]}
     >
       <View style={styles.cellTop}>
-        <Text style={{ fontFamily: fonts.bodySemiBold, fontSize: fontSize.md }}>
+        <Text
+          style={{
+            fontFamily: fonts.bodySemiBold,
+            fontSize: fontSize.md,
+            color: today ? colors.accent : colors.ink,
+            textDecorationLine: today ? 'underline' : 'none',
+          }}
+        >
           {dayNum(date)}
         </Text>
-        {phone ? null : <Text variant="small">{day?.hebrew.split(' ')[0]}</Text>}
+        {phone ? null : <Text variant="small">{day?.hebrew}</Text>}
       </View>
       {day?.parasha && !phone ? (
         <Text variant="small" color={colors.accent} numberOfLines={1}>
@@ -204,7 +224,9 @@ function RangePanel({
   from: string
   to: string
 }) {
-  const accept = useApiMutation((ids: string[]) => api.acceptMeals(ids))
+  const accept = useApiMutation((ids: string[]) => api.acceptMeals(ids), stale.accept)
+  const reopen = useApiMutation((ids: string[]) => api.reopenMeals(ids), stale.accept)
+  const blocked = accept.data?.blocked ?? []
   const drafts = (days ?? []).flatMap((d) => d.meals).filter((m) => m.status === 'draft')
   const n = rangeDays(from, to).length
   return (
@@ -227,6 +249,8 @@ function RangePanel({
                   d.hebrew,
                   d.parasha ? `Parashat ${d.parasha}` : '',
                   ...d.holidays.map((h) => h.name),
+                  d.candleLighting ? `candle lighting ${d.candleLighting}` : '',
+                  d.havdalah ? `ends ${d.havdalah}` : '',
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -247,7 +271,13 @@ function RangePanel({
                     onPress={() => accept.mutate([m.id])}
                   />
                 ) : (
-                  <Badge label="Accepted" tone="accent" />
+                  <Button
+                    label="Reopen"
+                    small
+                    variant="ghost"
+                    accessibilityLabel={`Reopen ${m.name}`}
+                    onPress={() => reopen.mutate([m.id])}
+                  />
                 )}
               </View>
             ))}
@@ -265,6 +295,19 @@ function RangePanel({
           </Card>
         ))
       )}
+      {blocked.map((b) => (
+        <Card key={b.id} tone="danger">
+          <Text variant="h3" color={colors.danger}>
+            {b.name} was not accepted
+          </Text>
+          {b.problems.map((p) => (
+            <Text key={p} color={colors.danger}>
+              {p}
+            </Text>
+          ))}
+        </Card>
+      ))}
+      {accept.error ? <Text color={colors.danger}>{(accept.error as Error).message}</Text> : null}
       <Button
         label={
           drafts.length

@@ -3,13 +3,47 @@ import { StyleSheet, View } from 'react-native'
 
 import { Badge, Button, Card, Loading, Screen, SectionHeader, Text, TextField } from '@/components'
 import { api } from '@/lib/api/client'
-import { useApiMutation, usePantry } from '@/lib/api/hooks'
+import { stale, useApiMutation, usePantry } from '@/lib/api/hooks'
 import type { PantryItem } from '@/lib/api/types'
 import { diffDays, shortDate } from '@/lib/dates'
 import { colors, space } from '@/theme/tokens'
 
 function Item({ it, today }: { it: PantryItem; today: string }) {
   const days = it.expires ? diffDays(today, it.expires) : undefined
+  const [editing, setEditing] = useState(false)
+  const [qty, setQty] = useState(it.quantity)
+  const [loc, setLoc] = useState(it.location ?? '')
+  const [exp, setExp] = useState(it.expires ?? '')
+  const update = useApiMutation(
+    () =>
+      api.updatePantryItem(it.id, {
+        quantity: qty,
+        location: loc.trim() || null,
+        expires: exp.trim() || null,
+      }),
+    stale.pantry,
+  )
+  const remove = useApiMutation(() => api.removePantryItem(it.id), stale.pantry)
+  if (editing)
+    return (
+      <View style={[styles.row, { flexWrap: 'wrap' }]}>
+        <Text variant="bodyStrong" style={{ width: '100%' }}>{it.name}</Text>
+        <TextField label="Quantity" value={qty} onChangeText={setQty} />
+        <TextField label="Location" value={loc} onChangeText={setLoc} />
+        <TextField label="Expires" value={exp} onChangeText={setExp} placeholder="YYYY-MM-DD" />
+        <Button
+          label="Save"
+          small
+          loading={update.isPending}
+          disabled={!!exp && !/^\d{4}-\d{2}-\d{2}$/.test(exp)}
+          onPress={async () => {
+            await update.mutateAsync(undefined)
+            setEditing(false)
+          }}
+        />
+        <Button label="Cancel" small variant="ghost" onPress={() => setEditing(false)} />
+      </View>
+    )
   return (
     <View style={styles.row}>
       <View style={{ flex: 1, gap: 4 }}>
@@ -21,6 +55,15 @@ function Item({ it, today }: { it: PantryItem; today: string }) {
         </Text>
         {it.heldFor ? <Badge label={`Held for ${it.heldFor}`} tone="info" /> : null}
       </View>
+      <Button label="Edit" variant="ghost" small accessibilityLabel={`Edit ${it.name}`} onPress={() => setEditing(true)} />
+      <Button
+        label="Remove"
+        variant="ghost"
+        small
+        accessibilityLabel={`Remove ${it.name}`}
+        loading={remove.isPending}
+        onPress={() => remove.mutate(undefined)}
+      />
       {days !== undefined && days < 0 ? <Badge label="Expired" tone="danger" /> : null}
       {days !== undefined && days >= 0 && days <= 7 ? (
         <Badge
@@ -37,8 +80,9 @@ export function PantryScreen() {
   const [name, setName] = useState('')
   const [qty, setQty] = useState('')
   const [exp, setExp] = useState('')
-  const add = useApiMutation((i: { name: string; quantity: string; expires?: string }) =>
-    api.addPantryItem(i),
+  const add = useApiMutation(
+    (i: { name: string; quantity: string; expires?: string }) => api.addPantryItem(i),
+    stale.pantry,
   )
   if (isLoading || !data)
     return (
@@ -69,6 +113,11 @@ export function PantryScreen() {
       ) : null}
       <Card>
         <SectionHeader title="Everything else" />
+        {rest.length === 0 ? (
+          <Text color={colors.muted}>
+            Nothing in the pantry yet. Add what you have, and menus will use it up.
+          </Text>
+        ) : null}
         {rest.map((i) => (
           <Item key={i.id} it={i} today={data.today} />
         ))}

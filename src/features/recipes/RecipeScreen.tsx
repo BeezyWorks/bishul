@@ -16,6 +16,8 @@ import {
   useLayout,
 } from '@/components'
 import { useRecipe } from '@/lib/api/hooks'
+
+import { EditVersion } from './EditVersion'
 import type { Fit, RecipeVersion, SkipImpact } from '@/lib/api/types'
 import { useUnits } from '@/lib/prefs'
 import { COURSE_LABEL } from '@/lib/strings'
@@ -35,6 +37,7 @@ export function RecipeScreen() {
   const { data: recipe, isLoading } = useRecipe(id)
   const [versionId, setVersionId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
+  const [editing, setEditing] = useState<null | 'edit' | 'variation'>(null)
   const [units, setUnits] = useUnits()
   if (isLoading || !recipe)
     return (
@@ -47,13 +50,32 @@ export function RecipeScreen() {
   return (
     <Screen
       back={{ label: 'Recipes', href: '/recipes' }}
-      eyebrow={`${COURSE_LABEL[recipe.course]} · ${recipe.form}`}
+      eyebrow={[COURSE_LABEL[recipe.course], recipe.form].filter(Boolean).join(' · ')}
       title={recipe.title}
       subtitle={
         recipe.aliases.length ? `Also searched as: ${recipe.aliases.join(', ')}` : undefined
       }
-      actions={<Button label="Start cooking" href={`/cook/${v.id}?scale=${scale}`} />}
+      actions={
+        <View style={styles.wrapRow}>
+          <Button label="Edit" variant="secondary" onPress={() => setEditing('edit')} />
+          <Button label="New variation" variant="secondary" onPress={() => setEditing('variation')} />
+          <Button label="Start cooking" href={`/cook/${v.id}?scale=${scale}`} />
+        </View>
+      }
     >
+      {editing ? (
+        <EditVersion
+          key={`${editing}:${v.id}`}
+          recipe={recipe}
+          version={v}
+          mode={editing}
+          onCancel={() => setEditing(null)}
+          onDone={(id) => {
+            setVersionId(id)
+            setEditing(null)
+          }}
+        />
+      ) : null}
       <View style={styles.wrapRow} accessibilityRole="tablist">
         {recipe.versions.map((x) => (
           <Pill
@@ -184,6 +206,7 @@ function VersionView({
                 <View style={styles.cName}>
                   <Text variant="bodyStrong">{l.name}</Text>
                   {l.prep ? <Text variant="small">{l.prep}</Text> : null}
+                  {l.unquantified ? <Text variant="small">{l.original}</Text> : null}
                   {l.allergens.length ? (
                     <Text variant="small" color={colors.danger}>
                       Contains {l.allergens.join(', ')}

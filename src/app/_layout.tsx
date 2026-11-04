@@ -8,13 +8,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
+import { refreshAccount, useAccount } from '@/features/account/store'
 import { colors } from '@/theme/tokens'
 
 export default function RootLayout() {
-  // Web falls back to the system font until the faces load.
-  useFonts({
+  // Hold the first paint until the faces are ready (or have failed: the fallback stack is a sans).
+  const [fontsReady, fontError] = useFonts({
     BricolageGrotesque_700Bold,
     InstrumentSans_400Regular,
     InstrumentSans_500Medium,
@@ -23,6 +24,22 @@ export default function RootLayout() {
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 5_000, retry: 1 } } }),
   )
+  const { user } = useAccount()
+
+  useEffect(() => {
+    void refreshAccount()
+  }, [])
+  // Another person's data must never show up for the next sign-in.
+  const userId = user?.id ?? null
+  const lastUser = useRef(userId)
+  useEffect(() => {
+    const before = lastUser.current
+    lastUser.current = userId
+    // Leaving or switching accounts drops the cache; the first sign-in has nothing to drop.
+    if (before !== null && before !== userId) client.clear()
+  }, [client, userId])
+
+  if (!fontsReady && !fontError) return null
   return (
     <QueryClientProvider client={client}>
       <StatusBar style="dark" />
