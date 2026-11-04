@@ -1,0 +1,85 @@
+/** Date helpers. Dates are ISO `YYYY-MM-DD` strings in the household's time zone; math is done in UTC. */
+import type { ISODate } from '@/lib/api/types'
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbat']
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+export function toDate(iso: ISODate): Date {
+  return new Date(`${iso}T12:00:00Z`)
+}
+export function toISO(d: Date): ISODate {
+  return d.toISOString().slice(0, 10)
+}
+export function addDays(iso: ISODate, n: number): ISODate {
+  const d = toDate(iso)
+  d.setUTCDate(d.getUTCDate() + n)
+  return toISO(d)
+}
+export function diffDays(a: ISODate, b: ISODate): number {
+  return Math.round((toDate(b).getTime() - toDate(a).getTime()) / 86400000)
+}
+export function weekday(iso: ISODate): number {
+  return toDate(iso).getUTCDay()
+}
+export function weekdayName(iso: ISODate, short = false): string {
+  const n = DAYS[weekday(iso)]
+  return short && n !== 'Shabbat' ? n.slice(0, 3) : n
+}
+export function monthName(m: number): string {
+  return MONTHS[m]
+}
+export function dayNum(iso: ISODate): number {
+  return toDate(iso).getUTCDate()
+}
+/** "Fri 13 Nov" */
+export function shortDate(iso: ISODate): string {
+  const d = toDate(iso)
+  return `${weekdayName(iso, true)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`
+}
+/** "Friday 13 November" */
+export function longDate(iso: ISODate): string {
+  const d = toDate(iso)
+  return `${weekdayName(iso)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+}
+export function rangeDays(from: ISODate, to: ISODate): ISODate[] {
+  const out: ISODate[] = []
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d)
+  return out
+}
+/** The 6-week grid (Sunday start) for a month. `month` is 0-based. */
+export function monthGrid(year: number, month: number): ISODate[] {
+  const first = toISO(new Date(Date.UTC(year, month, 1, 12)))
+  const start = addDays(first, -weekday(first))
+  return rangeDays(start, addDays(start, 41))
+}
+
+const HEBREW_MONTHS: Record<string, string> = { Heshvan: 'Cheshvan', Tishri: 'Tishrei' }
+
+/** Hebrew date in Israeli transliteration, e.g. "4 Kislev". */
+export function hebrewDate(iso: ISODate): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-u-ca-hebrew', {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }).formatToParts(toDate(iso))
+    const day = parts.find((p) => p.type === 'day')?.value ?? ''
+    const month = parts.find((p) => p.type === 'month')?.value ?? ''
+    return `${day} ${HEBREW_MONTHS[month] ?? month}`
+  } catch {
+    return ''
+  }
+}
