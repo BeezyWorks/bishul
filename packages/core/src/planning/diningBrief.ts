@@ -190,6 +190,117 @@ function nameMatches(ing: DishIngredient, value: string): boolean {
   return [ing.name, ...(ing.aliases ?? [])].some((n) => phraseIn(n, value))
 }
 
+/**
+ * Names that give an allergen away even when the catalog row has no allergen data (a new ingredient the AI or a
+ * user created without filling it in). A safety net under the catalog's allergen list, never a replacement for it.
+ */
+const ALLERGEN_NAMES: Record<string, string[]> = {
+  sesame: ['sesame', 'tahini', 'tahina', 'halva', 'halvah', 'zaatar', "za'atar", 'gomasio'],
+  peanut: ['peanut', 'peanuts', 'groundnut', 'bamba'],
+  'tree nuts': [
+    'almond',
+    'almonds',
+    'walnut',
+    'walnuts',
+    'pecan',
+    'pecans',
+    'cashew',
+    'cashews',
+    'pistachio',
+    'pistachios',
+    'hazelnut',
+    'hazelnuts',
+    'macadamia',
+    'brazil nut',
+    'pine nut',
+    'pine nuts',
+    'marzipan',
+    'praline',
+    'nutella',
+    'frangipane',
+  ],
+  egg: ['egg', 'eggs', 'mayonnaise', 'mayo', 'meringue', 'aioli'],
+  milk: [
+    'milk',
+    'butter',
+    'cream',
+    'cheese',
+    'yogurt',
+    'yoghurt',
+    'ghee',
+    'whey',
+    'casein',
+    'labneh',
+  ],
+  dairy: [
+    'milk',
+    'butter',
+    'cream',
+    'cheese',
+    'yogurt',
+    'yoghurt',
+    'ghee',
+    'whey',
+    'casein',
+    'labneh',
+  ],
+  fish: [
+    'fish',
+    'salmon',
+    'tuna',
+    'cod',
+    'tilapia',
+    'anchovy',
+    'anchovies',
+    'sardine',
+    'sardines',
+    'herring',
+    'carp',
+    'gefilte',
+  ],
+  soy: ['soy', 'soya', 'tofu', 'edamame', 'miso', 'tempeh', 'soy sauce', 'tamari'],
+  wheat: [
+    'wheat',
+    'flour',
+    'bread',
+    'breadcrumbs',
+    'matzah',
+    'matza',
+    'couscous',
+    'pasta',
+    'semolina',
+    'bulgur',
+    'farina',
+    'challah',
+    'panko',
+  ],
+  gluten: [
+    'wheat',
+    'flour',
+    'bread',
+    'breadcrumbs',
+    'matzah',
+    'matza',
+    'couscous',
+    'pasta',
+    'semolina',
+    'bulgur',
+    'barley',
+    'rye',
+    'spelt',
+    'farina',
+    'challah',
+    'panko',
+  ],
+  mustard: ['mustard'],
+  celery: ['celery', 'celeriac'],
+}
+
+function allergenNamed(ing: DishIngredient, allergen: string): boolean {
+  const names = ALLERGEN_NAMES[allergen] ?? [allergen, allergen.replace(/s$/, '')]
+  return names.some((n) => nameMatches(ing, n))
+}
+
 const IMPACT_RANK: Record<SkipImpact, number> = { none: 0, minor: 1, ruins: 2 }
 
 function listJoin(items: string[]): string {
@@ -237,7 +348,7 @@ function matchTag(
   switch (tag.type) {
     case 'allergen': {
       const v = norm(tag.value)
-      return lines((i) => i.allergens.some((a) => norm(a) === v))
+      return lines((i) => i.allergens.some((a) => norm(a) === v) || allergenNamed(i, v))
     }
     case 'ingredient':
       return lines((i) => nameMatches(i, tag.value))

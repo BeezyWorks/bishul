@@ -110,6 +110,8 @@ type Sourced = { source: s.FlagSource }
 /** The weakest provenance among everything the catalog row claims: ai beats user beats seed. */
 export function ingredientDataSource(ing: IngredientRow | null): DataSource {
   if (!ing) return 'ai'
+  // No allergen data and no recorded source: nobody has checked it, so it is as unverified as AI data.
+  if (!ing.allergens?.length && !Object.keys(ing.sources ?? {}).length) return 'ai'
   const all: Sourced[] = [
     ...(ing.allergens ?? []),
     ...Object.values(ing.flags ?? {}).filter((f): f is s.FlagValue => !!f),
@@ -171,9 +173,10 @@ export function toDishVersion(v: LoadedVersion): DishVersion {
   return {
     id: v.version.id,
     recipeId: v.recipe.id,
-    title: v.version.title && v.version.title !== v.recipe.title
-      ? `${v.recipe.title} (${v.version.title})`
-      : v.recipe.title,
+    title:
+      v.version.title && v.version.title !== v.recipe.title
+        ? `${v.recipe.title} (${v.version.title})`
+        : v.recipe.title,
     kashrut: versionKashrut(v),
     ...(v.version.course && { course: v.version.course }),
     ...(v.version.form && { form: v.version.form }),
@@ -210,7 +213,10 @@ const DISPLAY_CATEGORIES: [string, RegExp][] = [
   ['flour', /\b(flour|matzo? meal|matzah meal|cake meal|semolina|cornstarch|starch)\b/i],
   ['sugar', /\b(sugar|honey|syrup|molasses|stevia)\b/i],
   ['liquid', /\b(milk|water|oil|juice|wine|broth|stock|cream|vinegar|sauce|coffee|tea|seltzer)\b/i],
-  ['spice', /\b(salt|pepper|cumin|paprika|cinnamon|turmeric|oregano|spice|garlic powder|za'?atar|nutmeg)\b/i],
+  [
+    'spice',
+    /\b(salt|pepper|cumin|paprika|cinnamon|turmeric|oregano|spice|garlic powder|za'?atar|nutmeg)\b/i,
+  ],
 ]
 export const displayCategory = (name: string): string | undefined =>
   DISPLAY_CATEGORIES.find(([, re]) => re.test(name))?.[0]
@@ -218,9 +224,14 @@ export const displayCategory = (name: string): string | undefined =>
 // The catalog has no "non-linear when scaled" field, so scaling warnings are keyed off the name (an adapter; core
 // takes the hint as data).
 export function nonLinearOf(name: string): 'leavening' | 'salt' | 'spice' | undefined {
-  if (/\b(baking powder|baking soda|bicarbonate|yeast|leaven|cream of tartar)\b/i.test(name)) return 'leavening'
+  if (/\b(baking powder|baking soda|bicarbonate|yeast|leaven|cream of tartar)\b/i.test(name))
+    return 'leavening'
   if (/\b(salt)\b/i.test(name)) return 'salt'
-  if (/\b(cumin|paprika|cinnamon|turmeric|oregano|spice|cayenne|chili|chilli|pepper|nutmeg|clove|za'?atar|curry|ginger|cardamom|saffron)\b/i.test(name))
+  if (
+    /\b(cumin|paprika|cinnamon|turmeric|oregano|spice|cayenne|chili|chilli|pepper|nutmeg|clove|za'?atar|curry|ginger|cardamom|saffron)\b/i.test(
+      name,
+    )
+  )
     return 'spice'
   return undefined
 }

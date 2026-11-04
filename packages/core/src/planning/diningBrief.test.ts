@@ -430,3 +430,22 @@ describe('mergePrivateLayer', () => {
     expect(linked.constraints).toHaveLength(1)
   })
 })
+
+describe('allergens without catalog data', () => {
+  it('excludes a dish whose ingredient names give the allergen away, even with no allergen data', () => {
+    const george = person('george', 'George', [constraint({ type: 'allergen', value: 'sesame' })])
+    const chicken = dish('chicken', 'Roast chicken', 'meat', [
+      ing('chicken', { category: 'meat' }),
+      ing('sesame seeds', { skipImpact: 'minor' }),
+    ])
+    const brief = buildDiningBrief(base({ attendees: [george], selected: [chicken] }))
+    expect(brief.hardExclusions.map((x) => x.dishId)).toEqual(['chicken'])
+  })
+
+  it('matches tree nuts by the nut named', () => {
+    const avi = person('avi', 'Avi', [constraint({ type: 'allergen', value: 'tree nuts' })])
+    const beans = dish('beans', 'Green beans', 'parve', [ing('green beans'), ing('sliced almonds')])
+    const brief = buildDiningBrief(base({ attendees: [avi], selected: [beans] }))
+    expect(brief.hardExclusions).toHaveLength(1)
+  })
+})
