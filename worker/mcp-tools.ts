@@ -82,18 +82,25 @@ export const TOOLS: Tool[] = [
     name: 'get_calendar',
     title: 'Get calendar',
     description:
-      'Days with Hebrew dates, parsha, Jewish and civil holidays, candle lighting, havdalah and the household’s meals on each day. Use it to find any date ("this Shabbat", "Rosh Hashana") and to see what is already planned. Defaults to the next 14 days from today; pass includeOccasions for the coming Shabbatot and Yom Tovim grouped as occasions.',
+      'Days with Hebrew dates, parsha, holidays (holidayDetails marks each Jewish or civil, such as Thanksgiving), candle lighting, havdalah, the household’s meals on each day and that day’s cooking (cooking.tasks and a one-line summary, for accepted meals; pass includeDrafts to count drafts too). Use it to find any date ("this Shabbat", "Rosh Hashana") and to see what is already planned. Defaults to the next 14 days from today; pass includeOccasions for the coming Shabbatot and Yom Tovim grouped as occasions.',
     readOnly: true,
     input: z.object({
       from: S.date.optional(),
       to: S.date.optional(),
       days: S.int.optional().describe('How many days from `from` (default 14, at most 400)'),
+      includeDrafts: z.boolean().optional().describe('Count draft meals in the cooking tasks'),
       includeOccasions: z.boolean().optional(),
     }),
     run: async (c, a) => {
-      const cal = await planning.getCalendar(c.db, c.actor, a)
-      const occasions = a.includeOccasions ? (await planning.getUpcoming(c.db, c.actor)).occasions : undefined
-      return ok(`${cal.days.length} days from ${cal.days[0]?.date}.`, { ...cal, ...(occasions && { occasions }) })
+      const { includeOccasions: _o, ...range } = a
+      const cal = await planning.getCalendar(c.db, c.actor, range)
+      const occasions = a.includeOccasions
+        ? (await planning.getUpcoming(c.db, c.actor)).occasions
+        : undefined
+      return ok(`${cal.days.length} days from ${cal.days[0]?.date}.`, {
+        ...cal,
+        ...(occasions && { occasions }),
+      })
     },
   }),
   tool({
@@ -138,7 +145,7 @@ export const TOOLS: Tool[] = [
     name: 'update_meal',
     title: 'Update a meal',
     description:
-      'Change a meal: name, date, time, kind, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
+      'Change a meal: name, date, time (e.g. 18:30; null clears it), kind, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
     input: S.updateMealInput.extend({ mealId: S.id }),
     run: async (c, { mealId, ...rest }) => ok('Meal updated.', await planning.updateMeal(c.db, c.actor, mealId, rest as never)),
   }),
@@ -328,7 +335,7 @@ export const TOOLS: Tool[] = [
     name: 'set_constraints',
     title: 'Set constraints',
     description:
-      'Set a person’s constraints and opt-in rules. Each constraint: tagType (allergen, ingredient, diet, kashrut_dish, kashrut_sourcing), tag, kind (medical, religious, preference), severity (strict: cannot be at the meal; flexible: can eat around it), activeWhen (always, pesach, aseret_yemei_teshuva, nine_days, sefirah, or a date range) and a note. `set` replaces everything the host has entered on this person; `add` and `removeIds` change individual ones; `rules` replaces the opt-in rules (no_fish_dairy, no_fish_meat, no_parve_from_dairy_at_meat, no_parve_from_meat_at_dairy). On a contact this is the host’s private layer. Allergies are safety data: read back exactly what you are saving and confirm it.',
+      'Set a person’s constraints and opt-in rules. Each constraint: tagType (allergen, ingredient, diet, kashrut_dish, kashrut_sourcing), tag, kind (medical, religious, preference), severity (strict: cannot be at the meal; flexible: can eat around it), activeWhen (always, pesach, aseret_yemei_teshuva, nine_days, or a date range) and a note. `set` replaces everything the host has entered on this person; `add` and `removeIds` change individual ones; `rules` replaces the opt-in rules (no_fish_dairy, no_fish_meat, no_parve_from_dairy_at_meat, no_parve_from_meat_at_dairy). On a contact this is the host’s private layer. Allergies are safety data: read back exactly what you are saving and confirm it.',
     input: z.object({
       personId: S.id,
       set: z.array(S.constraintInput).optional(),

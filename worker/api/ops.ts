@@ -375,8 +375,8 @@ export const operations: Operation[] = [
   }),
   op({
     id: 'getCalendar', method: 'get', path: '/calendar', tag: 'Planning', scope: 'read',
-    summary: 'Days with Hebrew dates, parsha, holidays, candle lighting and the household’s meals',
-    input: z.object({ from: S.date.optional(), to: S.date.optional(), days: S.int.optional() }),
+    summary: 'Days with Hebrew dates, parsha, holidays (Jewish or civil), candle lighting, the household’s meals and each day’s cooking tasks',
+    input: z.object({ from: S.date.optional(), to: S.date.optional(), days: S.int.optional(), includeDrafts: S.bool.optional() }),
     run: (c, i) => planning.getCalendar(c.db, c.actor, i),
   }),
   op({

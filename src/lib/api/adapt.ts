@@ -214,9 +214,9 @@ export const adaptContact = (h: ServerPeople['contacts'][number]): Household => 
 const CIVIL =
   /thanksgiving|independence day|christmas|new year|memorial day|labor day|martin luther|presidents|veterans|columbus|juneteenth|halloween|valentine|mother|father|easter|canada day|bank holiday/i
 
-function holidayOf(name: string): CalendarHoliday {
-  if (/^rosh chodesh/i.test(name)) return { name, type: 'rosh-chodesh' }
-  return { name, type: CIVIL.test(name) ? 'civil' : 'jewish' }
+function holidayOf(name: string, kind?: 'jewish' | 'civil'): CalendarHoliday {
+  if (kind !== 'civil' && /^rosh chodesh/i.test(name)) return { name, type: 'rosh-chodesh' }
+  return { name, type: kind ?? (CIVIL.test(name) ? 'civil' : 'jewish') }
 }
 
 export interface ServerChip {
@@ -239,6 +239,8 @@ interface ServerDay {
   hebrew: string
   parasha: string | null
   holidays: string[]
+  /** Each holiday marked `jewish` or `civil` by the server. */
+  holidayDetails?: { name: string; kind: 'jewish' | 'civil' }[]
   isShabbat: boolean
   isYomTov: boolean
   candleLightingText: string | null
@@ -259,7 +261,9 @@ export function adaptDay(
     date: d.date,
     hebrew: shortHebrew(d.hebrew),
     parasha: d.parasha ?? undefined,
-    holidays: d.holidays.map(holidayOf),
+    holidays: d.holidayDetails
+      ? d.holidayDetails.map((h) => holidayOf(h.name, h.kind))
+      : d.holidays.map((h) => holidayOf(h)),
     isShabbat: d.isShabbat,
     isYomTov: d.isYomTov,
     candleLighting: d.candleLightingText ? clock12(d.candleLightingText) : undefined,

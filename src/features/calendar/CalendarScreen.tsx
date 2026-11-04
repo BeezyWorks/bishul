@@ -105,6 +105,10 @@ function CalendarView({ today }: { today: string }) {
             <Text variant="small">Accepted</Text>
             <View style={[styles.swatch, { borderColor: colors.muted, borderStyle: 'dashed' }]} />
             <Text variant="small">Draft</Text>
+            <View style={[styles.dot, { backgroundColor: colors.warn }]} />
+            <Text variant="small">Jewish holiday</Text>
+            <View style={[styles.dot, { backgroundColor: colors.info }]} />
+            <Text variant="small">Civil holiday</Text>
           </View>
         </View>
 
@@ -172,7 +176,15 @@ function DayCell({
       ) : null}
       {phone ? (
         <View style={styles.dots}>
-          {hol.length ? <View style={[styles.dot, { backgroundColor: colors.warn }]} /> : null}
+          {hol.map((h) => (
+            <View
+              key={h.name}
+              style={[
+                styles.dot,
+                { backgroundColor: h.type === 'civil' ? colors.info : colors.warn },
+              ]}
+            />
+          ))}
           {day?.meals.map((m) => (
             <View
               key={m.id}
@@ -192,11 +204,17 @@ function DayCell({
               key={h.name}
               variant="small"
               color={h.type === 'civil' ? colors.info : colors.warn}
+              style={h.type === 'civil' ? { fontStyle: 'italic' } : undefined}
               numberOfLines={1}
             >
-              {h.name}
+              {h.type === 'civil' ? `${h.name} (civil)` : h.name}
             </Text>
           ))}
+          {day?.cooking.length ? (
+            <Text variant="small" color={colors.muted} numberOfLines={1}>
+              {day.cooking.length} cooking task{day.cooking.length === 1 ? '' : 's'}
+            </Text>
+          ) : null}
           {day?.meals.map((m) => (
             <View
               key={m.id}
@@ -248,7 +266,7 @@ function RangePanel({
                 {[
                   d.hebrew,
                   d.parasha ? `Parashat ${d.parasha}` : '',
-                  ...d.holidays.map((h) => h.name),
+                  ...d.holidays.filter((h) => h.type !== 'civil').map((h) => h.name),
                   d.candleLighting ? `candle lighting ${d.candleLighting}` : '',
                   d.havdalah ? `ends ${d.havdalah}` : '',
                 ]
@@ -256,6 +274,14 @@ function RangePanel({
                   .join(' · ')}
               </Text>
             </View>
+            {d.holidays.some((h) => h.type === 'civil') ? (
+              <Text variant="small" color={colors.info} style={{ fontStyle: 'italic' }}>
+                {d.holidays
+                  .filter((h) => h.type === 'civil')
+                  .map((h) => `${h.name} (civil holiday)`)
+                  .join(' · ')}
+              </Text>
+            ) : null}
             {d.meals.length === 0 ? <Text color={colors.muted}>No meals yet.</Text> : null}
             {d.meals.map((m) => (
               <View key={m.id} style={styles.mealRow}>
@@ -356,7 +382,7 @@ const styles = StyleSheet.create({
   mini: { borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1 },
   miniSolid: { borderColor: colors.accent, backgroundColor: colors.surface },
   miniDashed: { borderColor: colors.muted, borderStyle: 'dashed', backgroundColor: colors.surface },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
   swatch: { width: 18, height: 12, borderRadius: 4, borderWidth: 1.5 },
   mealRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
   cooking: { backgroundColor: colors.subtle, borderRadius: radius.tile, padding: space.md, gap: 4 },
