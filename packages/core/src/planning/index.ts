@@ -10,6 +10,7 @@ export {
   type CalendarDay,
   type ChametzCutoff,
 } from './calendar'
+export { effectiveFlags, inferKashrutFlags, pesachProblems } from './kashrutFlags'
 export {
   DISCLAIMER,
   buildDiningBrief,
