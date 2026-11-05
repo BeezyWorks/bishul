@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import React, { useRef, useState } from 'react'
+import { PanResponder, Platform, StyleSheet, View } from 'react-native'
 
 import {
   Badge,
@@ -27,12 +27,11 @@ export function ShoppingScreen() {
   const order = useApiMutation((ids: string[]) => api.setShoppingOrder(ids), stale.shopping)
   const add = useApiMutation((n: string) => api.addShoppingLine(n), stale.shopping)
   const del = useApiMutation((id: string) => api.removeShoppingLine(id), stale.shopping)
-  const move = (id: string, dir: 'up' | 'down') => {
+  const moveTo = (id: string, to: number) => {
     const ids = (data ?? []).map((l) => l.id)
     const i = ids.indexOf(id)
-    const j = dir === 'up' ? i - 1 : i + 1
-    if (i < 0 || j < 0 || j >= ids.length) return
-    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    if (i < 0 || to === i) return
+    ids.splice(to, 0, ids.splice(i, 1)[0])
     order.mutate(ids)
   }
   const submit = async () => {
@@ -45,7 +44,7 @@ export function ShoppingScreen() {
   return (
     <Screen
       title="Shopping list"
-      subtitle="Totals across your accepted meals, minus what is in the pantry. Reorder to match your route."
+      subtitle="Totals across your accepted meals, minus what is in the pantry. Drag the handle to match your route."
     >
       {isLoading || !data ? (
         <Loading />
@@ -63,10 +62,10 @@ export function ShoppingScreen() {
             <Line
               key={l.id}
               line={l}
-              first={i === 0}
-              last={i === data.length - 1}
+              index={i}
+              count={data.length}
               onCheck={(checked) => check.mutate({ id: l.id, checked })}
-              onMove={(dir) => move(l.id, dir)}
+              onMoveTo={(to) => moveTo(l.id, to)}
               onRemove={l.custom ? () => del.mutate(l.id) : undefined}
             />
           ))}
@@ -88,21 +87,65 @@ export function ShoppingScreen() {
 
 function Line({
   line,
-  first,
-  last,
+  index,
+  count,
   onCheck,
-  onMove,
+  onMoveTo,
   onRemove,
 }: {
   line: ShoppingLine
-  first: boolean
-  last: boolean
+  index: number
+  count: number
   onCheck: (c: boolean) => void
-  onMove: (d: 'up' | 'down') => void
+  onMoveTo: (to: number) => void
   onRemove?: () => void
 }) {
+  const [dy, setDy] = useState<number | null>(null)
+  const height = useRef(48)
+  const latest = useRef({ index, count, onMoveTo })
+  latest.current = { index, count, onMoveTo }
+  const target = (d: number) => {
+    const { index: i, count: n } = latest.current
+    return Math.max(0, Math.min(n - 1, i + Math.round(d / height.current)))
+  }
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => setDy(0),
+      onPanResponderMove: (_, g) => setDy(g.dy),
+      onPanResponderRelease: (_, g) => {
+        setDy(null)
+        latest.current.onMoveTo(target(g.dy))
+      },
+      onPanResponderTerminate: () => setDy(null),
+    }),
+  ).current
+  const dragging = dy !== null
   return (
-    <View style={styles.row}>
+    <View
+      style={[
+        styles.row,
+        dragging && {
+          transform: [{ translateY: dy }],
+          zIndex: 10,
+          backgroundColor: colors.surface,
+        },
+      ]}
+      onLayout={(e) => {
+        height.current = e.nativeEvent.layout.height
+      }}
+    >
+      <View
+        {...pan.panHandlers}
+        accessibilityRole="button"
+        accessibilityLabel={`Drag to reorder ${line.name}`}
+        style={styles.handle}
+      >
+        <Text variant="bodyStrong" style={styles.grip}>
+          ⠿
+        </Text>
+      </View>
       <Checkbox label={`Bought ${line.name}`} checked={line.checked} onChange={onCheck} />
       <View style={styles.main}>
         <Text variant="bodyStrong" style={line.checked && styles.done}>
@@ -127,22 +170,6 @@ function Line({
             onPress={onRemove}
           />
         ) : null}
-        <Button
-          label={'↑'}
-          accessibilityLabel={`Move ${line.name} up`}
-          variant="ghost"
-          small
-          disabled={first}
-          onPress={() => onMove('up')}
-        />
-        <Button
-          label={'↓'}
-          accessibilityLabel={`Move ${line.name} down`}
-          variant="ghost"
-          small
-          disabled={last}
-          onPress={() => onMove('down')}
-        />
       </View>
     </View>
   )
@@ -160,5 +187,13 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 4, paddingVertical: space.xs },
   done: { textDecorationLine: 'line-through', color: colors.muted },
   move: { flexDirection: 'row' },
+  handle: {
+    paddingHorizontal: space.xs,
+    paddingVertical: space.sm,
+    ...(Platform.OS === 'web'
+      ? ({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object)
+      : {}),
+  },
+  grip: { color: colors.muted },
   add: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-end', flexWrap: 'wrap' },
 })
