@@ -22,7 +22,7 @@ export default function RootLayout() {
     InstrumentSans_600SemiBold,
   })
   const [client] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { staleTime: 5_000, retry: 1 } } }),
+    () => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 1 } } }),
   )
   const { user } = useAccount()
 
