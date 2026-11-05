@@ -91,7 +91,9 @@ async function hydrate(
     db
       .select()
       .from(s.versionEquipment)
-      .where(and(inArray(s.versionEquipment.versionId, part), isNull(s.versionEquipment.deletedAt))),
+      .where(
+        and(inArray(s.versionEquipment.versionId, part), isNull(s.versionEquipment.deletedAt)),
+      ),
   )
   const vdims = await inChunks(ids, (part) =>
     db
@@ -119,9 +121,14 @@ async function hydrate(
       recipe: r.recipe,
       lines: lines
         .filter((l) => l.versionId === r.version.id)
-        .map((l) => ({ line: l, ingredient: l.ingredientId ? (ingById.get(l.ingredientId) ?? null) : null })),
+        .map((l) => ({
+          line: l,
+          ingredient: l.ingredientId ? (ingById.get(l.ingredientId) ?? null) : null,
+        })),
       equipment: equipment.filter((e) => e.versionId === r.version.id),
-      dims: vdims.filter((d) => d.vd.versionId === r.version.id).map((d) => ({ dimension: d.dimension, fit: d.vd.fit })),
+      dims: vdims
+        .filter((d) => d.vd.versionId === r.version.id)
+        .map((d) => ({ dimension: d.dimension, fit: d.vd.fit })),
     })
   }
   return out
@@ -144,7 +151,11 @@ export async function loadAllVersions(db: Db, householdId: string): Promise<Load
   return [...(await hydrate(db, householdId, rows)).values()]
 }
 
-export async function requireVersion(db: Db, actor: Actor, versionId: string): Promise<LoadedVersion> {
+export async function requireVersion(
+  db: Db,
+  actor: Actor,
+  versionId: string,
+): Promise<LoadedVersion> {
   const v = (await loadVersions(db, actor.householdId, [versionId])).get(versionId)
   if (!v) throw notFound('Recipe version')
   return v
@@ -203,11 +214,20 @@ export function versionView(v: LoadedVersion, prefs?: DisplayPrefs) {
     steps: x.steps ?? [],
     flags: x.flags ?? {},
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
-    dimensions: v.dims.map((d) => ({ id: d.dimension.id, name: d.dimension.name, slug: slugOf(d.dimension.name), fit: d.fit })),
+    dimensions: v.dims.map((d) => ({
+      id: d.dimension.id,
+      name: d.dimension.name,
+      slug: slugOf(d.dimension.name),
+      fit: d.fit,
+    })),
     ingredients: v.lines.map(({ line, ingredient }) => {
       const q =
         line.quantityMetric !== null
-          ? ({ amount: line.quantityMetric, unit: (line.unitMetric ?? 'piece') as Quantity['unit'], approx: false } satisfies Quantity)
+          ? ({
+              amount: line.quantityMetric,
+              unit: (line.unitMetric ?? 'piece') as Quantity['unit'],
+              approx: false,
+            } satisfies Quantity)
           : null
       return {
         id: line.id,
@@ -256,14 +276,24 @@ export async function getRecipe(db: Db, actor: Actor, recipeId: string) {
   const [recipe] = await db
     .select()
     .from(s.recipes)
-    .where(and(eq(s.recipes.id, recipeId), eq(s.recipes.householdId, actor.householdId), isNull(s.recipes.deletedAt)))
+    .where(
+      and(
+        eq(s.recipes.id, recipeId),
+        eq(s.recipes.householdId, actor.householdId),
+        isNull(s.recipes.deletedAt),
+      ),
+    )
   if (!recipe) throw notFound('Recipe')
   const vrows = await db
     .select()
     .from(s.recipeVersions)
     .where(and(eq(s.recipeVersions.recipeId, recipeId), isNull(s.recipeVersions.deletedAt)))
     .orderBy(asc(s.recipeVersions.createdAt))
-  const loaded = await loadVersions(db, actor.householdId, vrows.map((v) => v.id))
+  const loaded = await loadVersions(
+    db,
+    actor.householdId,
+    vrows.map((v) => v.id),
+  )
   const prefs = await getPrefs(db, actor)
   return {
     id: recipe.id,
@@ -330,7 +360,10 @@ const SCALAR_FIELDS = [
 ] as const
 
 /** Stored shape for the JSON-ish fields of a version input. */
-function versionPatch(input: VersionInput, source: s.FlagSource): Partial<typeof s.recipeVersions.$inferInsert> {
+function versionPatch(
+  input: VersionInput,
+  source: s.FlagSource,
+): Partial<typeof s.recipeVersions.$inferInsert> {
   const p: Record<string, unknown> = {}
   for (const k of SCALAR_FIELDS) if (input[k] !== undefined) p[k] = input[k]
   if (input.title !== undefined) p.title = input.title
@@ -347,14 +380,16 @@ function versionPatch(input: VersionInput, source: s.FlagSource): Partial<typeof
     p.flags = Object.fromEntries(
       Object.entries(input.flags).map(([k, v]) => [slugOf(k), { value: v, source }]),
     )
-  if (typeof p.cost === 'number' && (p.cost < 1 || p.cost > 3)) throw invalid('cost is 1, 2 or 3 ($, $$, $$$)')
+  if (typeof p.cost === 'number' && (p.cost < 1 || p.cost > 3))
+    throw invalid('cost is 1, 2 or 3 ($, $$, $$$)')
   return p as Partial<typeof s.recipeVersions.$inferInsert>
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Parsing ingredient lines (forgiving)
 
-const ADJECTIVES = /^(?:large|medium|small|extra[- ]large|big|heaping|heaped|level|scant|packed|fresh|freshly|good|ripe|cold|warm)\s+/i
+const ADJECTIVES =
+  /^(?:large|medium|small|extra[- ]large|big|heaping|heaped|level|scant|packed|fresh|freshly|good|ripe|cold|warm)\s+/i
 
 export interface ParsedLine {
   name: string
@@ -366,7 +401,8 @@ export interface ParsedLine {
 }
 
 function inferSkipImpact(text: string): 'none' | 'minor' | 'ruins' {
-  if (/\b(optional|garnish|for serving|for garnish|if desired|to serve)\b/i.test(text)) return 'none'
+  if (/\b(optional|garnish|for serving|for garnish|if desired|to serve)\b/i.test(text))
+    return 'none'
   if (/\b(to taste|pinch|dash|for dusting|for greasing|for frying)\b/i.test(text)) return 'minor'
   return 'ruins'
 }
@@ -391,7 +427,8 @@ function splitName(rest: string): { name: string; prep: string | null } {
 export function parseIngredient(input: IngredientInput): ParsedLine {
   if (input.name) {
     const text =
-      input.text ?? [input.quantity ?? '', input.unit ?? '', input.name].filter((x) => x !== '').join(' ')
+      input.text ??
+      [input.quantity ?? '', input.unit ?? '', input.name].filter((x) => x !== '').join(' ')
     let q: { amount: number; unit: 'g' | 'ml' | 'piece' } | null = null
     if (input.quantity !== undefined && input.quantity !== '') {
       const amount =
@@ -470,7 +507,11 @@ async function buildLines(
   return out
 }
 
-function hashContent(recipeTitle: string, p: Partial<typeof s.recipeVersions.$inferInsert>, lines: BuiltLine[]) {
+function hashContent(
+  recipeTitle: string,
+  p: Partial<typeof s.recipeVersions.$inferInsert>,
+  lines: BuiltLine[],
+) {
   return contentHash({
     recipe: recipeTitle.trim().toLowerCase(),
     title: p.title,
@@ -496,7 +537,11 @@ async function replaceChildren(
       .update(s.ingredientLines)
       .set({ deletedAt: now })
       .where(and(eq(s.ingredientLines.versionId, versionId), isNull(s.ingredientLines.deletedAt)))
-    await insertMany(db, s.ingredientLines, built.map((b) => b.row))
+    await insertMany(
+      db,
+      s.ingredientLines,
+      built.map((b) => b.row),
+    )
   }
   if (input.equipment) {
     await db
@@ -515,7 +560,9 @@ async function replaceChildren(
     const existing = await db
       .select()
       .from(s.versionDimensions)
-      .where(and(eq(s.versionDimensions.versionId, versionId), isNull(s.versionDimensions.deletedAt)))
+      .where(
+        and(eq(s.versionDimensions.versionId, versionId), isNull(s.versionDimensions.deletedAt)),
+      )
     const keep = new Set<string>()
     for (const [ref, fit] of wanted) {
       const dim = await findDimension(db, actor, ref)
@@ -528,17 +575,14 @@ async function replaceChildren(
     }
     for (const e of existing)
       if (!keep.has(e.dimensionId))
-        await db.update(s.versionDimensions).set({ deletedAt: now }).where(eq(s.versionDimensions.id, e.id))
+        await db
+          .update(s.versionDimensions)
+          .set({ deletedAt: now })
+          .where(eq(s.versionDimensions.id, e.id))
   }
 }
 
-async function writeEdit(
-  db: Db,
-  actor: Actor,
-  versionId: string,
-  summary: string,
-  diff: unknown,
-) {
+async function writeEdit(db: Db, actor: Actor, versionId: string, summary: string, diff: unknown) {
   await db.insert(s.versionEdits).values({
     versionId,
     userId: actor.userId,
@@ -563,20 +607,28 @@ export interface SaveRecipeResult {
   newIngredients: string[]
 }
 
-export async function saveRecipe(db: Db, actor: Actor, input: SaveRecipeInput): Promise<SaveRecipeResult> {
+export async function saveRecipe(
+  db: Db,
+  actor: Actor,
+  input: SaveRecipeInput,
+): Promise<SaveRecipeResult> {
   const source: s.FlagSource = actor.via === 'web' ? 'user' : 'ai'
   const catalog = await loadCatalog(db, actor.householdId)
   const patch = versionPatch(input, source)
 
   if (input.versionId) {
     const cur = await requireVersion(db, actor, input.versionId)
-    const built = input.ingredients ? await buildLines(db, actor, catalog, cur.version.id, input.ingredients) : null
+    const built = input.ingredients
+      ? await buildLines(db, actor, catalog, cur.version.id, input.ingredients)
+      : null
     const changed: Record<string, [unknown, unknown]> = {}
     for (const [k, v] of Object.entries(patch)) {
       const before = (cur.version as Record<string, unknown>)[k]
-      if (JSON.stringify(before ?? null) !== JSON.stringify(v ?? null)) changed[k] = [before ?? null, v ?? null]
+      if (JSON.stringify(before ?? null) !== JSON.stringify(v ?? null))
+        changed[k] = [before ?? null, v ?? null]
     }
-    if (input.recipeTitle && input.recipeTitle !== cur.recipe.title) changed.recipeTitle = [cur.recipe.title, input.recipeTitle]
+    if (input.recipeTitle && input.recipeTitle !== cur.recipe.title)
+      changed.recipeTitle = [cur.recipe.title, input.recipeTitle]
     const linesBefore = cur.lines.map((l) => l.line.originalText)
     const linesAfter = built?.map((b) => b.row.originalText)
     const linesChanged = !!linesAfter && JSON.stringify(linesBefore) !== JSON.stringify(linesAfter)
@@ -600,13 +652,20 @@ export async function saveRecipe(db: Db, actor: Actor, input: SaveRecipeInput): 
         })),
     )
     if (input.recipeTitle)
-      await db.update(s.recipes).set({ title: input.recipeTitle }).where(eq(s.recipes.id, cur.recipe.id))
+      await db
+        .update(s.recipes)
+        .set({ title: input.recipeTitle })
+        .where(eq(s.recipes.id, cur.recipe.id))
     await db
       .update(s.recipeVersions)
       .set({ ...patch, contentHash: hash })
       .where(eq(s.recipeVersions.id, cur.version.id))
     await replaceChildren(db, actor, cur.version.id, input, built)
-    const fields = [...Object.keys(changed), ...(linesChanged ? ['ingredients'] : []), ...Object.keys(extra)]
+    const fields = [
+      ...Object.keys(changed),
+      ...(linesChanged ? ['ingredients'] : []),
+      ...Object.keys(extra),
+    ]
     await writeEdit(db, actor, cur.version.id, `Edited ${fields.join(', ')}`, {
       changed,
       ...(linesChanged && { ingredients: { before: linesBefore, after: linesAfter } }),
@@ -627,14 +686,24 @@ export async function saveRecipe(db: Db, actor: Actor, input: SaveRecipeInput): 
     const [r] = await db
       .select()
       .from(s.recipes)
-      .where(and(eq(s.recipes.id, recipeId), eq(s.recipes.householdId, actor.householdId), isNull(s.recipes.deletedAt)))
+      .where(
+        and(
+          eq(s.recipes.id, recipeId),
+          eq(s.recipes.householdId, actor.householdId),
+          isNull(s.recipes.deletedAt),
+        ),
+      )
     if (!r) throw notFound('Recipe')
     recipeTitle = r.title
   } else {
     if (!input.recipeTitle?.trim()) throw invalid('A new recipe needs a recipeTitle')
     const [r] = await db
       .insert(s.recipes)
-      .values({ ownerUserId: actor.userId, householdId: actor.householdId, title: input.recipeTitle.trim() })
+      .values({
+        ownerUserId: actor.userId,
+        householdId: actor.householdId,
+        title: input.recipeTitle.trim(),
+      })
       .returning({ id: s.recipes.id })
     recipeId = r.id
   }
@@ -668,8 +737,11 @@ export async function deleteVersion(db: Db, actor: Actor, versionId: string) {
     .select({ id: s.recipeVersions.id })
     .from(s.recipeVersions)
     .where(and(eq(s.recipeVersions.recipeId, v.recipe.id), isNull(s.recipeVersions.deletedAt)))
-  const stmts: unknown[] = [db.update(s.recipeVersions).set({ deletedAt: now }).where(eq(s.recipeVersions.id, versionId))]
-  if (siblings.length <= 1) stmts.push(db.update(s.recipes).set({ deletedAt: now }).where(eq(s.recipes.id, v.recipe.id)))
+  const stmts: unknown[] = [
+    db.update(s.recipeVersions).set({ deletedAt: now }).where(eq(s.recipeVersions.id, versionId)),
+  ]
+  if (siblings.length <= 1)
+    stmts.push(db.update(s.recipes).set({ deletedAt: now }).where(eq(s.recipes.id, v.recipe.id)))
   await db.batch(stmts as never)
   await writeEdit(db, actor, versionId, 'Deleted', { deleted: true })
   return { deleted: true }
@@ -685,7 +757,11 @@ export interface SaveVariationInput extends VersionInput {
 }
 
 /** A new version of the same recipe, copied from `fromVersionId` with changes applied. Keeps the lineage. */
-export async function saveVariation(db: Db, actor: Actor, input: SaveVariationInput): Promise<SaveRecipeResult> {
+export async function saveVariation(
+  db: Db,
+  actor: Actor,
+  input: SaveVariationInput,
+): Promise<SaveRecipeResult> {
   const src = await requireVersion(db, actor, input.fromVersionId)
   const sourceKind: s.FlagSource = actor.via === 'web' ? 'user' : 'ai'
   const catalog = await loadCatalog(db, actor.householdId)
@@ -694,24 +770,22 @@ export async function saveVariation(db: Db, actor: Actor, input: SaveVariationIn
   const versionId = ulid()
   const built = input.ingredients
     ? await buildLines(db, actor, catalog, versionId, input.ingredients)
-    : src.lines.map(
-        (l, i): BuiltLine => ({
-          name: l.ingredient?.name ?? l.line.originalText,
-          created: false,
-          matched: null,
-          row: {
-            versionId,
-            position: i,
-            quantityMetric: l.line.quantityMetric,
-            unitMetric: l.line.unitMetric,
-            originalText: l.line.originalText,
-            ingredientId: l.line.ingredientId,
-            prepNote: l.line.prepNote,
-            skipImpact: l.line.skipImpact,
-            substitutions: l.line.substitutions,
-          },
-        }),
-      )
+    : src.lines.map((l, i): BuiltLine => ({
+        name: l.ingredient?.name ?? l.line.originalText,
+        created: false,
+        matched: null,
+        row: {
+          versionId,
+          position: i,
+          quantityMetric: l.line.quantityMetric,
+          unitMetric: l.line.unitMetric,
+          originalText: l.line.originalText,
+          ingredientId: l.line.ingredientId,
+          prepNote: l.line.prepNote,
+          skipImpact: l.line.skipImpact,
+          substitutions: l.line.substitutions,
+        },
+      }))
   const copied: Partial<typeof s.recipeVersions.$inferInsert> = {
     description: base.description,
     sourceLinks: base.sourceLinks,
@@ -742,8 +816,10 @@ export async function saveVariation(db: Db, actor: Actor, input: SaveVariationIn
     ...merged,
   })
   const children: VersionInput = {
-    equipment: input.equipment ?? src.equipment.map((e) => ({ item: e.item, designation: e.designation })),
-    dimensions: input.dimensions ?? src.dims.map((d) => ({ dimension: d.dimension.id, fit: d.fit })),
+    equipment:
+      input.equipment ?? src.equipment.map((e) => ({ item: e.item, designation: e.designation })),
+    dimensions:
+      input.dimensions ?? src.dims.map((d) => ({ dimension: d.dimension.id, fit: d.fit })),
   }
   await replaceChildren(db, actor, versionId, children, built)
   await writeEdit(db, actor, versionId, `Variation of "${base.title}"`, { forkedFrom: base.id })
@@ -763,7 +839,14 @@ export async function getRecipeHistory(db: Db, actor: Actor, versionId: string) 
     .where(eq(s.versionEdits.versionId, versionId))
     .orderBy(desc(s.versionEdits.at))
     .limit(100)
-  return edits.map((e) => ({ id: e.id, at: e.at, userId: e.userId, via: e.via, summary: e.summary, diff: e.diff }))
+  return edits.map((e) => ({
+    id: e.id,
+    at: e.at,
+    userId: e.userId,
+    via: e.via,
+    summary: e.summary,
+    diff: e.diff,
+  }))
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -804,7 +887,8 @@ export function parsePasted(text: string): {
     .map((l) => l.trim())
     .filter(Boolean)
   const IH = /^(?:#+\s*)?\**ingredients?\**:?$/i
-  const SH = /^(?:#+\s*)?\**(?:instructions?|directions?|method|steps?|preparation|procedure)\**:?$/i
+  const SH =
+    /^(?:#+\s*)?\**(?:instructions?|directions?|method|steps?|preparation|procedure)\**:?$/i
   const ingredients: string[] = []
   const steps: string[] = []
   let title: string | undefined
@@ -838,7 +922,8 @@ export function parsePasted(text: string): {
       continue
     }
     if (STEP_NUM.test(line) || line.length > 70) steps.push(line.replace(STEP_NUM, ''))
-    else if (/^[-*•]/.test(raw) || parseQuantity(line)) ingredients.push(line.replace(/^[-*•]\s*/, ''))
+    else if (/^[-*•]/.test(raw) || parseQuantity(line))
+      ingredients.push(line.replace(/^[-*•]\s*/, ''))
     else steps.push(line)
   }
   return { title, ingredients, steps, servings }
@@ -863,16 +948,26 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
   const stepList = (typeof steps === 'string' ? steps.split(/\r?\n/) : (steps ?? []))
     .map((x) => (typeof x === 'string' ? x.replace(STEP_NUM, '').trim() : x))
     .filter((x) => (typeof x === 'string' ? x : x.text))
-  const data = Object.fromEntries(Object.entries(input.ingredientData ?? {}).map(([k, v]) => [k.toLowerCase(), v]))
+  const data = Object.fromEntries(
+    Object.entries(input.ingredientData ?? {}).map(([k, v]) => [k.toLowerCase(), v]),
+  )
   const withMeta: IngredientInput[] = lines.map((l) => {
     const p = parseIngredient(l)
     return { ...l, ingredient: l.ingredient ?? data[p.name.toLowerCase()] }
   })
   const preview = withMeta.map((l) => {
     const p = parseIngredient(l)
-    return { line: p.originalText, name: p.name, quantity: p.quantityMetric, unit: p.unitMetric, prepNote: p.prepNote, skipImpact: p.skipImpact }
+    return {
+      line: p.originalText,
+      name: p.name,
+      quantity: p.quantityMetric,
+      unit: p.unitMetric,
+      prepNote: p.prepNote,
+      skipImpact: p.skipImpact,
+    }
   })
-  if (input.dryRun) return { saved: false, parsed: { title, servings, ingredients: preview, steps: stepList } }
+  if (input.dryRun)
+    return { saved: false, parsed: { title, servings, ingredients: preview, steps: stepList } }
   const res = await saveRecipe(db, actor, {
     recipeTitle: title,
     title,
@@ -931,13 +1026,22 @@ export async function scaleRecipe(db: Db, actor: Actor, input: ScaleInput) {
     cookTimeMinutes: input.cookTimeMinutes ?? v.version.activeMinutes ?? undefined,
   })
   const lines = res.lines.map((l, i) => {
-    const q = l.amount !== null ? ({ amount: l.amount, unit: l.unit, approx: l.approx ?? false } as Quantity) : null
+    const q =
+      l.amount !== null
+        ? ({ amount: l.amount, unit: l.unit, approx: l.approx ?? false } as Quantity)
+        : null
     const fmt = (qq: Quantity | null) =>
-      qq ? formatQuantity(qq, prefs, { category: l.category, density: l.density ?? null }).text : null
+      qq
+        ? formatQuantity(qq, prefs, { category: l.category, density: l.density ?? null }).text
+        : null
     return {
       name: l.name,
       original: v.lines[i].line.originalText,
-      base: fmt(l.baseAmount !== null ? ({ amount: l.baseAmount, unit: l.unit, approx: false } as Quantity) : null),
+      base: fmt(
+        l.baseAmount !== null
+          ? ({ amount: l.baseAmount, unit: l.unit, approx: false } as Quantity)
+          : null,
+      ),
       scaled: fmt(q),
       quantity: q && { amount: q.amount, unit: q.unit },
       rounded: l.rounded,
@@ -952,7 +1056,10 @@ export async function scaleRecipe(db: Db, actor: Actor, input: ScaleInput) {
       servings: v.version.servings ? Math.round(v.version.servings * res.factor) : undefined,
       ingredients: res.lines.map((l, i) => {
         const orig = v.lines[i]
-        const text = l.amount !== null ? `${formatQuantity({ amount: l.amount, unit: l.unit, approx: false }, prefs, { category: l.category, density: l.density ?? null }).text} ${l.name}` : orig.line.originalText
+        const text =
+          l.amount !== null
+            ? `${formatQuantity({ amount: l.amount, unit: l.unit, approx: false }, prefs, { category: l.category, density: l.density ?? null }).text} ${l.name}`
+            : orig.line.originalText
         return {
           text: l.amount !== null && orig.ingredient ? undefined : text,
           name: orig.ingredient?.name ?? l.name,
@@ -1007,10 +1114,19 @@ const DIFF_RANK = { easy: 0, average: 1, a_pain: 2 } as const
 
 /** An FTS5 MATCH expression for the words of `q`, folding other transliterations (Shabbos, kitniyos) together. */
 export function ftsQuery(q: string): string | null {
-  const words = q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).slice(0, 8)
+  const words = q
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .slice(0, 8)
   if (!words.length) return null
   return words
-    .map((w) => `(${wordVariants(w).map((v) => `"${v}"*`).join(' OR ')})`)
+    .map(
+      (w) =>
+        `(${wordVariants(w)
+          .map((v) => `"${v}"*`)
+          .join(' OR ')})`,
+    )
     .join(' AND ')
 }
 
@@ -1020,7 +1136,11 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
       .select()
       .from(s.collections)
       .where(
-        and(eq(s.collections.id, input.collectionId), eq(s.collections.householdId, actor.householdId), isNull(s.collections.deletedAt)),
+        and(
+          eq(s.collections.id, input.collectionId),
+          eq(s.collections.householdId, actor.householdId),
+          isNull(s.collections.deletedAt),
+        ),
       )
     if (!c) throw notFound('Collection')
     input = { ...(c.filters as SearchInput), ...stripUndefined(input) }
@@ -1053,7 +1173,8 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     if (input.kashrut && versionKashrut(v) !== input.kashrut) return false
     if (input.difficulty && x.difficulty !== input.difficulty) return false
     if (input.maxCost && (x.cost ?? 0) > input.maxCost) return false
-    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes) return false
+    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes)
+      return false
     if (input.pesach && !pesachCheck(v).friendly) return false
     return true
   })
@@ -1061,13 +1182,21 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     const dim = await findDimension(db, actor, input.dimension)
     if (!dim) return { total: 0, results: [], disclaimer: null }
     const min = FIT_RANK[input.minFit ?? 'good']
-    hits = hits.filter((v) => v.dims.some((d) => d.dimension.id === dim.id && FIT_RANK[d.fit] >= min))
+    hits = hits.filter((v) =>
+      v.dims.some((d) => d.dimension.id === dim.id && FIT_RANK[d.fit] >= min),
+    )
   }
 
   // 3. Serving history (this household's layer).
-  const served = await servedMap(db, actor.householdId, hits.map((v) => v.version.id))
+  const served = await servedMap(
+    db,
+    actor.householdId,
+    hits.map((v) => v.version.id),
+  )
   if (input.notServedWeeks) {
-    const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - input.notServedWeeks * 7 * 86_400_000)
+    const cutoff = new Date(
+      Date.parse(`${today}T00:00:00Z`) - input.notServedWeeks * 7 * 86_400_000,
+    )
       .toISOString()
       .slice(0, 10)
     hits = hits.filter((v) => {
@@ -1082,7 +1211,11 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
   if (input.safeFor?.length) {
     const people = await loadEffectivePeople(db, actor, input.safeFor)
     if (people.length !== unique(input.safeFor).length) throw notFound('Person')
-    const host = await loadEffectivePeople(db, actor, await householdPersonIds(db, actor.householdId))
+    const host = await loadEffectivePeople(
+      db,
+      actor,
+      await householdPersonIds(db, actor.householdId),
+    )
     checked = true
     for (const p of people) {
       const checker = createDishChecker({
@@ -1110,13 +1243,22 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
   hits.sort((a, b) => {
     switch (sort) {
       case 'relevance':
-        return (order?.get(a.version.id) ?? 0) - (order?.get(b.version.id) ?? 0) || title(a).localeCompare(title(b))
+        return (
+          (order?.get(a.version.id) ?? 0) - (order?.get(b.version.id) ?? 0) ||
+          title(a).localeCompare(title(b))
+        )
       case 'quickest':
         return (a.version.totalMinutes ?? 9999) - (b.version.totalMinutes ?? 9999)
       case 'easiest':
-        return (DIFF_RANK[a.version.difficulty ?? 'average'] - DIFF_RANK[b.version.difficulty ?? 'average']) || title(a).localeCompare(title(b))
+        return (
+          DIFF_RANK[a.version.difficulty ?? 'average'] -
+            DIFF_RANK[b.version.difficulty ?? 'average'] || title(a).localeCompare(title(b))
+        )
       case 'longest_unserved':
-        return (served.get(a.version.id) ?? '').localeCompare(served.get(b.version.id) ?? '') || title(a).localeCompare(title(b))
+        return (
+          (served.get(a.version.id) ?? '').localeCompare(served.get(b.version.id) ?? '') ||
+          title(a).localeCompare(title(b))
+        )
       default:
         return title(a).localeCompare(title(b)) || a.version.title.localeCompare(b.version.title)
     }
@@ -1158,7 +1300,11 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
 }
 
 /** Most recent day each version was served to anyone, from this household's serving history. */
-export async function servedMap(db: Db, householdId: string, versionIds: string[]): Promise<Map<string, string>> {
+export async function servedMap(
+  db: Db,
+  householdId: string,
+  versionIds: string[],
+): Promise<Map<string, string>> {
   const rows = await inChunks(versionIds, (part) =>
     db
       .select({ versionId: s.servedLog.versionId, last: sql<string>`max(${s.servedLog.servedOn})` })
@@ -1176,7 +1322,13 @@ export async function servedMap(db: Db, householdId: string, versionIds: string[
 }
 
 /** Sets how well a version suits a dimension, checking the version is yours. */
-export async function setRecipeFit(db: Db, actor: Actor, versionId: string, dimension: string, fit: string | null) {
+export async function setRecipeFit(
+  db: Db,
+  actor: Actor,
+  versionId: string,
+  dimension: string,
+  fit: string | null,
+) {
   await requireVersion(db, actor, versionId)
   if (fit !== null) fitFromInput(fit)
   return setVersionFit(db, actor, versionId, dimension, fit, { createIfMissing: true })
@@ -1194,7 +1346,11 @@ export async function listCollections(db: Db, actor: Actor) {
   return rows.map((c) => ({ id: c.id, name: c.name, filters: c.filters }))
 }
 
-export async function saveCollection(db: Db, actor: Actor, input: { id?: string; name: string; filters: s.RecipeFilterSpec }) {
+export async function saveCollection(
+  db: Db,
+  actor: Actor,
+  input: { id?: string; name: string; filters: s.RecipeFilterSpec },
+) {
   if (input.id) {
     const res = await db
       .update(s.collections)
@@ -1220,4 +1376,3 @@ export async function deleteCollection(db: Db, actor: Actor, id: string) {
   if (!res.length) throw notFound('Collection')
   return { deleted: true }
 }
-

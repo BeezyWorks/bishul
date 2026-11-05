@@ -21,7 +21,12 @@ export function TextField({ label, hint, lines, accessibilityLabel, ...rest }: P
         placeholderTextColor={colors.muted}
         multiline={lines ? true : rest.multiline}
         {...rest}
-        style={[styles.input, lines ? { minHeight: lines * 22 + 22, textAlignVertical: 'top', paddingVertical: space.md } : null]}
+        style={[
+          styles.input,
+          lines
+            ? { minHeight: lines * 22 + 22, textAlignVertical: 'top', paddingVertical: space.md }
+            : null,
+        ]}
       />
       {hint ? <Text variant="small">{hint}</Text> : null}
     </View>

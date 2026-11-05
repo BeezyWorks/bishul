@@ -55,7 +55,9 @@ interface SnapshotVersion {
   parentIndex: number | null
 }
 
-function snapshotVersion(v: Awaited<ReturnType<typeof loadVersions>> extends Map<string, infer V> ? V : never): SnapshotVersion {
+function snapshotVersion(
+  v: Awaited<ReturnType<typeof loadVersions>> extends Map<string, infer V> ? V : never,
+): SnapshotVersion {
   const x = v.version
   return {
     title: x.title,
@@ -74,7 +76,10 @@ function snapshotVersion(v: Awaited<ReturnType<typeof loadVersions>> extends Map
     cost: x.cost,
     nutrition: x.nutrition,
     prePrep: (x.prePrep ?? []).map((p) => ({ step: p.step, leadMinutes: p.lead_minutes })),
-    steps: (x.steps ?? []).map((st) => ({ text: st.text, ...(st.timer_minutes && { timerMinutes: st.timer_minutes }) })),
+    steps: (x.steps ?? []).map((st) => ({
+      text: st.text,
+      ...(st.timer_minutes && { timerMinutes: st.timer_minutes }),
+    })),
     flags: Object.fromEntries(Object.entries(x.flags ?? {}).map(([k, f]) => [k, !!f?.value])),
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
     dimensions: v.dims.map((d) => ({ name: d.dimension.name, fit: d.fit })),
@@ -83,7 +88,10 @@ function snapshotVersion(v: Awaited<ReturnType<typeof loadVersions>> extends Map
       name: l.ingredient?.name ?? l.line.originalText,
       quantity:
         l.line.quantityMetric !== null
-          ? { amount: l.line.quantityMetric, unit: (l.line.unitMetric ?? 'piece') as 'g' | 'ml' | 'piece' }
+          ? {
+              amount: l.line.quantityMetric,
+              unit: (l.line.unitMetric ?? 'piece') as 'g' | 'ml' | 'piece',
+            }
           : null,
       prepNote: l.line.prepNote,
       skipImpact: l.line.skipImpact,
@@ -91,7 +99,9 @@ function snapshotVersion(v: Awaited<ReturnType<typeof loadVersions>> extends Map
         category: l.ingredient.category,
         aliases: l.ingredient.aliases ?? [],
         allergens: (l.ingredient.allergens ?? []).map((a) => a.tag),
-        flags: Object.fromEntries(Object.entries(l.ingredient.flags ?? {}).map(([k, f]) => [k, !!f?.value])),
+        flags: Object.fromEntries(
+          Object.entries(l.ingredient.flags ?? {}).map(([k, f]) => [k, !!f?.value]),
+        ),
         densityGPerMl: l.ingredient.densityGPerMl,
         gramsPerPiece: l.ingredient.gramsPerPiece,
         source: ingredientDataSource(l.ingredient),
@@ -120,14 +130,24 @@ export async function createShare(db: Db, actor: Actor, publicUrl: string, input
     const [recipe] = await db
       .select()
       .from(s.recipes)
-      .where(and(eq(s.recipes.id, input.targetId), eq(s.recipes.householdId, actor.householdId), isNull(s.recipes.deletedAt)))
+      .where(
+        and(
+          eq(s.recipes.id, input.targetId),
+          eq(s.recipes.householdId, actor.householdId),
+          isNull(s.recipes.deletedAt),
+        ),
+      )
     if (!recipe) throw notFound('Recipe')
     const rows = await db
       .select({ id: s.recipeVersions.id, parent: s.recipeVersions.parentVersionId })
       .from(s.recipeVersions)
       .where(and(eq(s.recipeVersions.recipeId, recipe.id), isNull(s.recipeVersions.deletedAt)))
       .orderBy(s.recipeVersions.createdAt)
-    const loaded = await loadVersions(db, actor.householdId, rows.map((r) => r.id))
+    const loaded = await loadVersions(
+      db,
+      actor.householdId,
+      rows.map((r) => r.id),
+    )
     title = recipe.title
     snapshot = {
       kind: 'dish',
@@ -143,11 +163,23 @@ export async function createShare(db: Db, actor: Actor, publicUrl: string, input
     const cons = await db
       .select()
       .from(s.constraints)
-      .where(and(eq(s.constraints.personId, acc.person.id), isNull(s.constraints.layerHouseholdId), isNull(s.constraints.deletedAt)))
+      .where(
+        and(
+          eq(s.constraints.personId, acc.person.id),
+          isNull(s.constraints.layerHouseholdId),
+          isNull(s.constraints.deletedAt),
+        ),
+      )
     const rules = await db
       .select()
       .from(s.personRules)
-      .where(and(eq(s.personRules.personId, acc.person.id), isNull(s.personRules.layerHouseholdId), isNull(s.personRules.deletedAt)))
+      .where(
+        and(
+          eq(s.personRules.personId, acc.person.id),
+          isNull(s.personRules.layerHouseholdId),
+          isNull(s.personRules.deletedAt),
+        ),
+      )
     title = acc.person.name
     // The person's own data only: never anything a household added about them.
     snapshot = {
@@ -167,16 +199,35 @@ export async function createShare(db: Db, actor: Actor, publicUrl: string, input
   const token = randomToken(18)
   const [row] = await db
     .insert(s.shareLinks)
-    .values({ token, kind: input.kind, targetId: input.targetId, snapshot: { ...(snapshot as object), sharedAt: Date.now() }, createdBy: actor.userId })
+    .values({
+      token,
+      kind: input.kind,
+      targetId: input.targetId,
+      snapshot: { ...(snapshot as object), sharedAt: Date.now() },
+      createdBy: actor.userId,
+    })
     .returning()
-  return { id: row.id, token, kind: input.kind, title, url: `${publicUrl.replace(/\/$/, '')}/s/${token}`, createdAt: row.createdAt }
+  return {
+    id: row.id,
+    token,
+    kind: input.kind,
+    title,
+    url: `${publicUrl.replace(/\/$/, '')}/s/${token}`,
+    createdAt: row.createdAt,
+  }
 }
 
 export async function listShares(db: Db, actor: Actor, publicUrl: string) {
   const rows = await db
     .select()
     .from(s.shareLinks)
-    .where(and(eq(s.shareLinks.createdBy, actor.userId), isNull(s.shareLinks.revokedAt), isNull(s.shareLinks.deletedAt)))
+    .where(
+      and(
+        eq(s.shareLinks.createdBy, actor.userId),
+        isNull(s.shareLinks.revokedAt),
+        isNull(s.shareLinks.deletedAt),
+      ),
+    )
     .orderBy(desc(s.shareLinks.createdAt))
   return rows.map((r) => ({
     id: r.id,
@@ -192,7 +243,11 @@ export async function revokeShare(db: Db, actor: Actor, idOrToken: string) {
     .select()
     .from(s.shareLinks)
     .where(and(eq(s.shareLinks.createdBy, actor.userId), isNull(s.shareLinks.deletedAt)))
-    .then((rows) => rows.filter((r) => r.id === idOrToken || r.token === idOrToken || idOrToken.endsWith(`/s/${r.token}`)))
+    .then((rows) =>
+      rows.filter(
+        (r) => r.id === idOrToken || r.token === idOrToken || idOrToken.endsWith(`/s/${r.token}`),
+      ),
+    )
   if (!row) throw notFound('Share link')
   await db.update(s.shareLinks).set({ revokedAt: Date.now() }).where(eq(s.shareLinks.id, row.id))
   return { revoked: true }
@@ -254,7 +309,12 @@ function toInput(v: SnapshotVersion): SaveRecipeInput {
 
 /** Saves a shared recipe into the household as an independent copy that keeps the original's lineage. */
 export async function saveShared(db: Db, actor: Actor, token: string) {
-  const shared = (await getShared(db, token)) as { kind: string; recipe?: { title: string }; version?: SnapshotVersion; versions?: SnapshotVersion[] }
+  const shared = (await getShared(db, token)) as {
+    kind: string
+    recipe?: { title: string }
+    version?: SnapshotVersion
+    versions?: SnapshotVersion[]
+  }
   if (shared.kind === 'profile')
     throw invalid('This is a profile link. Use link_contact on a contact to link it.')
   const versions = shared.kind === 'version' ? [shared.version!] : shared.versions!
@@ -271,7 +331,8 @@ export async function saveShared(db: Db, actor: Actor, token: string) {
       .update(s.recipeVersions)
       .set({
         lineageId: v.lineageId,
-        parentVersionId: v.parentIndex !== null && v.parentIndex >= 0 ? created[v.parentIndex] : null,
+        parentVersionId:
+          v.parentIndex !== null && v.parentIndex >= 0 ? created[v.parentIndex] : null,
       })
       .where(eq(s.recipeVersions.id, res.version.id))
     created.push(res.version.id)
@@ -293,7 +354,14 @@ export async function createApiKey(db: Db, userId: string, scope: 'read' | 'writ
     .insert(s.apiKeys)
     .values({ userId, hashedKey: await sha256Hex(key), prefix: key.slice(0, 12), scope })
     .returning()
-  return { id: row.id, key, prefix: row.prefix, scope, createdAt: row.createdAt, note: 'Copy this key now: it is shown only once.' }
+  return {
+    id: row.id,
+    key,
+    prefix: row.prefix,
+    scope,
+    createdAt: row.createdAt,
+    note: 'Copy this key now: it is shown only once.',
+  }
 }
 
 export async function listApiKeys(db: Db, userId: string) {
@@ -328,7 +396,13 @@ export async function authenticateApiKey(db: Db, raw: string) {
   const [row] = await db
     .select()
     .from(s.apiKeys)
-    .where(and(eq(s.apiKeys.hashedKey, await sha256Hex(raw)), isNull(s.apiKeys.revokedAt), isNull(s.apiKeys.deletedAt)))
+    .where(
+      and(
+        eq(s.apiKeys.hashedKey, await sha256Hex(raw)),
+        isNull(s.apiKeys.revokedAt),
+        isNull(s.apiKeys.deletedAt),
+      ),
+    )
   if (!row) return null
   const now = Date.now()
   if (!row.lastUsedAt || now - row.lastUsedAt > LAST_USED_EVERY_MS)

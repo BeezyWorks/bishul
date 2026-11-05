@@ -67,6 +67,8 @@ export interface BishulApi {
   setAttendees(mealId: Id, attendees: { guestIds: Id[]; notComing: Id[] }): Promise<MealDetail>
   addMenuItem(mealId: Id, course: Course, item: MenuItemInput): Promise<MealDetail>
   removeMenuItem(mealId: Id, itemId: Id): Promise<MealDetail>
+  /** Check a dish off (or back on) the accepted menu. Does not reopen the meal. */
+  setItemDone(mealId: Id, itemId: Id, done: boolean): Promise<MealDetail>
   getSuggestions(mealId: Id, course: Course): Promise<SuggestionResult>
   /** Fills the menu with a balanced set from the top suggestions. */
   suggestMenu(mealId: Id): Promise<MealDetail>
@@ -96,9 +98,13 @@ export interface BishulApi {
   addPerson(input: {
     name: string
     isChild?: boolean
+    birthDate?: string
+    age?: number
     contactHouseholdId?: Id
     newContactHousehold?: string
   }): Promise<Person>
+  /** Set a birthday (exact) or an age (estimated); null clears it. */
+  setPersonBirth(personId: Id, input: { birthDate: string | null } | { age: number }): Promise<void>
   addConstraint(personId: Id, constraint: ConstraintInput): Promise<void>
   removeConstraint(personId: Id, constraintId: Id): Promise<void>
   setPersonRules(personId: Id, rules: string[]): Promise<void>

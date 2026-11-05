@@ -1,5 +1,5 @@
 import { todayIn } from '@beitecha/engine'
-import type { HouseholdLocation as CoreLocation } from '@bishul/core'
+import { ageOn, type HouseholdLocation as CoreLocation } from '@bishul/core'
 import { and, eq, isNull } from 'drizzle-orm'
 
 import * as s from '../db/schema'
@@ -119,7 +119,14 @@ export async function getHousehold(db: Db, actor: Actor) {
       personId: people.find((p) => p.userId === m.userId)?.id ?? null,
       isYou: m.userId === actor.userId,
     })),
-    persons: people.map((p) => ({ id: p.id, name: p.name, isChild: p.isChild, userId: p.userId })),
+    persons: people.map((p) => ({
+      id: p.id,
+      name: p.name,
+      isChild: p.isChild,
+      birthDate: p.birthDate,
+      age: p.birthDate ? ageOn(p.birthDate, todayIn((loc ?? DEFAULT_LOCATION).timeZone)) : null,
+      userId: p.userId,
+    })),
     pendingInvites: invites.map((i) => ({
       id: i.id,
       expiresAt: i.expiresAt,
@@ -173,7 +180,10 @@ export async function revokeInvite(db: Db, actor: Actor, inviteId: string) {
     .update(s.householdInvites)
     .set({ revokedAt: Date.now() })
     .where(
-      and(eq(s.householdInvites.id, inviteId), eq(s.householdInvites.householdId, actor.householdId)),
+      and(
+        eq(s.householdInvites.id, inviteId),
+        eq(s.householdInvites.householdId, actor.householdId),
+      ),
     )
     .returning({ id: s.householdInvites.id })
   if (!res.length) throw notFound('Invite')
@@ -182,7 +192,10 @@ export async function revokeInvite(db: Db, actor: Actor, inviteId: string) {
 
 /** What an invite link opens: the household's name, before the person decides to join. */
 export async function previewInvite(db: Db, token: string) {
-  const [inv] = await db.select().from(s.householdInvites).where(eq(s.householdInvites.token, token))
+  const [inv] = await db
+    .select()
+    .from(s.householdInvites)
+    .where(eq(s.householdInvites.token, token))
   if (!inv || inv.revokedAt || inv.acceptedAt || inv.expiresAt < Date.now())
     throw notFound('Invite')
   const h = await loadHousehold(db, inv.householdId)
@@ -194,7 +207,10 @@ export async function previewInvite(db: Db, token: string) {
  * with them (pantry, equipment and meals stay behind in the retired household).
  */
 export async function acceptInvite(db: Db, user: UserIdentity, token: string) {
-  const [inv] = await db.select().from(s.householdInvites).where(eq(s.householdInvites.token, token))
+  const [inv] = await db
+    .select()
+    .from(s.householdInvites)
+    .where(eq(s.householdInvites.token, token))
   if (!inv || inv.revokedAt || inv.acceptedAt || inv.expiresAt < Date.now())
     throw notFound('Invite')
   const actor = await ensureActor(db, user, 'web')
@@ -202,23 +218,33 @@ export async function acceptInvite(db: Db, user: UserIdentity, token: string) {
   const current = await db
     .select()
     .from(s.householdMembers)
-    .where(and(eq(s.householdMembers.householdId, actor.householdId), isNull(s.householdMembers.deletedAt)))
-  if (current.length > 1)
-    throw conflict('Leave your current household before joining another one.')
+    .where(
+      and(
+        eq(s.householdMembers.householdId, actor.householdId),
+        isNull(s.householdMembers.deletedAt),
+      ),
+    )
+  if (current.length > 1) throw conflict('Leave your current household before joining another one.')
 
   const target = inv.householdId
   const old = actor.householdId
   await db.batch([
-    db.update(s.persons).set({ householdId: target }).where(
-      and(eq(s.persons.householdId, old), eq(s.persons.userId, user.id)),
-    ),
-    db.update(s.recipes).set({ householdId: target }).where(
-      and(eq(s.recipes.householdId, old), eq(s.recipes.ownerUserId, user.id)),
-    ),
-    db.update(s.households).set({ ghostOfHouseholdId: target }).where(eq(s.households.ghostOfHouseholdId, old)),
-    db.update(s.householdMembers).set({ deletedAt: Date.now() }).where(
-      and(eq(s.householdMembers.householdId, old), eq(s.householdMembers.userId, user.id)),
-    ),
+    db
+      .update(s.persons)
+      .set({ householdId: target })
+      .where(and(eq(s.persons.householdId, old), eq(s.persons.userId, user.id))),
+    db
+      .update(s.recipes)
+      .set({ householdId: target })
+      .where(and(eq(s.recipes.householdId, old), eq(s.recipes.ownerUserId, user.id))),
+    db
+      .update(s.households)
+      .set({ ghostOfHouseholdId: target })
+      .where(eq(s.households.ghostOfHouseholdId, old)),
+    db
+      .update(s.householdMembers)
+      .set({ deletedAt: Date.now() })
+      .where(and(eq(s.householdMembers.householdId, old), eq(s.householdMembers.userId, user.id))),
     db.insert(s.householdMembers).values({ householdId: target, userId: user.id, role: 'member' }),
     db.update(s.households).set({ deletedAt: Date.now() }).where(eq(s.households.id, old)),
     db
@@ -241,17 +267,22 @@ export async function leaveHousehold(db: Db, user: UserIdentity, actor: Actor) {
     throw forbidden('Transfer ownership to another member before leaving.')
   const newId = await createHouseholdOfOne(db, user)
   // The new household's fresh person is replaced by the leaver's existing one.
-  await db.delete(s.persons).where(and(eq(s.persons.householdId, newId), eq(s.persons.userId, user.id)))
+  await db
+    .delete(s.persons)
+    .where(and(eq(s.persons.householdId, newId), eq(s.persons.userId, user.id)))
   await db.batch([
-    db.update(s.persons).set({ householdId: newId }).where(
-      and(eq(s.persons.householdId, h.id), eq(s.persons.userId, user.id)),
-    ),
-    db.update(s.recipes).set({ householdId: newId }).where(
-      and(eq(s.recipes.householdId, h.id), eq(s.recipes.ownerUserId, user.id)),
-    ),
-    db.update(s.householdMembers).set({ deletedAt: Date.now() }).where(
-      and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, user.id)),
-    ),
+    db
+      .update(s.persons)
+      .set({ householdId: newId })
+      .where(and(eq(s.persons.householdId, h.id), eq(s.persons.userId, user.id))),
+    db
+      .update(s.recipes)
+      .set({ householdId: newId })
+      .where(and(eq(s.recipes.householdId, h.id), eq(s.recipes.ownerUserId, user.id))),
+    db
+      .update(s.householdMembers)
+      .set({ deletedAt: Date.now() })
+      .where(and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, user.id))),
   ])
   return { householdId: newId }
 }
@@ -272,12 +303,18 @@ export async function transferOwnership(db: Db, actor: Actor, toUserId: string) 
   if (!m) throw notFound('Member')
   await db.batch([
     db.update(s.households).set({ ownerUserId: toUserId }).where(eq(s.households.id, h.id)),
-    db.update(s.householdMembers).set({ role: 'member' }).where(
-      and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, actor.userId)),
-    ),
-    db.update(s.householdMembers).set({ role: 'owner' }).where(
-      and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, toUserId)),
-    ),
+    db
+      .update(s.householdMembers)
+      .set({ role: 'member' })
+      .where(
+        and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, actor.userId)),
+      ),
+    db
+      .update(s.householdMembers)
+      .set({ role: 'owner' })
+      .where(
+        and(eq(s.householdMembers.householdId, h.id), eq(s.householdMembers.userId, toUserId)),
+      ),
   ])
   return getHousehold(db, actor)
 }

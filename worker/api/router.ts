@@ -30,7 +30,8 @@ async function sessionAuth(c: Ctx): Promise<Auth> {
 /** `/v1`: `Authorization: Bearer bsk_…`. Bad keys count against the caller's IP. */
 async function keyAuth(c: Ctx): Promise<Auth> {
   const match = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')
-  if (!match) throw new ApiError(401, 'unauthorized', 'Send your API key as "Authorization: Bearer bsk_…"')
+  if (!match)
+    throw new ApiError(401, 'unauthorized', 'Send your API key as "Authorization: Bearer bsk_…"')
   const db = openDb(c.env.DB)
   const key = await authenticateApiKey(db, match[1])
   if (!key) {
@@ -74,10 +75,18 @@ function register(app: App, base: '/api' | '/v1', auth: (c: Ctx) => Promise<Auth
     const handler = async (c: Ctx) => {
       const a = op.public ? null : await auth(c)
       const hasBody = op.method === 'post' || op.method === 'put' || op.method === 'patch'
-      const raw = { ...Object.fromEntries(new URL(c.req.url).searchParams), ...(hasBody ? await body(c) : {}), ...c.req.param() }
+      const raw = {
+        ...Object.fromEntries(new URL(c.req.url).searchParams),
+        ...(hasBody ? await body(c) : {}),
+        ...c.req.param(),
+      }
       const input = parseInput(op, raw)
       if (a && a.scope === 'read' && (op.scope === 'write' || op.needsWrite?.(input as never)))
-        throw new ApiError(403, 'insufficient_scope', 'This API key is read-only. Create a read-write key to change data.')
+        throw new ApiError(
+          403,
+          'insufficient_scope',
+          'This API key is read-only. Create a read-write key to change data.',
+        )
       const db = openDb(c.env.DB)
       const actor: Actor = a
         ? await ensureActor(db, a.user, a.via)
@@ -102,8 +111,17 @@ export function onError(err: Error, c: Ctx): Response {
   if (err instanceof HttpError)
     return apiFail(err.status, err.status === 401 ? 'unauthorized' : 'error', err.message)
   if (err instanceof ZodError) return apiFail(400, 'invalid', describeIssues(err), err.issues)
-  console.error('unhandled', c.req.method, new URL(c.req.url).pathname, err instanceof Error ? err.message : err)
-  return apiFail(500, 'internal', 'Something went wrong on our side. Nothing was lost; try again in a moment.')
+  console.error(
+    'unhandled',
+    c.req.method,
+    new URL(c.req.url).pathname,
+    err instanceof Error ? err.message : err,
+  )
+  return apiFail(
+    500,
+    'internal',
+    'Something went wrong on our side. Nothing was lost; try again in a moment.',
+  )
 }
 
 export function mountApi(app: App) {

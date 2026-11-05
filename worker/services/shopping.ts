@@ -27,7 +27,11 @@ function addDaysStr(date: string, n: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 }
 
-export async function getShoppingList(db: Db, actor: Actor, input: { from?: string; to?: string } = {}) {
+export async function getShoppingList(
+  db: Db,
+  actor: Actor,
+  input: { from?: string; to?: string } = {},
+) {
   await settlePassedMeals(db, actor.householdId)
   const loc = await householdLocation(db, actor.householdId)
   const today = todayIn(loc.timeZone)
@@ -72,9 +76,17 @@ export async function getShoppingList(db: Db, actor: Actor, input: { from?: stri
       name: l.name,
       display: l.display,
       toBuyDisplay: l.toBuyDisplay,
-      needed: l.needed.map((q) => ({ amount: q.amount, unit: q.unit, text: fmt(q, l.name, density) })),
+      needed: l.needed.map((q) => ({
+        amount: q.amount,
+        unit: q.unit,
+        text: fmt(q, l.name, density),
+      })),
       have: l.have.map((q) => ({ amount: q.amount, unit: q.unit, text: fmt(q, l.name, density) })),
-      toBuy: l.toBuy.map((q) => ({ amount: q.amount, unit: q.unit, text: fmt(q, l.name, density) })),
+      toBuy: l.toBuy.map((q) => ({
+        amount: q.amount,
+        unit: q.unit,
+        text: fmt(q, l.name, density),
+      })),
       covered: l.covered,
       unquantified: l.unquantified,
       mealIds: l.mealIds,
@@ -117,7 +129,8 @@ export async function getShoppingList(db: Db, actor: Actor, input: { from?: stri
     to,
     mealCount: meals.length,
     lines: all,
-    buyCount: all.filter((l) => !l.checked && (l.manual || l.toBuy.length || l.unquantified)).length,
+    buyCount: all.filter((l) => !l.checked && (l.manual || l.toBuy.length || l.unquantified))
+      .length,
     note: meals.length
       ? 'Totals are what the accepted meals need minus unexpired pantry stock.'
       : 'No accepted meals in this range, so there is nothing to buy yet. Accept a menu first.',
@@ -172,14 +185,22 @@ export async function updateShoppingList(db: Db, actor: Actor, input: ShoppingUp
     byKey.set(`manual:${created.id}`, created)
   }
   for (const c of input.check ?? [])
-    await db.update(s.shoppingList).set({ checked: c.checked }).where(eq(s.shoppingList.id, (await row(c.key)).id))
+    await db
+      .update(s.shoppingList)
+      .set({ checked: c.checked })
+      .where(eq(s.shoppingList.id, (await row(c.key)).id))
   for (const n of input.notes ?? [])
-    await db.update(s.shoppingList).set({ note: n.note }).where(eq(s.shoppingList.id, (await row(n.key)).id))
+    await db
+      .update(s.shoppingList)
+      .set({ note: n.note })
+      .where(eq(s.shoppingList.id, (await row(n.key)).id))
   if (input.uncheckAll)
     await db
       .update(s.shoppingList)
       .set({ checked: false })
-      .where(and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)))
+      .where(
+        and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)),
+      )
   if (input.order) {
     const stmts = []
     for (let i = 0; i < input.order.length; i++) {
@@ -190,7 +211,11 @@ export async function updateShoppingList(db: Db, actor: Actor, input: ShoppingUp
   }
   for (const k of input.removeKeys ?? []) {
     const r = byKey.get(k)
-    if (r) await db.update(s.shoppingList).set({ deletedAt: Date.now() }).where(eq(s.shoppingList.id, r.id))
+    if (r)
+      await db
+        .update(s.shoppingList)
+        .set({ deletedAt: Date.now() })
+        .where(eq(s.shoppingList.id, r.id))
   }
   return getShoppingList(db, actor)
 }
@@ -198,7 +223,10 @@ export async function updateShoppingList(db: Db, actor: Actor, input: ShoppingUp
 // ---------------------------------------------------------------------------------------------------------------
 // Prep schedule (BRIEF §9)
 
-function slotFor(meal: { name: string; date: string; time: number | null }, day: ReturnType<typeof calendarDays>[number]) {
+function slotFor(
+  meal: { name: string; date: string; time: number | null },
+  day: ReturnType<typeof calendarDays>[number],
+) {
   const n = meal.name.toLowerCase()
   if (/breakfast/.test(n)) return 'breakfast' as const
   if (/shlishit|third/.test(n)) return 'seudah_shlishit' as const
@@ -245,14 +273,18 @@ export async function getPrepSchedule(
           }
         const title = v.recipe.title
         const active = v.version.activeMinutes
-        if (active === null) assumptions.push(`${title} has no cooking times, so 30 minutes of work was assumed.`)
+        if (active === null)
+          assumptions.push(`${title} has no cooking times, so 30 minutes of work was assumed.`)
         const a = active ?? 30
         return {
           dishId: v.version.id,
           title,
           activeMinutes: a,
           totalMinutes: Math.max(v.version.totalMinutes ?? a, a),
-          prePrep: (v.version.prePrep ?? []).map((p) => ({ label: p.step, leadMinutes: p.lead_minutes })),
+          prePrep: (v.version.prePrep ?? []).map((p) => ({
+            label: p.step,
+            leadMinutes: p.lead_minutes,
+          })),
           servingStyle: v.version.servingStyle ?? ('hot' as const),
           holdsOnBlech: v.version.holdsOnBlech ?? undefined,
         }
@@ -260,7 +292,8 @@ export async function getPrepSchedule(
     }
   })
   const sched = buildPrepSchedule({ location: loc, meals: prepMeals })
-  const text = (m: number | undefined) => (m === undefined ? null : clock(((m % 1440) + 1440) % 1440))
+  const text = (m: number | undefined) =>
+    m === undefined ? null : clock(((m % 1440) + 1440) % 1440)
   return {
     from,
     to,
@@ -272,7 +305,8 @@ export async function getPrepSchedule(
     })),
     flags: sched.flags,
     assumptions: [...new Set(assumptions)],
-    note: meals.length ? null : 'No accepted meals in this range. Accept a menu to get a prep schedule.',
+    note: meals.length
+      ? null
+      : 'No accepted meals in this range. Accept a menu to get a prep schedule.',
   }
 }
-

@@ -26,7 +26,10 @@ export const call = (method: string, path: string, body?: unknown, token?: strin
 export async function api(who: string, method: string, path: string, body?: unknown, expect = 200) {
   const res = await call(method, `/api${path}`, body, who)
   const data = (await res.json()) as any
-  if (res.status !== expect) throw new Error(`${method} ${path} -> ${res.status} (wanted ${expect}): ${JSON.stringify(data)}`)
+  if (res.status !== expect)
+    throw new Error(
+      `${method} ${path} -> ${res.status} (wanted ${expect}): ${JSON.stringify(data)}`,
+    )
   return data
 }
 
@@ -49,7 +52,11 @@ export const rpc = async (token: string, method: string, params?: unknown, id = 
 export async function tool(token: string, name: string, args: unknown = {}) {
   const { data } = await rpc(token, 'tools/call', { name, arguments: args })
   if (data.error) throw new Error(JSON.stringify(data.error))
-  return { isError: data.result.isError as boolean, data: data.result.structuredContent as any, text: data.result.content[0].text as string }
+  return {
+    isError: data.result.isError as boolean,
+    data: data.result.structuredContent as any,
+    text: data.result.content[0].text as string,
+  }
 }
 
 /** The next Friday (erev Shabbat) on or after today, in YYYY-MM-DD, from the household's own calendar. */

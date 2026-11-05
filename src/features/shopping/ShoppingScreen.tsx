@@ -55,7 +55,9 @@ export function ShoppingScreen() {
             {left} to buy, {data.length - left} checked
           </Text>
           {data.length === 0 ? (
-            <Empty>Nothing to buy yet. Accept a meal and its ingredients appear here, or add your own.</Empty>
+            <Empty>
+              Nothing to buy yet. Accept a meal and its ingredients appear here, or add your own.
+            </Empty>
           ) : null}
           {data.map((l, i) => (
             <Line

@@ -1,16 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
-import {
-  AddMeal,
-  Button,
-  Card,
-  KindLabel,
-  Loading,
-  Screen,
-  Text,
-  useLayout,
-} from '@/components'
+import { AddMeal, Button, Card, KindLabel, Loading, Screen, Text, useLayout } from '@/components'
 import { MealChipView } from '@/components/MealChipView'
 import { api } from '@/lib/api/client'
 import { stale, useApiMutation, useCalendar, useToday } from '@/lib/api/hooks'

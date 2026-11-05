@@ -1,0 +1,1 @@
+ALTER TABLE `meal_items` ADD `done` integer DEFAULT false NOT NULL;

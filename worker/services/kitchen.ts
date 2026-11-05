@@ -34,7 +34,10 @@ export interface PantryInput {
   ingredient?: IngredientMeta
 }
 
-function parseAmount(q: string | number | undefined, unit?: string): { amount: number; unit: 'g' | 'ml' | 'piece' } | null {
+function parseAmount(
+  q: string | number | undefined,
+  unit?: string,
+): { amount: number; unit: 'g' | 'ml' | 'piece' } | null {
   if (q === undefined || q === '') return null
   if (typeof q === 'number') {
     const c = unit ? toCanonical(q, unit) : null
@@ -62,7 +65,9 @@ export async function listPantry(db: Db, actor: Actor, opts: { soonDays?: number
   const holds = computeHolds(items, plan.planned, cutoff)
   const mealById = new Map(upcoming.map((m) => [m.id, m]))
   const soon = new Set(expiringSoon(items, today, opts.soonDays ?? 7, cutoff).map((e) => e.item.id))
-  const soonInfo = new Map(expiringSoon(items, today, opts.soonDays ?? 7, cutoff).map((e) => [e.item.id, e]))
+  const soonInfo = new Map(
+    expiringSoon(items, today, opts.soonDays ?? 7, cutoff).map((e) => [e.item.id, e]),
+  )
 
   return {
     today,
@@ -81,16 +86,34 @@ export async function listPantry(db: Db, actor: Actor, opts: { soonDays?: number
           name: it.name,
           amount: it.amount,
           unit: it.unit,
-          display: it.amount > 0 ? formatQuantity(q, prefs, { category: displayCategory(it.name), density: it.density }).text : 'some',
+          display:
+            it.amount > 0
+              ? formatQuantity(q, prefs, {
+                  category: displayCategory(it.name),
+                  density: it.density,
+                }).text
+              : 'some',
           location: row.location,
           expiresOn: row.expiresOn,
           effectiveExpiry: eff ? eff.slice(0, 10) : null,
           chametz: !!it.chametz,
-          chametzLimited: soonInfo.get(it.id)?.chametzLimited ?? (!!it.chametz && !!eff && (!row.expiresOn || eff.slice(0, 10) < row.expiresOn)),
+          chametzLimited:
+            soonInfo.get(it.id)?.chametzLimited ??
+            (!!it.chametz && !!eff && (!row.expiresOn || eff.slice(0, 10) < row.expiresOn)),
           expired,
           expiringSoon: soon.has(it.id),
           daysLeft: soonInfo.get(it.id)?.daysLeft ?? null,
-          held: hold ? { amount: hold.held, unit: it.unit, display: formatQuantity({ amount: hold.held, unit: it.unit, approx: false }, prefs, { category: displayCategory(it.name), density: it.density }).text } : null,
+          held: hold
+            ? {
+                amount: hold.held,
+                unit: it.unit,
+                display: formatQuantity(
+                  { amount: hold.held, unit: it.unit, approx: false },
+                  prefs,
+                  { category: displayCategory(it.name), density: it.density },
+                ).text,
+              }
+            : null,
           heldFor: (hold?.mealIds ?? []).map((id) => ({
             mealId: id,
             name: mealById.get(id)?.name ?? '',
@@ -106,7 +129,13 @@ export async function addPantryItem(db: Db, actor: Actor, input: PantryInput) {
   if (!input.name?.trim()) throw invalid('A pantry item needs a name')
   if (input.expiresOn && !isDate(input.expiresOn)) throw invalid('expiresOn must be YYYY-MM-DD')
   const catalog = await loadCatalog(db, actor.householdId)
-  const { row } = await ensureIngredient(db, catalog, input.name, input.ingredient, actor.via === 'web' ? 'user' : 'ai')
+  const { row } = await ensureIngredient(
+    db,
+    catalog,
+    input.name,
+    input.ingredient,
+    actor.via === 'web' ? 'user' : 'ai',
+  )
   const amount = parseAmount(input.quantity, input.unit)
   const [item] = await db
     .insert(s.pantryItems)
@@ -126,7 +155,13 @@ async function requireItem(db: Db, actor: Actor, id: string) {
   const [it] = await db
     .select()
     .from(s.pantryItems)
-    .where(and(eq(s.pantryItems.id, id), eq(s.pantryItems.householdId, actor.householdId), isNull(s.pantryItems.deletedAt)))
+    .where(
+      and(
+        eq(s.pantryItems.id, id),
+        eq(s.pantryItems.householdId, actor.householdId),
+        isNull(s.pantryItems.deletedAt),
+      ),
+    )
   if (!it) throw notFound('Pantry item')
   return it
 }
@@ -144,7 +179,8 @@ export async function updatePantryItem(db: Db, actor: Actor, id: string, input: 
     if (input.expiresOn && !isDate(input.expiresOn)) throw invalid('expiresOn must be YYYY-MM-DD')
     patch.expiresOn = input.expiresOn
   }
-  if (Object.keys(patch).length) await db.update(s.pantryItems).set(patch).where(eq(s.pantryItems.id, id))
+  if (Object.keys(patch).length)
+    await db.update(s.pantryItems).set(patch).where(eq(s.pantryItems.id, id))
   return { id }
 }
 
@@ -176,7 +212,13 @@ export async function applyPantryChanges(db: Db, actor: Actor, changes: PantryCh
         const rows = await db
           .select()
           .from(s.pantryItems)
-          .where(and(eq(s.pantryItems.householdId, actor.householdId), eq(s.pantryItems.ingredientId, ing.id), isNull(s.pantryItems.deletedAt)))
+          .where(
+            and(
+              eq(s.pantryItems.householdId, actor.householdId),
+              eq(s.pantryItems.ingredientId, ing.id),
+              isNull(s.pantryItems.deletedAt),
+            ),
+          )
           .orderBy(asc(s.pantryItems.expiresOn))
         it = rows[0]
       }
@@ -192,7 +234,10 @@ export async function applyPantryChanges(db: Db, actor: Actor, changes: PantryCh
       const used = parseAmount(c.quantity, c.unit)
       if (!used) throw invalid('Say how much was used')
       const left = Math.max(0, (it.quantityMetric ?? 0) - used.amount)
-      await db.update(s.pantryItems).set({ quantityMetric: left }).where(eq(s.pantryItems.id, it.id))
+      await db
+        .update(s.pantryItems)
+        .set({ quantityMetric: left })
+        .where(eq(s.pantryItems.id, it.id))
       results.push({ op: 'use', id: it.id, note: left === 0 ? 'now empty' : undefined })
     }
   }
@@ -224,7 +269,13 @@ export async function saveEquipment(db: Db, actor: Actor, input: EquipmentInput)
     const [e] = await db
       .select()
       .from(s.equipment)
-      .where(and(eq(s.equipment.id, input.id), eq(s.equipment.householdId, actor.householdId), isNull(s.equipment.deletedAt)))
+      .where(
+        and(
+          eq(s.equipment.id, input.id),
+          eq(s.equipment.householdId, actor.householdId),
+          isNull(s.equipment.deletedAt),
+        ),
+      )
     if (!e) throw notFound('Equipment')
     if (input.remove) {
       await db.update(s.equipment).set({ deletedAt: Date.now() }).where(eq(s.equipment.id, e.id))

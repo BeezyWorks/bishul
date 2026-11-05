@@ -367,6 +367,8 @@ function buildReview(m: Meal): MealReview {
   }
 }
 
+const householdNameOf = (p: Person) => households.find((h) => h.id === p.householdId)?.name ?? ''
+
 function mealDetail(id: Id): MealDetail {
   const m = mealById(id)
   const guests = m.guestIds.map(personById).filter((p): p is Person => !!p)
@@ -375,8 +377,14 @@ function mealDetail(id: Id): MealDetail {
       person,
       coming: !m.notComing.includes(person.id),
       isGuest: false,
+      householdName: householdNameOf(person),
     })),
-    ...guests.map((person) => ({ person, coming: true, isGuest: true })),
+    ...guests.map((person) => ({
+      person,
+      coming: true,
+      isGuest: true,
+      householdName: householdNameOf(person),
+    })),
   ]
   return {
     meal: { ...m, items: m.items.map((it) => itemView(m, it)) },
@@ -907,6 +915,12 @@ export const mockApi: BishulApi = {
     return delay(mealDetail(id))
   },
 
+  setItemDone: async (id, itemId, done) => {
+    const it = mealById(id).items.find((i) => i.id === itemId)
+    if (it) it.done = done
+    return delay(mealDetail(id))
+  },
+
   getSuggestions: async (id, course) => delay(suggestionsFor(mealById(id), course)),
 
   suggestMenu: async (id) => {
@@ -1131,6 +1145,7 @@ export const mockApi: BishulApi = {
   saveVersion: async () => demoOnly(),
   createVariation: async () => demoOnly(),
   addPerson: async () => demoOnly(),
+  setPersonBirth: async () => demoOnly(),
   addConstraint: async () => demoOnly(),
   removeConstraint: async () => demoOnly(),
   setPersonRules: async () => demoOnly(),

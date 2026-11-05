@@ -85,7 +85,12 @@ export function AddMeal({
             onSubmitEditing={() => name.trim() && make(name)}
           />
         </View>
-        <Button label="Add" disabled={!name.trim()} loading={create.isPending} onPress={() => make(name)} />
+        <Button
+          label="Add"
+          disabled={!name.trim()}
+          loading={create.isPending}
+          onPress={() => make(name)}
+        />
         <Button label="Cancel" variant="ghost" onPress={() => setOpen(false)} />
       </View>
       {create.error ? (

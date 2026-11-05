@@ -1,4 +1,10 @@
-import { mergePrivateLayer, type Constraint, type Person } from '@bishul/core'
+import {
+  ageOn,
+  birthDateForAge,
+  mergePrivateLayer,
+  type Constraint,
+  type Person,
+} from '@bishul/core'
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 
 import * as s from '../db/schema'
@@ -12,6 +18,7 @@ import {
   type Actor,
   type Db,
 } from './ctx'
+import { householdToday } from './households'
 import {
   constraintToCore,
   isKnownRule,
@@ -87,7 +94,10 @@ export async function loadEffectivePeople(
   db: Db,
   actor: Actor,
   personIds: string[],
+  /** Ages are worked out on this day (a meal's date); default is today in the household's time zone. */
+  asOf?: string,
 ): Promise<EffectivePerson[]> {
+  const day = asOf ?? (await householdToday(db, actor.householdId))
   const access = await loadAccessiblePersons(db, actor, personIds)
   const ids = [...access.keys()]
   const links = await inChunks(ids, (part) =>
@@ -119,7 +129,9 @@ export async function loadEffectivePeople(
     const baseId = link?.realPersonId ?? id
     const base = [
       ...cons.filter((c) => c.personId === baseId && !c.layerHouseholdId).map(constraintToCore),
-      ...rules.filter((r) => r.personId === baseId && !r.layerHouseholdId).map((r) => ruleToCore(r.rule, 'self')),
+      ...rules
+        .filter((r) => r.personId === baseId && !r.layerHouseholdId)
+        .map((r) => ruleToCore(r.rule, 'self')),
     ]
     const additions: Constraint[] = [
       ...cons
@@ -130,8 +142,12 @@ export async function loadEffectivePeople(
         .map((r) => ruleToCore(r.rule)),
     ]
     // Own people with no layer: their rows are already in `base`.
+    const age = acc.person.birthDate ? ageOn(acc.person.birthDate, day) : null
     result.push({
-      person: mergePrivateLayer({ id, name: acc.person.name, constraints: base }, additions),
+      person: mergePrivateLayer(
+        { id, name: acc.person.name, ...(age !== null && { age }), constraints: base },
+        additions,
+      ),
       access: acc,
       link,
     })
@@ -165,6 +181,7 @@ export interface ConstraintView {
 }
 
 export async function loadPersonViews(db: Db, actor: Actor, personIds: string[]) {
+  const today = await householdToday(db, actor.householdId)
   const access = await loadAccessiblePersons(db, actor, personIds)
   const ids = [...access.keys()]
   const links = await inChunks(ids, (part) =>
@@ -226,7 +243,9 @@ export async function loadPersonViews(db: Db, actor: Actor, personIds: string[])
       )
       .orderBy(desc(s.servedLog.servedOn)),
   )
-  const versionIds = [...new Set([...reacts.map((r) => r.versionId), ...served.map((x) => x.versionId)])]
+  const versionIds = [
+    ...new Set([...reacts.map((r) => r.versionId), ...served.map((x) => x.versionId)]),
+  ]
   const titles = await versionTitles(db, versionIds)
   const hids = [...new Set([...access.values()].map((a) => a.household.id))]
   void hids
@@ -269,6 +288,9 @@ export async function loadPersonViews(db: Db, actor: Actor, personIds: string[])
       id,
       name: acc.person.name,
       isChild: acc.person.isChild,
+      birthDate: acc.person.birthDate,
+      birthDateApprox: acc.person.birthDateApprox,
+      age: acc.person.birthDate ? ageOn(acc.person.birthDate, today) : null,
       userId: acc.person.userId,
       householdId: acc.household.id,
       householdName: acc.household.name,
@@ -280,7 +302,12 @@ export async function loadPersonViews(db: Db, actor: Actor, personIds: string[])
       rules: myRules.map((r) => ({
         id: r.id,
         rule: r.rule,
-        layer: r.personId !== id ? ('profile' as const) : r.layerHouseholdId ? ('private' as const) : ('own' as const),
+        layer:
+          r.personId !== id
+            ? ('profile' as const)
+            : r.layerHouseholdId
+              ? ('private' as const)
+              : ('own' as const),
       })),
       notes: notes
         .filter((n) => n.aboutPersonId === id)
@@ -301,7 +328,8 @@ export async function loadPersonViews(db: Db, actor: Actor, personIds: string[])
   return views
 }
 
-export type PersonView = ReturnType<typeof loadPersonViews> extends Promise<Map<string, infer V>> ? V : never
+export type PersonView =
+  ReturnType<typeof loadPersonViews> extends Promise<Map<string, infer V>> ? V : never
 
 async function versionTitles(db: Db, versionIds: string[]): Promise<Map<string, string>> {
   const rows = await inChunks(versionIds, (part) =>
@@ -312,7 +340,10 @@ async function versionTitles(db: Db, versionIds: string[]): Promise<Map<string, 
       .where(inArray(s.recipeVersions.id, part)),
   )
   return new Map(
-    rows.map((r) => [r.id, r.title && r.title !== r.recipe ? `${r.recipe} (${r.title})` : r.recipe]),
+    rows.map((r) => [
+      r.id,
+      r.title && r.title !== r.recipe ? `${r.recipe} (${r.title})` : r.recipe,
+    ]),
   )
 }
 
@@ -364,7 +395,14 @@ export async function getPerson(db: Db, actor: Actor, personId: string) {
   const acc = await requirePerson(db, actor, personId)
   const views = await loadPersonViews(db, actor, [personId])
   return views.get(personId)!
-    ? { person: views.get(personId)!, household: { id: acc.household.id, name: acc.household.name, isContact: acc.relation === 'ghost' } }
+    ? {
+        person: views.get(personId)!,
+        household: {
+          id: acc.household.id,
+          name: acc.household.name,
+          isContact: acc.relation === 'ghost',
+        },
+      }
     : (() => {
         throw notFound('Person')
       })()
@@ -377,6 +415,10 @@ export interface SavePersonInput {
   id?: string
   name?: string
   isChild?: boolean
+  /** `YYYY-MM-DD`; the person then ages automatically. null clears it. */
+  birthDate?: string | null
+  /** A stated age ("he's 5") when the birthday isn't known: stored as an estimated birth date. Ignored if birthDate is given. */
+  age?: number | null
   /** Put a new person in this contact household (one you created). Omit for your own household. */
   contactHouseholdId?: string
   /** Create a new contact household with this name (a ghost) and put the person in it. */
@@ -385,15 +427,42 @@ export interface SavePersonInput {
   renameHousehold?: string
 }
 
+const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d))
+
+/** The stored birth fields for what the caller gave, or null when they said nothing about it. */
+async function birthPatch(db: Db, actor: Actor, input: SavePersonInput) {
+  const today = await householdToday(db, actor.householdId)
+  if (input.birthDate !== undefined) {
+    if (input.birthDate === null) return { birthDate: null, birthDateApprox: false }
+    if (!isDate(input.birthDate)) throw invalid('birthDate must be YYYY-MM-DD')
+    if (input.birthDate > today) throw invalid('birthDate cannot be in the future')
+    return { birthDate: input.birthDate, birthDateApprox: false }
+  }
+  if (input.age !== undefined) {
+    if (input.age === null) return { birthDate: null, birthDateApprox: false }
+    if (!Number.isInteger(input.age) || input.age < 0 || input.age > 120)
+      throw invalid('age must be a whole number from 0 to 120')
+    return { birthDate: birthDateForAge(input.age, today), birthDateApprox: true }
+  }
+  return null
+}
+
 export async function savePerson(db: Db, actor: Actor, input: SavePersonInput) {
+  const today = await householdToday(db, actor.householdId)
+  const birth = await birthPatch(db, actor, input)
   if (input.id) {
     const acc = await requirePerson(db, actor, input.id)
     const patch: Partial<typeof s.persons.$inferInsert> = {}
     if (input.name) patch.name = input.name
     if (input.isChild !== undefined) patch.isChild = input.isChild
-    if (Object.keys(patch).length) await db.update(s.persons).set(patch).where(eq(s.persons.id, input.id))
+    if (birth) Object.assign(patch, birth)
+    if (Object.keys(patch).length)
+      await db.update(s.persons).set(patch).where(eq(s.persons.id, input.id))
     if (input.renameHousehold && acc.relation === 'ghost')
-      await db.update(s.households).set({ name: input.renameHousehold }).where(eq(s.households.id, acc.household.id))
+      await db
+        .update(s.households)
+        .set({ name: input.renameHousehold })
+        .where(eq(s.households.id, acc.household.id))
     return (await getPerson(db, actor, input.id)).person
   }
   if (!input.name) throw invalid('A new person needs a name')
@@ -420,14 +489,21 @@ export async function savePerson(db: Db, actor: Actor, input: SavePersonInput) {
   }
   const [p] = await db
     .insert(s.persons)
-    .values({ householdId, name: input.name, isChild: input.isChild ?? false })
+    .values({
+      householdId,
+      name: input.name,
+      isChild:
+        input.isChild ?? (birth?.birthDate ? (ageOn(birth.birthDate, today) ?? 99) < 18 : false),
+      ...birth,
+    })
     .returning({ id: s.persons.id })
   return (await getPerson(db, actor, p.id)).person
 }
 
 export async function deletePerson(db: Db, actor: Actor, personId: string) {
   const acc = await requirePerson(db, actor, personId)
-  if (acc.person.userId) throw forbidden('A signed-in member cannot be deleted; use leave household.')
+  if (acc.person.userId)
+    throw forbidden('A signed-in member cannot be deleted; use leave household.')
   await db.update(s.persons).set({ deletedAt: Date.now() }).where(eq(s.persons.id, personId))
   return { deleted: true }
 }
@@ -436,7 +512,10 @@ export async function deleteContactHousehold(db: Db, actor: Actor, householdId: 
   const [g] = await db.select().from(s.households).where(eq(s.households.id, householdId))
   if (!g || !g.isGhost || g.ghostOfHouseholdId !== actor.householdId) throw notFound('Contact')
   await db.batch([
-    db.update(s.persons).set({ deletedAt: Date.now() }).where(eq(s.persons.householdId, householdId)),
+    db
+      .update(s.persons)
+      .set({ deletedAt: Date.now() })
+      .where(eq(s.persons.householdId, householdId)),
     db.update(s.households).set({ deletedAt: Date.now() }).where(eq(s.households.id, householdId)),
   ])
   return { deleted: true }
@@ -499,7 +578,13 @@ export async function setConstraints(db: Db, actor: Actor, input: SetConstraints
       db
         .update(s.constraints)
         .set({ deletedAt: now })
-        .where(and(eq(s.constraints.personId, input.personId), mine(s.constraints), isNull(s.constraints.deletedAt))),
+        .where(
+          and(
+            eq(s.constraints.personId, input.personId),
+            mine(s.constraints),
+            isNull(s.constraints.deletedAt),
+          ),
+        ),
     )
     for (const c of input.set) stmts.push(db.insert(s.constraints).values(build(c)))
   }
@@ -518,16 +603,25 @@ export async function setConstraints(db: Db, actor: Actor, input: SetConstraints
     )
   for (const c of input.add ?? []) stmts.push(db.insert(s.constraints).values(build(c)))
   if (input.rules) {
-    for (const r of input.rules)
-      if (!isKnownRule(r)) throw invalid(`Unknown rule "${r}"`)
+    for (const r of input.rules) if (!isKnownRule(r)) throw invalid(`Unknown rule "${r}"`)
     stmts.push(
       db
         .update(s.personRules)
         .set({ deletedAt: now })
-        .where(and(eq(s.personRules.personId, input.personId), mine(s.personRules), isNull(s.personRules.deletedAt))),
+        .where(
+          and(
+            eq(s.personRules.personId, input.personId),
+            mine(s.personRules),
+            isNull(s.personRules.deletedAt),
+          ),
+        ),
     )
     for (const r of new Set(input.rules))
-      stmts.push(db.insert(s.personRules).values({ personId: input.personId, rule: r, layerHouseholdId: layer }))
+      stmts.push(
+        db
+          .insert(s.personRules)
+          .values({ personId: input.personId, rule: r, layerHouseholdId: layer }),
+      )
   }
   for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50) as never)
   return (await getPerson(db, actor, input.personId)).person
@@ -593,7 +687,13 @@ export async function recordReaction(
       layerHouseholdId: actor.householdId,
     })
     .returning()
-  return { id: r.id, personId: r.personId, versionId: r.versionId, reaction: r.reaction, note: r.note }
+  return {
+    id: r.id,
+    personId: r.personId,
+    versionId: r.versionId,
+    reaction: r.reaction,
+    note: r.note,
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -605,7 +705,8 @@ export async function linkContact(
   input: { ghostPersonId: string; profileToken: string; mode: 'merge' | 'overwrite' },
 ) {
   const acc = await requirePerson(db, actor, input.ghostPersonId)
-  if (acc.relation !== 'ghost') throw invalid('Only a contact can be linked to someone else’s profile')
+  if (acc.relation !== 'ghost')
+    throw invalid('Only a contact can be linked to someone else’s profile')
   const [link] = await db
     .select()
     .from(s.shareLinks)
@@ -621,7 +722,12 @@ export async function linkContact(
   const stmts: unknown[] = [
     db
       .insert(s.personLinks)
-      .values({ ghostPersonId: acc.person.id, realPersonId: real.id, mode: input.mode, linkedAt: Date.now() })
+      .values({
+        ghostPersonId: acc.person.id,
+        realPersonId: real.id,
+        mode: input.mode,
+        linkedAt: Date.now(),
+      })
       .onConflictDoUpdate({
         target: s.personLinks.ghostPersonId,
         set: { realPersonId: real.id, mode: input.mode, linkedAt: Date.now(), deletedAt: null },
@@ -634,11 +740,21 @@ export async function linkContact(
       db
         .update(s.constraints)
         .set({ deletedAt: Date.now() })
-        .where(and(eq(s.constraints.personId, acc.person.id), eq(s.constraints.layerHouseholdId, actor.householdId))),
+        .where(
+          and(
+            eq(s.constraints.personId, acc.person.id),
+            eq(s.constraints.layerHouseholdId, actor.householdId),
+          ),
+        ),
       db
         .update(s.personRules)
         .set({ deletedAt: Date.now() })
-        .where(and(eq(s.personRules.personId, acc.person.id), eq(s.personRules.layerHouseholdId, actor.householdId))),
+        .where(
+          and(
+            eq(s.personRules.personId, acc.person.id),
+            eq(s.personRules.layerHouseholdId, actor.householdId),
+          ),
+        ),
       db.update(s.persons).set({ name: real.name }).where(eq(s.persons.id, acc.person.id)),
     )
   }
@@ -648,7 +764,10 @@ export async function linkContact(
 
 export async function unlinkContact(db: Db, actor: Actor, ghostPersonId: string) {
   const acc = await requirePerson(db, actor, ghostPersonId)
-  await db.update(s.personLinks).set({ deletedAt: Date.now() }).where(eq(s.personLinks.ghostPersonId, acc.person.id))
+  await db
+    .update(s.personLinks)
+    .set({ deletedAt: Date.now() })
+    .where(eq(s.personLinks.ghostPersonId, acc.person.id))
   return (await getPerson(db, actor, ghostPersonId)).person
 }
 
@@ -697,8 +816,10 @@ export async function eraseUserProfile(db: Db, userId: string) {
         .update(s.mealAttendees)
         .set({ deletedAt: now })
         .where(and(inArray(s.mealAttendees.personId, part), isNull(s.mealAttendees.deletedAt))),
-      db.update(s.persons).set({ name: 'Former member', deletedAt: now }).where(inArray(s.persons.id, part)),
+      db
+        .update(s.persons)
+        .set({ name: 'Former member', deletedAt: now })
+        .where(inArray(s.persons.id, part)),
     ])
   }
 }
-

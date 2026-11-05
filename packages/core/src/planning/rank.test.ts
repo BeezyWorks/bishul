@@ -349,3 +349,26 @@ function addDaysTo(date: string, n: number): string {
   d.setUTCDate(d.getUTCDate() + n)
   return d.toISOString().slice(0, 10)
 }
+
+describe('rankCandidates: kids at the table', () => {
+  const nuggets = dish('nuggets', 'Schnitzel bites', 'parve', [ing('flour')], {
+    course: 'side',
+    occasionFit: { kids_love_it: 'especially_suited' },
+  })
+  const kid = { ...person('dani', 'Dani'), age: 5 }
+
+  it('raises kid favourites only when a kid is coming', () => {
+    const withKid = rankCandidates(meal({ attendees: [george, kid] }), [kugel, nuggets], ctx())
+    expect(ids(withKid)[0]).toBe('nuggets')
+    expect(withKid.ranked[0].reasons.some((r) => r.code === 'kids')).toBe(true)
+    const adults = rankCandidates(meal(), [kugel, nuggets], ctx())
+    expect(
+      adults.ranked.find((r) => r.dish.id === 'nuggets')!.reasons.some((r) => r.code === 'kids'),
+    ).toBe(false)
+  })
+  it('a teenager is not a kid', () => {
+    const teen = { ...person('teen', 'Teen'), age: 14 }
+    const r = rankCandidates(meal({ attendees: [teen] }), [nuggets], ctx())
+    expect(r.ranked[0].reasons.some((x) => x.code === 'kids')).toBe(false)
+  })
+})

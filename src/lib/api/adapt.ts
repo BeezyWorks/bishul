@@ -62,10 +62,15 @@ export const difficultyIn = (d: string | null | undefined): Difficulty =>
   DIFFICULTY_FROM[d ?? ''] ?? 'average'
 export const difficultyOut = (d: Difficulty) => (d === 'a pain' ? 'a_pain' : d)
 
-export const costIn = (c: number | null | undefined): Cost => (c === 3 ? '$$$' : c === 2 ? '$$' : '$')
+export const costIn = (c: number | null | undefined): Cost =>
+  c === 3 ? '$$$' : c === 2 ? '$$' : '$'
 export const costOut = (c: Cost) => c.length
 
-const FIT_FROM: Record<string, Fit> = { fine: 'fine', good: 'good', especially: 'especially suited' }
+const FIT_FROM: Record<string, Fit> = {
+  fine: 'fine',
+  good: 'good',
+  especially: 'especially suited',
+}
 
 const titleCase = (s: string) => s.replace(/(^|\s)\S/g, (c) => c.toUpperCase())
 const words = (tag: string) => tag.replace(/[_-]+/g, ' ').trim()
@@ -145,6 +150,9 @@ export interface ServerPersonView {
   id: string
   name: string
   isChild: boolean
+  birthDate: string | null
+  birthDateApprox: boolean
+  age: number | null
   userId: string | null
   householdId: string
   householdName: string
@@ -165,6 +173,8 @@ export function adaptPerson(p: ServerPersonView): Person {
     householdId: p.householdId,
     relation: p.isChild ? 'Child' : undefined,
     isChild: p.isChild,
+    ...(p.age !== null && { age: p.age }),
+    ...(p.birthDate && { birthDate: p.birthDate, birthDateApprox: p.birthDateApprox }),
     isMember: !!p.userId,
     constraints: p.constraints.map((c) => adaptConstraint(c, p.id)),
     link: p.link ? { profileName: 'a Bishul profile', mode: p.link.mode } : undefined,
@@ -251,7 +261,9 @@ interface ServerDay {
 const havdalahText = (m: number | null) =>
   m === null
     ? undefined
-    : clock12(`${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
+    : clock12(
+        `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+      )
 
 export function adaptDay(
   d: ServerDay,
@@ -296,9 +308,7 @@ export function adaptOccasion(o: ServerOccasion): Occasion {
     id: o.from,
     title: o.title,
     subtitle: [
-      o.days.length > 1
-        ? `${weekdayName(o.from)} to ${weekdayName(o.to)}`
-        : weekdayName(o.from),
+      o.days.length > 1 ? `${weekdayName(o.from)} to ${weekdayName(o.to)}` : weekdayName(o.from),
       `${shortHebrew(first.hebrew)}${o.days.length > 1 ? ` to ${shortHebrew(o.days[o.days.length - 1].hebrew)}` : ''}`,
       candle ? `candle lighting ${clock12(candle)}` : '',
     ]
@@ -334,6 +344,7 @@ interface ServerItem {
   servings: number | null
   activeMinutes: number | null
   broughtBy: string | null
+  done: boolean
 }
 
 interface ServerAttendee {
@@ -357,7 +368,12 @@ export interface ServerMealDetail {
     notComing: ServerAttendee[]
     items: ServerItem[]
     occasions: string[]
-    calendar: { holidays: string[]; isShabbat: boolean; isErevShabbat: boolean; parasha: string | null }
+    calendar: {
+      holidays: string[]
+      isShabbat: boolean
+      isErevShabbat: boolean
+      parasha: string | null
+    }
   }
   brief: ServerBrief
   review: {
@@ -376,7 +392,14 @@ interface ServerBrief {
   activeConstraints: {
     personId: string
     personName: string
-    constraint: { tag: { type: string; value: string }; kind: string; severity: string; activeWhen: unknown; note?: string; source: string }
+    constraint: {
+      tag: { type: string; value: string }
+      kind: string
+      severity: string
+      activeWhen: unknown
+      note?: string
+      source: string
+    }
     display: 'warning' | 'hint'
   }[]
   hardExclusions: { dishTitle: string; personName: string; text: string }[]
@@ -441,7 +464,12 @@ function briefLines(b: ServerBrief): BriefLine[] {
       })
   }
   b.sourcingNotes.forEach((n, i) =>
-    lines.push({ id: `src-${i}`, tone: 'info', text: n.text, people: n.persons.map((p) => p.name) }),
+    lines.push({
+      id: `src-${i}`,
+      tone: 'info',
+      text: n.text,
+      people: n.persons.map((p) => p.name),
+    }),
   )
   b.hardExclusions.forEach((e, i) =>
     lines.push({ id: `excl-${i}`, tone: 'danger', text: e.text, people: [e.personName] }),
@@ -455,7 +483,12 @@ function briefLines(b: ServerBrief): BriefLine[] {
     }),
   )
   b.mealIssues.forEach((m, i) =>
-    lines.push({ id: `issue-${i}`, tone: m.severity === 'error' ? 'danger' : 'warn', text: m.text, people: [] }),
+    lines.push({
+      id: `issue-${i}`,
+      tone: m.severity === 'error' ? 'danger' : 'warn',
+      text: m.text,
+      people: [],
+    }),
   )
   b.aiWarnings.forEach((w, i) =>
     lines.push({
@@ -491,6 +524,7 @@ function adaptItem(it: ServerItem, brief: ServerBrief): MealItem {
     kind: asKind(it.kashrut),
     activeMin: it.activeMinutes ?? 0,
     broughtBy: it.broughtBy ?? undefined,
+    done: it.done,
     adjustments: it.versionId
       ? brief.eatAround.filter((e) => e.dishId === it.versionId).map((e) => e.text)
       : [],
@@ -510,7 +544,10 @@ function briefPerson(a: ServerAttendee, brief: ServerBrief): Person {
       id: `${a.personId}:${i}`,
       personId: a.personId,
       tag: c.constraint.tag.value,
-      label: constraintLabel(CORE_TAG[c.constraint.tag.type] ?? c.constraint.tag.type, c.constraint.tag.value),
+      label: constraintLabel(
+        CORE_TAG[c.constraint.tag.type] ?? c.constraint.tag.type,
+        c.constraint.tag.value,
+      ),
       tagType: TAG_TYPE[CORE_TAG[c.constraint.tag.type] ?? ''] ?? 'ingredient',
       kind: c.constraint.kind as Constraint['kind'],
       severity: c.constraint.severity as Constraint['severity'],
@@ -530,15 +567,20 @@ export function adaptMealDetail(d: ServerMealDetail): MealDetail {
   const { meal, brief, review } = d
   const items = meal.items.map((i) => adaptItem(i, brief))
   const declared = asKindOrNull(meal.kind)
-  const kind: Kind =
-    declared ?? asKindOrNull(brief.mealKind) ?? derivedKind(items) ?? 'parve'
+  const kind: Kind = declared ?? asKindOrNull(brief.mealKind) ?? derivedKind(items) ?? 'parve'
   const people: MealPerson[] = [
     ...meal.attendees.map((a) => ({
       person: briefPerson(a, brief),
       coming: true,
       isGuest: a.isGuest,
+      householdName: a.householdName,
     })),
-    ...meal.notComing.map((a) => ({ person: briefPerson(a, brief), coming: false, isGuest: false })),
+    ...meal.notComing.map((a) => ({
+      person: briefPerson(a, brief),
+      coming: false,
+      isGuest: false,
+      householdName: a.householdName,
+    })),
   ]
   const m: Meal = {
     id: meal.id,
@@ -566,7 +608,10 @@ export function adaptMealDetail(d: ServerMealDetail): MealDetail {
   const occasionLabel =
     meal.calendar.isShabbat && meal.calendar.parasha
       ? `Shabbat ${meal.calendar.parasha}`
-      : hol[0] ?? (meal.calendar.isErevShabbat && meal.calendar.parasha ? `Shabbat ${meal.calendar.parasha}` : undefined)
+      : (hol[0] ??
+        (meal.calendar.isErevShabbat && meal.calendar.parasha
+          ? `Shabbat ${meal.calendar.parasha}`
+          : undefined))
   return { meal: m, people, brief: adaptBrief(brief), review: r, occasionLabel }
 }
 
@@ -701,7 +746,10 @@ function linkSteps(steps: { text: string; timer_minutes?: number }[], lines: Ing
   const mentions = steps.map((s) =>
     lines
       .filter((l) => {
-        const first = l.name.toLowerCase().split(/[\s,]+/).filter((w) => w.length > 2)
+        const first = l.name
+          .toLowerCase()
+          .split(/[\s,]+/)
+          .filter((w) => w.length > 2)
         const hay = s.text.toLowerCase()
         return first.length > 0 && first.every((w) => hay.includes(w.replace(/s$/, '')))
       })
@@ -740,7 +788,11 @@ export function adaptVersion(
       passive: false,
     })),
     serving:
-      v.servingStyle === 'room_temperature' ? 'room temperature' : v.servingStyle === 'cold' ? 'cold' : 'hot',
+      v.servingStyle === 'room_temperature'
+        ? 'room temperature'
+        : v.servingStyle === 'cold'
+          ? 'cold'
+          : 'hot',
     holdsOnBlech: !!v.holdsOnBlech,
     easyToDeliver: !!v.easyToDeliver,
     equipment: v.equipment.map((e) => ({
@@ -855,7 +907,9 @@ const SORT_IN: Record<string, RecipeFilters['sort']> = {
 }
 
 /** UI filters to the server's search parameters (also the stored shape of a collection). */
-export function filtersOut(f: RecipeFilters): Record<string, string | number | boolean | string[] | undefined> {
+export function filtersOut(
+  f: RecipeFilters,
+): Record<string, string | number | boolean | string[] | undefined> {
   return {
     course: f.course,
     kashrut: f.kind,
@@ -947,7 +1001,10 @@ export function adaptPrep(days: ServerPrepDay[]): PrepDay[] {
       tasks: d.tasks.map((t, i) => ({
         id: `${d.date}-${i}`,
         time: clock12(t.startText),
-        text: t.dish && !t.label.toLowerCase().includes(t.dish.toLowerCase()) ? `${t.label} (${t.dish})` : t.label,
+        text:
+          t.dish && !t.label.toLowerCase().includes(t.dish.toLowerCase())
+            ? `${t.label} (${t.dish})`
+            : t.label,
         mealName: mealName(t.mealId),
         passive: t.kind === 'passive' || undefined,
       })),
@@ -987,4 +1044,3 @@ export function adaptPantry(p: ServerPantry): PantryList {
     })),
   }
 }
-

@@ -49,7 +49,10 @@ const schemaCache = new Map<string, unknown>()
 function inputSchema(tool: Tool): unknown {
   let s = schemaCache.get(tool.name)
   if (!s) {
-    const js = z.toJSONSchema(tool.input, { io: 'input', unrepresentable: 'any' }) as Record<string, unknown>
+    const js = z.toJSONSchema(tool.input, { io: 'input', unrepresentable: 'any' }) as Record<
+      string,
+      unknown
+    >
     delete js.$schema
     s = js
     schemaCache.set(tool.name, s)
@@ -78,7 +81,8 @@ function errorText(e: ApiError): string {
   if (e.code === 'not_found')
     return `${msg}. Nothing changed. Look it up first (get_calendar, get_people, search_recipes, get_menu) and use the ids they give.`
   if (e.code === 'invalid') return `${msg}. Nothing changed. Fix the arguments and try again.`
-  if (e.code === 'conflict') return `${msg}. Nothing changed. Show the host and ask before going further.`
+  if (e.code === 'conflict')
+    return `${msg}. Nothing changed. Show the host and ask before going further.`
   return `${msg}. Nothing changed.`
 }
 
@@ -192,7 +196,10 @@ export async function handleMcp(request: Request, env: Env): Promise<Response> {
         await countBadSecret(request, env)
       } catch (limited) {
         if (limited instanceof ApiError)
-          return Response.json({ error: 'rate_limited' }, { status: 429, headers: { 'retry-after': '60' } })
+          return Response.json(
+            { error: 'rate_limited' },
+            { status: 429, headers: { 'retry-after': '60' } },
+          )
         throw limited
       }
     }

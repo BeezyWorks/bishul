@@ -29,7 +29,8 @@ export const colors = {
  * On the web a family that has not loaded (or never does) must fall back to a sans, not the browser's
  * default serif, so each face carries a fallback stack there. Native needs the bare family name.
  */
-const SANS = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+const SANS =
+  "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
 const face = (name: string) => (Platform.OS === 'web' ? `${name}, ${SANS}` : name)
 
 export const fonts = {

@@ -34,7 +34,10 @@ export interface Tool {
 }
 
 function tool<I extends z.ZodType>(
-  def: Omit<Tool, 'run' | 'input'> & { input: I; run: (c: ToolCtx, args: z.output<I>) => Promise<ToolOut> },
+  def: Omit<Tool, 'run' | 'input'> & {
+    input: I
+    run: (c: ToolCtx, args: z.output<I>) => Promise<ToolOut>
+  },
 ): Tool {
   return def as unknown as Tool
 }
@@ -59,8 +62,12 @@ export const TOOLS: Tool[] = [
     title: 'Update household',
     description:
       'Rename the household or set its location (lat, lng, IANA time zone, Israel or diaspora). The location decides Hebrew dates, candle lighting, holidays and which Yom Tov days apply, so set it before planning if get_household says locationSet is false.',
-    input: z.object({ name: z.string().min(1).max(100).optional(), location: S.location.optional() }),
-    run: async (c, a) => ok('Household updated.', await households.updateHousehold(c.db, c.actor, a)),
+    input: z.object({
+      name: z.string().min(1).max(100).optional(),
+      location: S.location.optional(),
+    }),
+    run: async (c, a) =>
+      ok('Household updated.', await households.updateHousehold(c.db, c.actor, a)),
   }),
   tool({
     name: 'set_display_preferences',
@@ -70,7 +77,13 @@ export const TOOLS: Tool[] = [
     input: z.object({
       system: z.enum(['us', 'metric']).optional(),
       overrides: z
-        .record(z.string(), z.object({ system: z.enum(['us', 'metric']).optional(), dimension: z.enum(['weight', 'volume']).optional() }))
+        .record(
+          z.string(),
+          z.object({
+            system: z.enum(['us', 'metric']).optional(),
+            dimension: z.enum(['weight', 'volume']).optional(),
+          }),
+        )
         .optional(),
     }),
     run: async (c, a) => ok('Preferences saved.', await prefs.setPrefs(c.db, c.actor, a)),
@@ -128,7 +141,11 @@ export const TOOLS: Tool[] = [
       candidateVersionIds: z.array(S.id).optional().describe('Dishes being considered'),
     }),
     run: async (c, a) => {
-      if (a.mealId) return ok('Dining brief.', await planning.getDiningBrief(c.db, c.actor, { mealId: a.mealId }))
+      if (a.mealId)
+        return ok(
+          'Dining brief.',
+          await planning.getDiningBrief(c.db, c.actor, { mealId: a.mealId }),
+        )
       if (!a.date || !a.personIds) throw invalid('Give a mealId, or a date and personIds')
       return ok('Dining brief.', await planning.getDiningBrief(c.db, c.actor, a as never))
     },
@@ -139,7 +156,8 @@ export const TOOLS: Tool[] = [
     description:
       'Create a meal on a date with a name and time, optionally its kind (meat, dairy, parve), who is coming and first items. The household is in by default; pass personIds to invite contacts and excludePersonIds for household members who are not coming. Get the date from get_calendar and confirm with the host first. Returns the meal with its dining brief.',
     input: S.createMealInput,
-    run: async (c, a) => ok(`Created "${a.name}" on ${a.date}.`, await planning.createMeal(c.db, c.actor, a as never)),
+    run: async (c, a) =>
+      ok(`Created "${a.name}" on ${a.date}.`, await planning.createMeal(c.db, c.actor, a as never)),
   }),
   tool({
     name: 'update_meal',
@@ -147,7 +165,8 @@ export const TOOLS: Tool[] = [
     description:
       'Change a meal: name, date, time (e.g. 18:30; null clears it), kind, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
     input: S.updateMealInput.extend({ mealId: S.id }),
-    run: async (c, { mealId, ...rest }) => ok('Meal updated.', await planning.updateMeal(c.db, c.actor, mealId, rest as never)),
+    run: async (c, { mealId, ...rest }) =>
+      ok('Meal updated.', await planning.updateMeal(c.db, c.actor, mealId, rest as never)),
   }),
   tool({
     name: 'delete_meal',
@@ -163,7 +182,11 @@ export const TOOLS: Tool[] = [
     description:
       'Ranked dishes for one course of a meal. Only dishes that work for the people coming and the meal type are listed, ranked by likes (fading if served recently), pantry items that expire soon, how long since it was served and how well it suits the occasion, with the reasons. Dishes that do not fit come back as hidden, with why (hard exclusions). Carries the allergy disclaimer.',
     readOnly: true,
-    input: z.object({ mealId: S.id, course: z.string().optional().describe('main, side, salad, soup, starter, challah, dessert…'), limit: S.int.optional() }),
+    input: z.object({
+      mealId: S.id,
+      course: z.string().optional().describe('main, side, salad, soup, starter, challah, dessert…'),
+      limit: S.int.optional(),
+    }),
     run: async (c, a) => ok('Suggestions.', await planning.getSuggestions(c.db, c.actor, a)),
   }),
   tool({
@@ -171,7 +194,12 @@ export const TOOLS: Tool[] = [
     title: 'Suggest a menu',
     description:
       'Propose a balanced set of dishes for a meal from the top suggestions: no meat and dairy together, no two versions of one recipe, a variety of forms, not too many hard dishes. By default it only proposes; show it to the host and, once they agree, call again with apply true (or add the items with update_meal).',
-    input: z.object({ mealId: S.id, plan: S.coursePlan, apply: z.boolean().optional(), maxHard: z.number().int().optional() }),
+    input: z.object({
+      mealId: S.id,
+      plan: S.coursePlan,
+      apply: z.boolean().optional(),
+      maxHard: z.number().int().optional(),
+    }),
     run: async (c, a) => {
       const r = await planning.suggestMenuForMeal(c.db, c.actor, a)
       return ok(a.apply ? 'Menu added to the meal.' : 'Proposed menu (not added yet).', r)
@@ -182,18 +210,33 @@ export const TOOLS: Tool[] = [
     title: 'Accept meals',
     description:
       'Accept draft meals, by ids, for one date, or for a range (all of Shabbat, all of Yom Tov). Accepting holds the pantry items the menu needs and puts the meals into the shopping list and prep schedule. A meal whose brief has hard problems (meat with dairy, a strict allergy exclusion) is not accepted and comes back as blocked with the problems: show them to the host. Use force only if the host explicitly says to go ahead. Offer the next meal afterwards.',
-    input: z.object({ mealIds: z.array(S.id).optional(), date: S.date.optional(), from: S.date.optional(), to: S.date.optional(), force: z.boolean().optional() }),
+    input: z.object({
+      mealIds: z.array(S.id).optional(),
+      date: S.date.optional(),
+      from: S.date.optional(),
+      to: S.date.optional(),
+      force: z.boolean().optional(),
+    }),
     run: async (c, a) => {
       const r = await planning.acceptMeals(c.db, c.actor, a)
-      return ok(`Accepted ${r.accepted.length}${r.blocked.length ? `, blocked ${r.blocked.length}` : ''}.`, r)
+      return ok(
+        `Accepted ${r.accepted.length}${r.blocked.length ? `, blocked ${r.blocked.length}` : ''}.`,
+        r,
+      )
     },
   }),
   tool({
     name: 'get_menu',
     title: 'Get menu',
-    description: '"What’s for dinner?": the accepted menus for a date or range with their items by course. Pass includeDrafts to see unaccepted meals too. Defaults to the next 7 days.',
+    description:
+      '"What’s for dinner?": the accepted menus for a date or range with their items by course. Pass includeDrafts to see unaccepted meals too. Defaults to the next 7 days.',
     readOnly: true,
-    input: z.object({ date: S.date.optional(), from: S.date.optional(), to: S.date.optional(), includeDrafts: z.boolean().optional() }),
+    input: z.object({
+      date: S.date.optional(),
+      from: S.date.optional(),
+      to: S.date.optional(),
+      includeDrafts: z.boolean().optional(),
+    }),
     run: async (c, a) => ok('Menu.', await planning.getMenu(c.db, c.actor, a)),
   }),
   tool({
@@ -202,7 +245,11 @@ export const TOOLS: Tool[] = [
     description:
       'The cooking plan for accepted meals, worked back from each meal’s time: per-day task lists such as "Thursday night: marinate chicken (12h). Friday by 2pm: kugel, soup". Active work is never scheduled on Shabbat or Yom Tov; it flags eruv tavshilin and cooking on Yom Tov for after Yom Tov. Defaults to the next 14 days.',
     readOnly: true,
-    input: z.object({ from: S.date.optional(), to: S.date.optional(), includeDrafts: z.boolean().optional() }),
+    input: z.object({
+      from: S.date.optional(),
+      to: S.date.optional(),
+      includeDrafts: z.boolean().optional(),
+    }),
     run: async (c, a) => ok('Prep schedule.', await shopping.getPrepSchedule(c.db, c.actor, a)),
   }),
 
@@ -220,7 +267,8 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'get_recipe',
     title: 'Get recipe',
-    description: 'A recipe with all its versions (recipeId), or one version in full (versionId): ingredients with quantities and AI-filled flags, steps, pre-prep, equipment, dimensions and Pesach check.',
+    description:
+      'A recipe with all its versions (recipeId), or one version in full (versionId): ingredients with quantities and AI-filled flags, steps, pre-prep, equipment, dimensions and Pesach check.',
     readOnly: true,
     input: z.object({ recipeId: S.id.optional(), versionId: S.id.optional() }),
     run: async (c, a) => {
@@ -237,11 +285,25 @@ export const TOOLS: Tool[] = [
     input: z.object({
       title: z.string().optional(),
       text: z.string().max(50000).optional(),
-      ingredients: z.union([z.string(), z.array(z.union([z.string(), S.ingredientInput]))]).optional(),
-      steps: z.union([z.string(), z.array(z.union([z.string(), z.object({ text: z.string(), timerMinutes: z.number().optional() })]))]).optional(),
+      ingredients: z
+        .union([z.string(), z.array(z.union([z.string(), S.ingredientInput]))])
+        .optional(),
+      steps: z
+        .union([
+          z.string(),
+          z.array(
+            z.union([
+              z.string(),
+              z.object({ text: z.string(), timerMinutes: z.number().optional() }),
+            ]),
+          ),
+        ])
+        .optional(),
       servings: z.number().int().positive().optional(),
       description: z.string().optional(),
-      sourceLinks: z.array(z.object({ url: z.string().url(), label: z.string().optional() })).optional(),
+      sourceLinks: z
+        .array(z.object({ url: z.string().url(), label: z.string().optional() }))
+        .optional(),
       course: z.string().optional(),
       form: z.string().optional(),
       category: S.kashrut.optional(),
@@ -270,9 +332,11 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'save_variation',
     title: 'Save a variation',
-    description: 'Fork a version into a named variation of the same recipe ("pesach", "fudgy", "2x"), copying everything and applying the changes given. Keeps the lineage and records the parent.',
+    description:
+      'Fork a version into a named variation of the same recipe ("pesach", "fudgy", "2x"), copying everything and applying the changes given. Keeps the lineage and records the parent.',
     input: z.object({ fromVersionId: S.id, ...S.versionFields, title: z.string().min(1) }),
-    run: async (c, a) => ok('Variation saved.', await recipes.saveVariation(c.db, c.actor, a as never)),
+    run: async (c, a) =>
+      ok('Variation saved.', await recipes.saveVariation(c.db, c.actor, a as never)),
   }),
   tool({
     name: 'scale_recipe',
@@ -292,10 +356,12 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'get_recipe_history',
     title: 'Get recipe history',
-    description: 'The edit history of a version: who changed what, when, and through which face (web, api, mcp).',
+    description:
+      'The edit history of a version: who changed what, when, and through which face (web, api, mcp).',
     readOnly: true,
     input: z.object({ versionId: S.id }),
-    run: async (c, a) => ok('History.', { edits: await recipes.getRecipeHistory(c.db, c.actor, a.versionId) }),
+    run: async (c, a) =>
+      ok('History.', { edits: await recipes.getRecipeHistory(c.db, c.actor, a.versionId) }),
   }),
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -313,11 +379,17 @@ export const TOOLS: Tool[] = [
     name: 'save_person',
     title: 'Save a person',
     description:
-      'Create or edit a person: in the household, or in a contact household (contactHouseholdId), or start a new contact household with newContactHousehold ("the Levi family"). Kids are plain persons (isChild). Pass personId to rename; remove: true deletes a person. Everyone in the host’s circle is a contact, visible only to the host’s household.',
+      'Create or edit a person: in the household, or in a contact household (contactHouseholdId), or start a new contact household with newContactHousehold ("the Levi family"). Kids are plain persons (isChild). For a kid, give birthDate (YYYY-MM-DD) so they age automatically, or just age if the birthday isn’t known (stored as an estimate, to replace with the real birthday later). Age scales portions down and raises kid-friendly dishes in suggestions. Pass personId to rename; remove: true deletes a person. Everyone in the host’s circle is a contact, visible only to the host’s household.',
     input: z.object({
       personId: S.id.optional(),
       name: z.string().min(1).max(100).optional(),
       isChild: z.boolean().optional(),
+      birthDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable()
+        .optional(),
+      age: z.number().int().min(0).max(120).nullable().optional(),
       contactHouseholdId: S.id.optional(),
       newContactHousehold: z.string().min(1).max(100).optional(),
       renameHousehold: z.string().optional(),
@@ -325,9 +397,23 @@ export const TOOLS: Tool[] = [
       removeContactHouseholdId: S.id.optional(),
     }),
     run: async (c, a) => {
-      if (a.removeContactHouseholdId) return ok('Contact removed.', await people.deleteContactHousehold(c.db, c.actor, a.removeContactHouseholdId))
-      if (a.remove && a.personId) return ok('Person removed.', await people.deletePerson(c.db, c.actor, a.personId))
-      const p = await people.savePerson(c.db, c.actor, { id: a.personId, name: a.name, isChild: a.isChild, contactHouseholdId: a.contactHouseholdId, newContactHousehold: a.newContactHousehold, renameHousehold: a.renameHousehold })
+      if (a.removeContactHouseholdId)
+        return ok(
+          'Contact removed.',
+          await people.deleteContactHousehold(c.db, c.actor, a.removeContactHouseholdId),
+        )
+      if (a.remove && a.personId)
+        return ok('Person removed.', await people.deletePerson(c.db, c.actor, a.personId))
+      const p = await people.savePerson(c.db, c.actor, {
+        id: a.personId,
+        name: a.name,
+        isChild: a.isChild,
+        birthDate: a.birthDate,
+        age: a.age,
+        contactHouseholdId: a.contactHouseholdId,
+        newContactHousehold: a.newContactHousehold,
+        renameHousehold: a.renameHousehold,
+      })
       return ok('Person saved.', p)
     },
   }),
@@ -350,25 +436,45 @@ export const TOOLS: Tool[] = [
     title: 'Link a contact',
     description:
       'Link a contact (ghost) person to a real user’s profile using that person’s profile share link token (the part after /s/). mode merge keeps what the host entered and adds theirs; overwrite replaces the host’s constraints with theirs. After linking, their own constraints flow in live; the host’s notes, likes and history stay private. unlink: true breaks the link.',
-    input: z.object({ personId: S.id, profileToken: z.string().optional(), mode: z.enum(['merge', 'overwrite']).optional(), unlink: z.boolean().optional() }),
+    input: z.object({
+      personId: S.id,
+      profileToken: z.string().optional(),
+      mode: z.enum(['merge', 'overwrite']).optional(),
+      unlink: z.boolean().optional(),
+    }),
     run: async (c, a) => {
       if (a.unlink) return ok('Unlinked.', await people.unlinkContact(c.db, c.actor, a.personId))
-      if (!a.profileToken || !a.mode) throw invalid('Give profileToken and mode (merge or overwrite)')
-      return ok('Linked.', await people.linkContact(c.db, c.actor, { ghostPersonId: a.personId, profileToken: a.profileToken, mode: a.mode }))
+      if (!a.profileToken || !a.mode)
+        throw invalid('Give profileToken and mode (merge or overwrite)')
+      return ok(
+        'Linked.',
+        await people.linkContact(c.db, c.actor, {
+          ghostPersonId: a.personId,
+          profileToken: a.profileToken,
+          mode: a.mode,
+        }),
+      )
     },
   }),
   tool({
     name: 'add_note',
     title: 'Add a note',
-    description: 'Add a private note about a person (visible to the host’s household only; the person never sees it).',
+    description:
+      'Add a private note about a person (visible to the host’s household only; the person never sees it).',
     input: z.object({ personId: S.id, text: z.string().min(1).max(2000) }),
     run: async (c, a) => ok('Note added.', await people.addNote(c.db, c.actor, a.personId, a.text)),
   }),
   tool({
     name: 'record_reaction',
     title: 'Record a reaction',
-    description: 'Record that a person liked or disliked a recipe version ("George loved the kugel"). A like boosts it for that person, fading if they were served it recently; a dislike pushes it down for good but never hides it. Private to the host.',
-    input: z.object({ personId: S.id, versionId: S.id, reaction: z.enum(['like', 'dislike']), note: z.string().max(500).optional() }),
+    description:
+      'Record that a person liked or disliked a recipe version ("George loved the kugel"). A like boosts it for that person, fading if they were served it recently; a dislike pushes it down for good but never hides it. Private to the host.',
+    input: z.object({
+      personId: S.id,
+      versionId: S.id,
+      reaction: z.enum(['like', 'dislike']),
+      note: z.string().max(500).optional(),
+    }),
     run: async (c, a) => ok('Reaction recorded.', await people.recordReaction(c.db, c.actor, a)),
   }),
 
@@ -386,27 +492,32 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'update_pantry',
     title: 'Update pantry',
-    description: 'Change the pantry: add stock, set what is left, record that some was used, or remove an item. Quantities as written ("2 cups", "500 g"). Dates are YYYY-MM-DD.',
+    description:
+      'Change the pantry: add stock, set what is left, record that some was used, or remove an item. Quantities as written ("2 cups", "500 g"). Dates are YYYY-MM-DD.',
     input: z.object({
-      changes: z.array(
-        z.object({
-          op: z.enum(['add', 'set', 'use', 'remove']),
-          name: z.string().optional(),
-          itemId: z.string().optional(),
-          quantity: z.union([z.string(), z.number()]).optional(),
-          unit: z.string().optional(),
-          location: z.string().nullable().optional(),
-          expiresOn: S.date.nullable().optional(),
-          ingredient: S.ingredientMeta.optional(),
-        }),
-      ).min(1),
+      changes: z
+        .array(
+          z.object({
+            op: z.enum(['add', 'set', 'use', 'remove']),
+            name: z.string().optional(),
+            itemId: z.string().optional(),
+            quantity: z.union([z.string(), z.number()]).optional(),
+            unit: z.string().optional(),
+            location: z.string().nullable().optional(),
+            expiresOn: S.date.nullable().optional(),
+            ingredient: S.ingredientMeta.optional(),
+          }),
+        )
+        .min(1),
     }),
-    run: async (c, a) => ok('Pantry updated.', await kitchen.applyPantryChanges(c.db, c.actor, a.changes)),
+    run: async (c, a) =>
+      ok('Pantry updated.', await kitchen.applyPantryChanges(c.db, c.actor, a.changes)),
   }),
   tool({
     name: 'get_kitchen',
     title: 'Get kitchen',
-    description: 'The household’s equipment: items, counts and designations (meat, dairy, parve, pesach).',
+    description:
+      'The household’s equipment: items, counts and designations (meat, dairy, parve, pesach).',
     readOnly: true,
     input: empty,
     run: async (c) => ok('Kitchen.', await kitchen.getKitchen(c.db, c.actor)),
@@ -414,9 +525,20 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'update_equipment',
     title: 'Update equipment',
-    description: 'Add, change or remove kitchen equipment with its designation (a dairy pot, a pesach pot).',
+    description:
+      'Add, change or remove kitchen equipment with its designation (a dairy pot, a pesach pot).',
     input: z.object({
-      changes: z.array(z.object({ id: S.id.optional(), item: z.string().optional(), count: z.number().int().min(0).optional(), designation: S.designation.nullable().optional(), remove: z.boolean().optional() })).min(1),
+      changes: z
+        .array(
+          z.object({
+            id: S.id.optional(),
+            item: z.string().optional(),
+            count: z.number().int().min(0).optional(),
+            designation: S.designation.nullable().optional(),
+            remove: z.boolean().optional(),
+          }),
+        )
+        .min(1),
     }),
     run: async (c, a) => {
       for (const ch of a.changes) await kitchen.saveEquipment(c.db, c.actor, ch)
@@ -429,7 +551,8 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'get_shopping_list',
     title: 'Get shopping list',
-    description: 'The shopping list: one line per ingredient with the total needed across accepted meals (default: the next 30 days) minus unexpired pantry stock, with checked state, order and sourcing notes ("buy chalav Yisrael butter"). Brought dishes are not included.',
+    description:
+      'The shopping list: one line per ingredient with the total needed across accepted meals (default: the next 30 days) minus unexpired pantry stock, with checked state, order and sourcing notes ("buy chalav Yisrael butter"). Brought dishes are not included.',
     readOnly: true,
     input: z.object({ from: S.date.optional(), to: S.date.optional() }),
     run: async (c, a) => ok('Shopping list.', await shopping.getShoppingList(c.db, c.actor, a)),
@@ -437,16 +560,20 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'update_shopping_list',
     title: 'Update shopping list',
-    description: 'Check lines off (by key from get_shopping_list), reorder them, add manual lines or notes, or remove manual lines.',
+    description:
+      'Check lines off (by key from get_shopping_list), reorder them, add manual lines or notes, or remove manual lines.',
     input: z.object({
       check: z.array(z.object({ key: z.string(), checked: z.boolean() })).optional(),
       order: z.array(z.string()).optional(),
-      addManual: z.array(z.union([z.string(), z.object({ text: z.string(), note: z.string().optional() })])).optional(),
+      addManual: z
+        .array(z.union([z.string(), z.object({ text: z.string(), note: z.string().optional() })]))
+        .optional(),
       removeKeys: z.array(z.string()).optional(),
       notes: z.array(z.object({ key: z.string(), note: z.string().nullable() })).optional(),
       uncheckAll: z.boolean().optional(),
     }),
-    run: async (c, a) => ok('Shopping list updated.', await shopping.updateShoppingList(c.db, c.actor, a)),
+    run: async (c, a) =>
+      ok('Shopping list updated.', await shopping.updateShoppingList(c.db, c.actor, a)),
   }),
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -456,7 +583,13 @@ export const TOOLS: Tool[] = [
     title: 'Update an ingredient',
     description:
       'Correct a catalog ingredient: category (meat, dairy, parve, fish), allergens, flags (chametz, kitniyot, gebrokts, animal_derived, egg, honey, grain…), aliases and transliterations, density (g/ml) or grams per piece. Data you enter here is labelled as vouched for by a person (source user) rather than AI-filled; only do that when the host tells you or you are certain. Find an ingredient by name or id.',
-    input: z.object({ id: S.id.optional(), name: z.string().optional(), rename: z.string().optional(), source: S.source.optional(), ...S.ingredientMeta.shape }),
+    input: z.object({
+      id: S.id.optional(),
+      name: z.string().optional(),
+      rename: z.string().optional(),
+      source: S.source.optional(),
+      ...S.ingredientMeta.shape,
+    }),
     run: async (c, a) =>
       ok(
         'Ingredient updated.',
@@ -465,7 +598,14 @@ export const TOOLS: Tool[] = [
           name: a.name,
           rename: a.rename,
           source: a.source,
-          meta: { category: a.category, aliases: a.aliases, allergens: a.allergens, flags: a.flags, densityGPerMl: a.densityGPerMl, gramsPerPiece: a.gramsPerPiece },
+          meta: {
+            category: a.category,
+            aliases: a.aliases,
+            allergens: a.allergens,
+            flags: a.flags,
+            densityGPerMl: a.densityGPerMl,
+            gramsPerPiece: a.gramsPerPiece,
+          },
         }),
       ),
   }),
@@ -490,13 +630,31 @@ export const TOOLS: Tool[] = [
         case 'list':
           return ok('Dimensions.', { dimensions: await catalog.listDimensions(c.db, c.actor) })
         case 'create':
-          return ok('Dimension created.', await catalog.createDimension(c.db, c.actor, need(a.name, 'name')))
+          return ok(
+            'Dimension created.',
+            await catalog.createDimension(c.db, c.actor, need(a.name, 'name')),
+          )
         case 'rename':
-          return ok('Dimension renamed.', await catalog.renameDimension(c.db, c.actor, need(a.ref, 'ref'), need(a.name, 'name')))
+          return ok(
+            'Dimension renamed.',
+            await catalog.renameDimension(c.db, c.actor, need(a.ref, 'ref'), need(a.name, 'name')),
+          )
         case 'delete':
-          return ok('Dimension deleted.', await catalog.deleteDimension(c.db, c.actor, need(a.ref, 'ref')))
+          return ok(
+            'Dimension deleted.',
+            await catalog.deleteDimension(c.db, c.actor, need(a.ref, 'ref')),
+          )
         case 'set_fit':
-          return ok('Fit saved.', await recipes.setRecipeFit(c.db, c.actor, need(a.versionId, 'versionId'), need(a.ref, 'ref'), a.fit ?? null))
+          return ok(
+            'Fit saved.',
+            await recipes.setRecipeFit(
+              c.db,
+              c.actor,
+              need(a.versionId, 'versionId'),
+              need(a.ref, 'ref'),
+              a.fit ?? null,
+            ),
+          )
       }
     },
   }),
@@ -506,35 +664,64 @@ export const TOOLS: Tool[] = [
   tool({
     name: 'share_recipe',
     title: 'Share a recipe',
-    description: 'Create a share link for one version (versionId) or a whole dish with all its versions (recipeId). The link is an unlisted snapshot, never live: later edits do not change it. Anyone with it can read it without an account; signed-in people can save a copy. Revoke it with revoke_link. Confirm with the host before creating a link.',
+    description:
+      'Create a share link for one version (versionId) or a whole dish with all its versions (recipeId). The link is an unlisted snapshot, never live: later edits do not change it. Anyone with it can read it without an account; signed-in people can save a copy. Revoke it with revoke_link. Confirm with the host before creating a link.',
     input: z.object({ versionId: S.id.optional(), recipeId: S.id.optional() }),
     run: async (c, a) => {
-      if (a.versionId) return ok('Share link created.', await sharing.createShare(c.db, c.actor, c.publicUrl, { kind: 'version', targetId: a.versionId }))
-      if (a.recipeId) return ok('Share link created.', await sharing.createShare(c.db, c.actor, c.publicUrl, { kind: 'dish', targetId: a.recipeId }))
+      if (a.versionId)
+        return ok(
+          'Share link created.',
+          await sharing.createShare(c.db, c.actor, c.publicUrl, {
+            kind: 'version',
+            targetId: a.versionId,
+          }),
+        )
+      if (a.recipeId)
+        return ok(
+          'Share link created.',
+          await sharing.createShare(c.db, c.actor, c.publicUrl, {
+            kind: 'dish',
+            targetId: a.recipeId,
+          }),
+        )
       throw invalid('Give a versionId or a recipeId')
     },
   }),
   tool({
     name: 'share_profile',
     title: 'Share a profile',
-    description: 'Create a share link for a person’s own profile (their constraints and rules only, never the host’s private notes). Each person, kids included, is shared individually. The recipient can link it to their contact with link_contact.',
+    description:
+      'Create a share link for a person’s own profile (their constraints and rules only, never the host’s private notes). Each person, kids included, is shared individually. The recipient can link it to their contact with link_contact.',
     input: z.object({ personId: S.id }),
-    run: async (c, a) => ok('Profile link created.', await sharing.createShare(c.db, c.actor, c.publicUrl, { kind: 'profile', targetId: a.personId })),
+    run: async (c, a) =>
+      ok(
+        'Profile link created.',
+        await sharing.createShare(c.db, c.actor, c.publicUrl, {
+          kind: 'profile',
+          targetId: a.personId,
+        }),
+      ),
   }),
   tool({
     name: 'save_shared_recipe',
     title: 'Save a shared recipe',
-    description: 'Save a recipe from a share link (the token after /s/) into the household as an independent copy that keeps its lineage.',
+    description:
+      'Save a recipe from a share link (the token after /s/) into the household as an independent copy that keeps its lineage.',
     input: z.object({ token: z.string() }),
-    run: async (c, a) => ok('Saved to the household.', await sharing.saveShared(c.db, c.actor, a.token)),
+    run: async (c, a) =>
+      ok('Saved to the household.', await sharing.saveShared(c.db, c.actor, a.token)),
   }),
   tool({
     name: 'revoke_link',
     title: 'Revoke a share link',
-    description: 'Turn a share link off (by its id, token or url). Without an argument it lists the active links.',
+    description:
+      'Turn a share link off (by its id, token or url). Without an argument it lists the active links.',
     input: z.object({ link: z.string().optional() }),
     run: async (c, a) => {
-      if (!a.link) return ok('Active share links.', { links: await sharing.listShares(c.db, c.actor, c.publicUrl) })
+      if (!a.link)
+        return ok('Active share links.', {
+          links: await sharing.listShares(c.db, c.actor, c.publicUrl),
+        })
       return ok('Link revoked.', await sharing.revokeShare(c.db, c.actor, a.link))
     },
   }),

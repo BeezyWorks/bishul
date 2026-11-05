@@ -17,6 +17,7 @@ import {
 import { api } from '@/lib/api/client'
 import { stale, useApiMutation, useContacts, useHousehold } from '@/lib/api/hooks'
 import type { Constraint, Person } from '@/lib/api/types'
+import { parseBirthInput } from '@/lib/dates'
 import { colors, space, type Tone } from '@/theme/tokens'
 
 export function constraintTone(c: Constraint): Tone {
@@ -52,11 +53,14 @@ function AddPerson() {
   const [where, setWhere] = useState<string>('new')
   const [group, setGroup] = useState('')
   const [child, setChild] = useState(false)
+  const [birth, setBirth] = useState('')
+  const born = birth.trim() ? parseBirthInput(birth) : null
   const add = useApiMutation(
     () =>
       api.addPerson({
         name: name.trim(),
         isChild: child,
+        ...born,
         ...(where === 'new'
           ? { newContactHousehold: group.trim() || name.trim() }
           : where === 'mine'
@@ -67,30 +71,57 @@ function AddPerson() {
   )
   return (
     <Card tone="subtle">
-      <SectionHeader title="Add a person" hint="Guests go in a contact household; family goes in yours." />
+      <SectionHeader
+        title="Add a person"
+        hint="Guests go in a contact household; family goes in yours."
+      />
       <TextField label="Name" value={name} onChangeText={setName} />
       <View style={styles.badges}>
-        <Pill label="New contact household" selected={where === 'new'} onPress={() => setWhere('new')} />
+        <Pill
+          label="New contact household"
+          selected={where === 'new'}
+          onPress={() => setWhere('new')}
+        />
         <Pill label="My household" selected={where === 'mine'} onPress={() => setWhere('mine')} />
         {(contacts.data ?? []).map((h) => (
-          <Pill key={h.id} label={h.name} selected={where === h.id} onPress={() => setWhere(h.id)} />
+          <Pill
+            key={h.id}
+            label={h.name}
+            selected={where === h.id}
+            onPress={() => setWhere(h.id)}
+          />
         ))}
       </View>
       {where === 'new' ? (
-        <TextField label="Household name (optional)" value={group} onChangeText={setGroup} placeholder="e.g. The Levins" />
+        <TextField
+          label="Household name (optional)"
+          value={group}
+          onChangeText={setGroup}
+          placeholder="e.g. The Levins"
+        />
       ) : null}
       <View style={styles.badges}>
         <Pill label="Child" selected={child} onPress={() => setChild(!child)} />
       </View>
+      <TextField
+        label="Birthday or age (optional)"
+        value={birth}
+        onChangeText={setBirth}
+        placeholder="YYYY-MM-DD, or just 5"
+      />
+      {birth.trim() && !born ? (
+        <Text variant="small">Use a date like 2020-03-14, or a whole number for an age.</Text>
+      ) : null}
       {add.error ? <Text>{(add.error as Error).message}</Text> : null}
       <Button
         label="Add person"
-        disabled={!name.trim()}
+        disabled={!name.trim() || (!!birth.trim() && !born)}
         loading={add.isPending}
         onPress={async () => {
           const p = await add.mutateAsync(undefined)
           setName('')
           setGroup('')
+          setBirth('')
           router.push(`/people/${p.id}` as Href)
         }}
       />

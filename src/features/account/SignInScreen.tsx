@@ -5,13 +5,7 @@ import { Button, Card, Text, TextField, useLayout } from '@/components'
 import { DEV_AUTH } from '@/lib/config'
 import { colors, size, space } from '@/theme/tokens'
 
-import {
-  requestPasswordReset,
-  signInDev,
-  signInEmail,
-  signInWith,
-  signUpEmail,
-} from './store'
+import { requestPasswordReset, signInDev, signInEmail, signInWith, signUpEmail } from './store'
 
 type Mode = 'signIn' | 'signUp' | 'forgot'
 
@@ -78,13 +72,29 @@ export function SignInScreen() {
 
       <Card style={[styles.card, wide && { flex: 1 }]}>
         <Text variant="h2" accessibilityRole="header">
-          {mode === 'signIn' ? 'Sign in' : mode === 'signUp' ? 'Create your account' : 'Reset password'}
+          {mode === 'signIn'
+            ? 'Sign in'
+            : mode === 'signUp'
+              ? 'Create your account'
+              : 'Reset password'}
         </Text>
-        <Text variant="small">With your BeezyWorks account, the same one as Beitecha and the Siddur.</Text>
+        <Text variant="small">
+          With your BeezyWorks account, the same one as Beitecha and the Siddur.
+        </Text>
         {mode !== 'forgot' ? (
           <View style={styles.providers}>
-            <Button label="Continue with Google" variant="secondary" full onPress={() => signInWith('google')} />
-            <Button label="Continue with Apple" variant="secondary" full onPress={() => signInWith('apple')} />
+            <Button
+              label="Continue with Google"
+              variant="secondary"
+              full
+              onPress={() => signInWith('google')}
+            />
+            <Button
+              label="Continue with Apple"
+              variant="secondary"
+              full
+              onPress={() => signInWith('apple')}
+            />
           </View>
         ) : null}
         {mode === 'signUp' ? (
@@ -116,7 +126,9 @@ export function SignInScreen() {
         ) : null}
         {notice ? <Text color={colors.accent}>{notice}</Text> : null}
         <Button
-          label={mode === 'signIn' ? 'Sign in' : mode === 'signUp' ? 'Create account' : 'Send reset link'}
+          label={
+            mode === 'signIn' ? 'Sign in' : mode === 'signUp' ? 'Create account' : 'Send reset link'
+          }
           full
           loading={busy}
           disabled={!ready}
@@ -125,11 +137,26 @@ export function SignInScreen() {
         <View style={styles.links}>
           {mode === 'signIn' ? (
             <>
-              <Button label="Create an account" variant="ghost" small onPress={() => setMode('signUp')} />
-              <Button label="Forgot password?" variant="ghost" small onPress={() => setMode('forgot')} />
+              <Button
+                label="Create an account"
+                variant="ghost"
+                small
+                onPress={() => setMode('signUp')}
+              />
+              <Button
+                label="Forgot password?"
+                variant="ghost"
+                small
+                onPress={() => setMode('forgot')}
+              />
             </>
           ) : (
-            <Button label="Back to sign in" variant="ghost" small onPress={() => setMode('signIn')} />
+            <Button
+              label="Back to sign in"
+              variant="ghost"
+              small
+              onPress={() => setMode('signIn')}
+            />
           )}
         </View>
         {DEV_AUTH ? (

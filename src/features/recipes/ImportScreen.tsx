@@ -43,7 +43,9 @@ export function ImportScreen() {
             setPreview(null)
           }}
           lines={12}
-          placeholder={'Potato kugel\n\nIngredients\n5 potatoes\n2 eggs\n...\n\nMethod\n1. Grate the potatoes...'}
+          placeholder={
+            'Potato kugel\n\nIngredients\n5 potatoes\n2 eggs\n...\n\nMethod\n1. Grate the potatoes...'
+          }
         />
         <TextField label="Title (optional)" value={title} onChangeText={setTitle} />
         {parse.error ? <Text color={colors.danger}>{(parse.error as Error).message}</Text> : null}
@@ -81,8 +83,12 @@ export function ImportScreen() {
           {notes ? (
             <Text color={colors.accent}>
               Saved.
-              {notes.review.length ? ` Check allergens and kashrut flags for: ${notes.review.join(', ')}.` : ''}
-              {notes.unquantified.length ? ` No amount read for: ${notes.unquantified.join(', ')}.` : ''}
+              {notes.review.length
+                ? ` Check allergens and kashrut flags for: ${notes.review.join(', ')}.`
+                : ''}
+              {notes.unquantified.length
+                ? ` No amount read for: ${notes.unquantified.join(', ')}.`
+                : ''}
             </Text>
           ) : null}
           <Button

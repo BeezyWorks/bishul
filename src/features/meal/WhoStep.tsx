@@ -79,6 +79,12 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
   const available = (contacts.data ?? []).flatMap((h) => h.people).filter((p) => !invited.has(p.id))
   const family = people.filter((p) => !p.isGuest)
   const guests = people.filter((p) => p.isGuest)
+  const guestHouseholds = [...new Set(guests.map((g) => g.householdName))].map((name) => ({
+    name,
+    members: guests.filter((g) => g.householdName === name),
+  }))
+  const comingCount = people.filter((p) => p.coming).length
+  const comingGuests = guests.length
 
   return (
     <View style={[styles.cols, wide && styles.colsWide]}>
@@ -98,6 +104,17 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
               Not set yet. It follows the first dish you add, or choose it now.
             </Text>
           ) : null}
+        </Card>
+
+        <Card tone="subtle">
+          <Text variant="bodyStrong">
+            {comingCount} {comingCount === 1 ? 'person' : 'people'} coming
+          </Text>
+          <Text variant="small">
+            {comingCount - comingGuests} from your household, {comingGuests}{' '}
+            {comingGuests === 1 ? 'guest' : 'guests'} from {guestHouseholds.length}{' '}
+            {guestHouseholds.length === 1 ? 'household' : 'households'}.
+          </Text>
         </Card>
 
         <Card>
@@ -123,25 +140,32 @@ export function WhoStep({ detail }: { detail: MealDetail }) {
         <Card>
           <SectionHeader title="Guests" hint="Add people from your contacts." />
           {guests.length === 0 ? <Text color={colors.muted}>No guests yet.</Text> : null}
-          {guests.map((g, i) => (
-            <ListRow
-              key={g.person.id}
-              title={g.person.name}
-              subtitle={g.person.relation}
-              last={i === guests.length - 1}
-              href={`/people/${g.person.id}`}
-              right={
-                <Button
-                  label="Remove"
-                  variant="ghost"
-                  small
-                  accessibilityLabel={`Remove ${g.person.name} from this meal`}
-                  onPress={() => removeGuest(g.person.id)}
-                />
-              }
-            >
-              <ConstraintBadges constraints={g.person.constraints} />
-            </ListRow>
+          {guestHouseholds.map((h) => (
+            <View key={h.name} style={styles.addList}>
+              <Text variant="label">
+                {h.name} ({h.members.length})
+              </Text>
+              {h.members.map((g, i) => (
+                <ListRow
+                  key={g.person.id}
+                  title={g.person.name}
+                  subtitle={g.person.isChild ? 'Child' : undefined}
+                  last={i === h.members.length - 1}
+                  href={`/people/${g.person.id}`}
+                  right={
+                    <Button
+                      label="Remove"
+                      variant="ghost"
+                      small
+                      accessibilityLabel={`Remove ${g.person.name} from this meal`}
+                      onPress={() => removeGuest(g.person.id)}
+                    />
+                  }
+                >
+                  <ConstraintBadges constraints={g.person.constraints} />
+                </ListRow>
+              ))}
+            </View>
           ))}
           {available.length ? (
             <View style={styles.addList}>

@@ -66,9 +66,19 @@ export interface PlannedMeals {
 }
 
 /** Meals with their items and versions, and the shopping/pantry view of what they use. Brought dishes cost nothing. */
-export async function planMeals(db: Db, householdId: string, meals: MealRow[]): Promise<PlannedMeals> {
-  const items = await itemsOfMeals(db, meals.map((m) => m.id))
-  const vids = [...items.values()].flat().map((i) => i.versionId).filter((x): x is string => !!x)
+export async function planMeals(
+  db: Db,
+  householdId: string,
+  meals: MealRow[],
+): Promise<PlannedMeals> {
+  const items = await itemsOfMeals(
+    db,
+    meals.map((m) => m.id),
+  )
+  const vids = [...items.values()]
+    .flat()
+    .map((i) => i.versionId)
+    .filter((x): x is string => !!x)
   const versions = await loadVersions(db, householdId, vids)
   const planned: PlannedMealItem[] = []
   for (const m of meals)

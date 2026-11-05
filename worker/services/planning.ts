@@ -5,6 +5,7 @@ import {
   buildNeeds,
   buildShoppingList,
   calendarDays,
+  portionsFor,
   rankCandidates,
   suggestMenu,
   type CalendarDay,
@@ -83,11 +84,13 @@ export async function settlePassedMeals(db: Db, householdId: string): Promise<vo
     .limit(60)
   if (!rows.length) return
   const plan = await planMeals(db, householdId, rows)
-  const attendees = await inChunks(rows.map((m) => m.id), (part) =>
-    db
-      .select()
-      .from(s.mealAttendees)
-      .where(and(inArray(s.mealAttendees.mealId, part), isNull(s.mealAttendees.deletedAt))),
+  const attendees = await inChunks(
+    rows.map((m) => m.id),
+    (part) =>
+      db
+        .select()
+        .from(s.mealAttendees)
+        .where(and(inArray(s.mealAttendees.mealId, part), isNull(s.mealAttendees.deletedAt))),
   )
   let pantry = await corePantry(db, householdId)
   const cutoff = nextChametzCutoff(loc, rows[0].date)
@@ -96,7 +99,9 @@ export async function settlePassedMeals(db: Db, householdId: string): Promise<vo
   for (const meal of rows) {
     const people = attendees.filter((a) => a.mealId === meal.id).map((a) => a.personId)
     const versionIds = unique(
-      (plan.items.get(meal.id) ?? []).map((i) => i.versionId).filter((x): x is string => !!x && plan.versions.has(x)),
+      (plan.items.get(meal.id) ?? [])
+        .map((i) => i.versionId)
+        .filter((x): x is string => !!x && plan.versions.has(x)),
     )
     const stmts: unknown[] = []
     for (const versionId of versionIds)
@@ -104,7 +109,13 @@ export async function settlePassedMeals(db: Db, householdId: string): Promise<vo
         stmts.push(
           db
             .insert(s.servedLog)
-            .values({ personId, versionId, mealId: meal.id, servedOn: meal.date, layerHouseholdId: householdId })
+            .values({
+              personId,
+              versionId,
+              mealId: meal.id,
+              servedOn: meal.date,
+              layerHouseholdId: householdId,
+            })
             .onConflictDoNothing(),
         )
     const draws = allocatePantry(
@@ -118,10 +129,14 @@ export async function settlePassedMeals(db: Db, householdId: string): Promise<vo
       stmts.push(
         db
           .update(s.pantryItems)
-          .set({ quantityMetric: sql`max(0, coalesce(${s.pantryItems.quantityMetric}, 0) - ${amount})` })
+          .set({
+            quantityMetric: sql`max(0, coalesce(${s.pantryItems.quantityMetric}, 0) - ${amount})`,
+          })
           .where(eq(s.pantryItems.id, pantryId)),
       )
-    pantry = pantry.map((p) => (used.has(p.id) ? { ...p, amount: Math.max(0, p.amount - used.get(p.id)!) } : p))
+    pantry = pantry.map((p) =>
+      used.has(p.id) ? { ...p, amount: Math.max(0, p.amount - used.get(p.id)!) } : p,
+    )
     stmts.push(db.update(s.meals).set({ settledAt: now }).where(eq(s.meals.id, meal.id)))
     await batch(db, stmts)
   }
@@ -171,7 +186,13 @@ export async function requireMeal(db: Db, actor: Actor, mealId: string): Promise
   const [m] = await db
     .select()
     .from(s.meals)
-    .where(and(eq(s.meals.id, mealId), eq(s.meals.householdId, actor.householdId), isNull(s.meals.deletedAt)))
+    .where(
+      and(
+        eq(s.meals.id, mealId),
+        eq(s.meals.householdId, actor.householdId),
+        isNull(s.meals.deletedAt),
+      ),
+    )
   if (!m) throw notFound('Meal')
   return m
 }
@@ -201,10 +222,19 @@ export async function buildContext(db: Db, actor: Actor, meal: MealRow): Promise
   const loc = await householdLocation(db, actor.householdId)
   const today = todayIn(loc.timeZone)
   const items = (await itemsOfMeals(db, [meal.id])).get(meal.id)!
-  const versions = await loadVersions(db, actor.householdId, items.map((i) => i.versionId).filter((x): x is string => !!x))
+  const versions = await loadVersions(
+    db,
+    actor.householdId,
+    items.map((i) => i.versionId).filter((x): x is string => !!x),
+  )
   const att = await attendeeRows(db, meal.id)
   const hostIds = await householdPersonIds(db, actor.householdId)
-  const everyone = await loadEffectivePeople(db, actor, unique([...att.map((a) => a.personId), ...hostIds]))
+  const everyone = await loadEffectivePeople(
+    db,
+    actor,
+    unique([...att.map((a) => a.personId), ...hostIds]),
+    meal.date,
+  )
   const byId = new Map(everyone.map((p) => [p.person.id, p]))
   const attendees = att.map((a) => byId.get(a.personId)).filter((x): x is EffectivePerson => !!x)
   const host = hostIds.map((id) => byId.get(id)).filter((x): x is EffectivePerson => !!x)
@@ -227,7 +257,19 @@ export async function buildContext(db: Db, actor: Actor, meal: MealRow): Promise
     selected,
   }
   const day = calendarDays(meal.date, meal.date, loc)[0]
-  return { loc, today, meal, items, versions, attendees, host, selected, input, day, occasions: occasionsFor(day, meal.time) }
+  return {
+    loc,
+    today,
+    meal,
+    items,
+    versions,
+    attendees,
+    host,
+    selected,
+    input,
+    day,
+    occasions: occasionsFor(day, meal.time),
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -247,13 +289,16 @@ function itemView(it: MealItemRow, versions: Map<string, LoadedVersion>) {
       versionTitle: v.version.title,
       kashrut: versionKashrut(v),
       scale: effectiveScale(it, v),
-      servings: it.servings ?? (v.version.servings ? Math.round(v.version.servings * effectiveScale(it, v)) : null),
+      servings:
+        it.servings ??
+        (v.version.servings ? Math.round(v.version.servings * effectiveScale(it, v)) : null),
       baseServings: v.version.servings,
       activeMinutes: v.version.activeMinutes,
       totalMinutes: v.version.totalMinutes,
       difficulty: v.version.difficulty,
       broughtBy: null,
       description: null,
+      done: it.done,
     }
   }
   return {
@@ -274,6 +319,7 @@ function itemView(it: MealItemRow, versions: Map<string, LoadedVersion>) {
     difficulty: null as string | null,
     broughtBy: it.broughtBy,
     description: it.description,
+    done: it.done,
   }
 }
 
@@ -288,6 +334,7 @@ async function mealView(db: Db, actor: Actor, ctx: MealContext) {
     householdName: p.access.household.name,
     isGuest: p.access.relation === 'ghost' || p.access.household.id !== actor.householdId,
     isChild: p.access.person.isChild,
+    age: p.person.age ?? null,
   })
   void hostIds
   return {
@@ -301,6 +348,8 @@ async function mealView(db: Db, actor: Actor, ctx: MealContext) {
     acceptedAt: meal.acceptedAt,
     settled: !!meal.settledAt,
     attendees: ctx.attendees.map(nameOf),
+    /** Adult-portion equivalents for who is coming (kids eat less); a guide for scaling dishes. */
+    portions: portionsFor(ctx.attendees.map((a) => a.person.age)),
     notComing: ctx.host.filter((h) => !attendeeIds.has(h.person.id)).map(nameOf),
     items: ctx.items.map((i) => itemView(i, ctx.versions)),
     occasions: ctx.occasions,
@@ -365,7 +414,9 @@ export async function briefOf(db: Db, actor: Actor, ctx: MealContext, candidates
     ...brief,
     people,
     mealStatus: ctx.meal.status,
-    hasAllergyConstraints: brief.activeConstraints.some((a) => a.constraint.tag.type === 'allergen'),
+    hasAllergyConstraints: brief.activeConstraints.some(
+      (a) => a.constraint.tag.type === 'allergen',
+    ),
     safety: {
       aiFilledAllergyData: aiDataInUse,
       note: aiDataInUse
@@ -397,7 +448,12 @@ export async function getDiningBrief(
   if (!isDate(input.date)) throw invalid('date must be YYYY-MM-DD')
   const loc = await householdLocation(db, actor.householdId)
   const hostIds = await householdPersonIds(db, actor.householdId)
-  const everyone = await loadEffectivePeople(db, actor, unique([...input.personIds, ...hostIds]))
+  const everyone = await loadEffectivePeople(
+    db,
+    actor,
+    unique([...input.personIds, ...hostIds]),
+    input.date,
+  )
   const byId = new Map(everyone.map((p) => [p.person.id, p]))
   const attendees = input.personIds.map((id) => byId.get(id))
   if (attendees.some((a) => !a)) throw notFound('Person')
@@ -449,7 +505,11 @@ export async function getMeal(db: Db, actor: Actor, mealId: string) {
   const meal = await requireMeal(db, actor, mealId)
   const ctx = await buildContext(db, actor, meal)
   const brief = await briefOf(db, actor, ctx)
-  return { meal: await mealView(db, actor, ctx), brief, review: await reviewOf(db, actor, ctx, brief) }
+  return {
+    meal: await mealView(db, actor, ctx),
+    brief,
+    review: await reviewOf(db, actor, ctx, brief),
+  }
 }
 
 async function reviewOf(db: Db, actor: Actor, ctx: MealContext, brief: DiningBrief) {
@@ -464,7 +524,11 @@ async function reviewOf(db: Db, actor: Actor, ctx: MealContext, brief: DiningBri
       .select()
       .from(s.meals)
       .where(
-        and(eq(s.meals.householdId, actor.householdId), gt(s.meals.date, ctx.meal.date), isNull(s.meals.deletedAt)),
+        and(
+          eq(s.meals.householdId, actor.householdId),
+          gt(s.meals.date, ctx.meal.date),
+          isNull(s.meals.deletedAt),
+        ),
       )
       .orderBy(asc(s.meals.date), asc(s.meals.time))
       .limit(1)
@@ -473,7 +537,11 @@ async function reviewOf(db: Db, actor: Actor, ctx: MealContext, brief: DiningBri
     handsOnMinutes: dishes.reduce((n, v) => n + (v?.version.activeMinutes ?? 0), 0),
     issues: brief.mealIssues.filter((i) => i.severity === 'error').map((i) => i.text),
     warnings: brief.mealIssues.filter((i) => i.severity === 'warning').map((i) => i.text),
-    adjustments: brief.eatAround.map((e) => ({ dish: e.dishTitle, person: e.personName, text: e.text })),
+    adjustments: brief.eatAround.map((e) => ({
+      dish: e.dishTitle,
+      person: e.personName,
+      text: e.text,
+    })),
     sourcing: brief.sourcingNotes.map((n) => n.text),
     shopping: lines.filter((l) => l.toBuy.length || l.unquantified).map((l) => l.toBuyDisplay),
     emptyMenu: ctx.items.length === 0,
@@ -487,7 +555,12 @@ export interface MealItemInput {
   scale?: number
   servings?: number
   /** …or a dish someone is bringing. */
-  brought?: { description: string; by: string; kashrut?: 'meat' | 'dairy' | 'parve'; course?: string }
+  brought?: {
+    description: string
+    by: string
+    kashrut?: 'meat' | 'dairy' | 'parve'
+    course?: string
+  }
   course?: string
 }
 
@@ -518,17 +591,33 @@ async function addItems(db: Db, actor: Actor, mealId: string, items: MealItemInp
   const versions = await loadVersions(db, actor.householdId, vids)
   let pos = await nextPosition(db, mealId)
   const rows: (typeof s.mealItems.$inferInsert)[] = []
-  for (const it of items) {
+  // With kids at the table (known by age), an item with no size given is scaled to the portions actually eaten.
+  const [mealRow] = await db.select().from(s.meals).where(eq(s.meals.id, mealId))
+  const att = await attendeeRows(db, mealId)
+  const eaters = await loadEffectivePeople(
+    db,
+    actor,
+    att.map((a) => a.personId),
+    mealRow.date,
+  )
+  const ages = eaters.map((e) => e.person.age)
+  const portions = ages.some((a) => a !== undefined && a < 13) ? portionsFor(ages) : null
+  for (let it of items) {
     if (it.versionId) {
       const v = versions.get(it.versionId)
       if (!v) throw notFound('Recipe version')
+      if (portions && it.scale === undefined && it.servings === undefined && v.version.servings)
+        it = { ...it, servings: Math.max(1, Math.ceil(portions)) }
       rows.push({
         mealId,
         position: pos++,
         course: it.course ?? v.version.course ?? null,
         versionId: v.version.id,
-        scale: it.scale ?? (it.servings && v.version.servings ? it.servings / v.version.servings : 1),
-        servings: it.servings ?? (v.version.servings ? Math.round(v.version.servings * (it.scale ?? 1)) : null),
+        scale:
+          it.scale ?? (it.servings && v.version.servings ? it.servings / v.version.servings : 1),
+        servings:
+          it.servings ??
+          (v.version.servings ? Math.round(v.version.servings * (it.scale ?? 1)) : null),
       })
     } else if (it.brought) {
       rows.push({
@@ -553,8 +642,14 @@ async function setAttendees(db: Db, actor: Actor, mealId: string, personIds: str
   const stmts: unknown[] = []
   for (const e of existing)
     if (!want.has(e.personId))
-      stmts.push(db.update(s.mealAttendees).set({ deletedAt: Date.now() }).where(eq(s.mealAttendees.id, e.id)))
-  for (const id of want) if (!have.has(id)) stmts.push(db.insert(s.mealAttendees).values({ mealId, personId: id }))
+      stmts.push(
+        db
+          .update(s.mealAttendees)
+          .set({ deletedAt: Date.now() })
+          .where(eq(s.mealAttendees.id, e.id)),
+      )
+  for (const id of want)
+    if (!have.has(id)) stmts.push(db.insert(s.mealAttendees).values({ mealId, personId: id }))
   await batch(db, stmts)
 }
 
@@ -595,7 +690,17 @@ export interface UpdateMealInput {
   removePersonIds?: string[]
   addItems?: MealItemInput[]
   removeItemIds?: string[]
-  updateItems?: { id: string; course?: string; scale?: number; servings?: number; by?: string; description?: string; kashrut?: 'meat' | 'dairy' | 'parve' }[]
+  updateItems?: {
+    id: string
+    course?: string
+    scale?: number
+    servings?: number
+    by?: string
+    description?: string
+    kashrut?: 'meat' | 'dairy' | 'parve'
+    /** Checked off on the accepted menu. */
+    done?: boolean
+  }[]
   /** Item ids in the order they should appear. */
   order?: string[]
 }
@@ -603,8 +708,17 @@ export interface UpdateMealInput {
 export async function updateMeal(db: Db, actor: Actor, mealId: string, input: UpdateMealInput) {
   const meal = await requireMeal(db, actor, mealId)
   const content =
-    input.personIds || input.addPersonIds || input.removePersonIds || input.addItems || input.removeItemIds || input.updateItems || input.order
-  if (meal.settledAt && content) throw conflict('That meal has already happened; its menu is now history.')
+    input.personIds ||
+    input.addPersonIds ||
+    input.removePersonIds ||
+    input.addItems ||
+    input.removeItemIds ||
+    input.updateItems?.some((u) =>
+      Object.entries(u).some(([k, v]) => v !== undefined && k !== 'id' && k !== 'done'),
+    ) ||
+    input.order
+  if (meal.settledAt && content)
+    throw conflict('That meal has already happened; its menu is now history.')
   const patch: Partial<typeof s.meals.$inferInsert> = {}
   if (input.name !== undefined) {
     if (!input.name.trim()) throw invalid('A meal needs a name')
@@ -628,7 +742,12 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
   if (input.addPersonIds || input.removePersonIds) {
     const cur = (await attendeeRows(db, mealId)).map((a) => a.personId)
     const drop = new Set(input.removePersonIds ?? [])
-    await setAttendees(db, actor, mealId, unique([...cur, ...(input.addPersonIds ?? [])]).filter((p) => !drop.has(p)))
+    await setAttendees(
+      db,
+      actor,
+      mealId,
+      unique([...cur, ...(input.addPersonIds ?? [])]).filter((p) => !drop.has(p)),
+    )
   }
   if (input.removeItemIds?.length)
     await db
@@ -645,13 +764,17 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
         ...(u.by !== undefined && { broughtBy: u.by }),
         ...(u.description !== undefined && { description: u.description }),
         ...(u.kashrut !== undefined && { kashrut: u.kashrut }),
+        ...(u.done !== undefined && { done: u.done }),
       })
       .where(and(eq(s.mealItems.id, u.id), eq(s.mealItems.mealId, mealId)))
   }
   if (input.addItems?.length) await addItems(db, actor, mealId, input.addItems)
   if (input.order) {
     const stmts = input.order.map((id, i) =>
-      db.update(s.mealItems).set({ position: i }).where(and(eq(s.mealItems.id, id), eq(s.mealItems.mealId, mealId))),
+      db
+        .update(s.mealItems)
+        .set({ position: i })
+        .where(and(eq(s.mealItems.id, id), eq(s.mealItems.mealId, mealId))),
     )
     await batch(db, stmts)
   }
@@ -706,7 +829,10 @@ export async function acceptMeals(db: Db, actor: Actor, input: AcceptInput) {
       continue
     }
     if (!ctx.items.length) notes.push(`${meal.name} (${meal.date}) has no dishes yet.`)
-    await db.update(s.meals).set({ status: 'accepted', acceptedAt: Date.now() }).where(eq(s.meals.id, meal.id))
+    await db
+      .update(s.meals)
+      .set({ status: 'accepted', acceptedAt: Date.now() })
+      .where(eq(s.meals.id, meal.id))
     accepted.push({ id: meal.id, name: meal.name, date: meal.date })
   }
   await settlePassedMeals(db, actor.householdId)
@@ -732,7 +858,12 @@ export async function reopenMeals(db: Db, actor: Actor, mealIds: string[]) {
 // ---------------------------------------------------------------------------------------------------------------
 // Suggestions (BRIEF §9)
 
-async function rankContext(db: Db, actor: Actor, ctx: MealContext, course?: string): Promise<RankContext> {
+async function rankContext(
+  db: Db,
+  actor: Actor,
+  ctx: MealContext,
+  course?: string,
+): Promise<RankContext> {
   const ids = ctx.attendees.map((a) => a.person.id)
   const reacts = ids.length
     ? await inChunks(ids, (part) =>
@@ -765,8 +896,17 @@ async function rankContext(db: Db, actor: Actor, ctx: MealContext, course?: stri
   const pantry = await corePantry(db, actor.householdId)
   return {
     today: ctx.today,
-    reactions: reacts.map((r) => ({ personId: r.personId, versionId: r.versionId, type: r.reaction, ...(r.note && { note: r.note }) })),
-    servings: served.map((x) => ({ personId: x.personId, versionId: x.versionId, date: x.servedOn })),
+    reactions: reacts.map((r) => ({
+      personId: r.personId,
+      versionId: r.versionId,
+      type: r.reaction,
+      ...(r.note && { note: r.note }),
+    })),
+    servings: served.map((x) => ({
+      personId: x.personId,
+      versionId: x.versionId,
+      date: x.servedOn,
+    })),
     pantry: pantry.map((p) => ({
       name: p.name,
       ...(p.expiry && { expiresOn: p.expiry.slice(0, 10) }),
@@ -774,7 +914,9 @@ async function rankContext(db: Db, actor: Actor, ctx: MealContext, course?: stri
     })),
     occasions: ctx.occasions,
     ...(course && { course }),
-    ...(nextChametzCutoff(ctx.loc, ctx.today) && { chametzCutoff: nextChametzCutoff(ctx.loc, ctx.today)! }),
+    ...(nextChametzCutoff(ctx.loc, ctx.today) && {
+      chametzCutoff: nextChametzCutoff(ctx.loc, ctx.today)!,
+    }),
   }
 }
 
@@ -840,7 +982,10 @@ export async function suggestMenuForMeal(
   const all = await loadAllVersions(db, actor.householdId)
   const meta = dishMeta(all)
   const rc = await rankContext(db, actor, ctx)
-  const res = suggestMenu(ctx.input, all.map(toDishVersion), rc, { plan: input.plan, maxHard: input.maxHard })
+  const res = suggestMenu(ctx.input, all.map(toDishVersion), rc, {
+    plan: input.plan,
+    maxHard: input.maxHard,
+  })
   const menu = res.menu.map((m) => {
     const v = meta.get(m.dish.id)!
     return {
@@ -857,11 +1002,24 @@ export async function suggestMenuForMeal(
   })
   if (input.apply) {
     if (meal.settledAt) throw conflict('That meal has already happened')
-    await addItems(db, actor, meal.id, menu.map((m) => ({ versionId: m.versionId, course: m.course })))
+    await addItems(
+      db,
+      actor,
+      meal.id,
+      menu.map((m) => ({ versionId: m.versionId, course: m.course })),
+    )
     if (meal.status === 'accepted')
-      await db.update(s.meals).set({ status: 'draft', acceptedAt: null }).where(eq(s.meals.id, meal.id))
+      await db
+        .update(s.meals)
+        .set({ status: 'draft', acceptedAt: null })
+        .where(eq(s.meals.id, meal.id))
   }
-  return { applied: !!input.apply, menu, unfilled: res.unfilled, disclaimer: buildDiningBrief(ctx.input).disclaimer }
+  return {
+    applied: !!input.apply,
+    menu,
+    unfilled: res.unfilled,
+    disclaimer: buildDiningBrief(ctx.input).disclaimer,
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -897,7 +1055,11 @@ export async function getCalendar(
   const cookingOn = new Map(prep.days.map((d) => [d.date, d.tasks]))
   return {
     today,
-    location: { name: (loc as { name?: string }).name ?? null, timeZone: loc.timeZone, israel: loc.israel },
+    location: {
+      name: (loc as { name?: string }).name ?? null,
+      timeZone: loc.timeZone,
+      israel: loc.israel,
+    },
     days: days.map((d) => ({
       ...dayLabel(d),
       hebrewDate: d.hebrew,
@@ -977,11 +1139,22 @@ export async function getUpcoming(db: Db, actor: Actor, input: { days?: number }
   const end = addDaysStr(today, span)
   const days = calendarDays(addDaysStr(today, -1), end, loc)
   const meals = await mealsInRange(db, actor.householdId, today, end)
-  const items = await itemsOfMeals(db, meals.map((m) => m.id))
+  const items = await itemsOfMeals(
+    db,
+    meals.map((m) => m.id),
+  )
   const chip = (d: string) =>
     meals
       .filter((m) => m.date === d)
-      .map((m) => ({ id: m.id, name: m.name, time: m.time, timeText: clock(m.time), kind: m.kind, status: m.status, itemCount: (items.get(m.id) ?? []).length }))
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        time: m.time,
+        timeText: clock(m.time),
+        kind: m.kind,
+        status: m.status,
+        itemCount: (items.get(m.id) ?? []).length,
+      }))
 
   const occasions: unknown[] = []
   for (let i = 1; i < days.length; i++) {
@@ -1006,7 +1179,17 @@ export async function getUpcoming(db: Db, actor: Actor, input: { days?: number }
       days: run.map((x) => ({ ...dayLabel(x), meals: chip(x.date) })),
     })
   }
-  return { today, occasions: occasions.slice(0, 8), upcomingMeals: meals.map((m) => ({ id: m.id, name: m.name, date: m.date, timeText: clock(m.time), status: m.status })) }
+  return {
+    today,
+    occasions: occasions.slice(0, 8),
+    upcomingMeals: meals.map((m) => ({
+      id: m.id,
+      name: m.name,
+      date: m.date,
+      timeText: clock(m.time),
+      status: m.status,
+    })),
+  }
 }
 
 /** What is for dinner: the accepted menus (and, if asked, drafts) over a range, with their items. */
@@ -1038,7 +1221,8 @@ export async function getMenu(
       status: m.status,
       items: (plan.items.get(m.id) ?? []).map((i) => itemView(i, plan.versions)),
     })),
-    note: input.includeDrafts ? null : 'Only accepted meals are shown. Pass includeDrafts to see drafts.',
+    note: input.includeDrafts
+      ? null
+      : 'Only accepted meals are shown. Pass includeDrafts to see drafts.',
   }
 }
-

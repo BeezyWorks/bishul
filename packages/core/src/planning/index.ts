@@ -1,4 +1,5 @@
 export * from './types'
+export { KID_MAX_AGE, ageOn, birthDateForAge, isKid, portionWeight, portionsFor } from './age'
 export {
   calendarDay,
   calendarDays,

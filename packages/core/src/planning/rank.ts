@@ -1,4 +1,5 @@
 import { createDishChecker, type DiningBriefInput, type DishCheck } from './diningBrief'
+import { isKid } from './age'
 import { daysBetween, weekdayName } from './time'
 import type { DateString, DishVersion, OccasionFit } from './types'
 
@@ -47,6 +48,9 @@ export interface RankWeights {
   /** Days ahead of today that count as "expiring soon". */
   pantrySoonDays: number
   occasion: Record<OccasionFit, number>
+  /** Dimension marking dishes kids love; boosted (by its fit) when a kid is coming. */
+  kidsDimension: string
+  kidsLove: Record<OccasionFit, number>
   eatAroundRuins: number
   eatAroundMinor: number
   /** Subtracted when a menu already has a dish of the same form (suggestMenu only). */
@@ -65,6 +69,8 @@ export const DEFAULT_WEIGHTS: RankWeights = {
   pantryCap: 3,
   pantrySoonDays: 7,
   occasion: { fine: 0.5, good: 1.5, especially_suited: 3 },
+  kidsDimension: 'kids_love_it',
+  kidsLove: { fine: 0.5, good: 2, especially_suited: 3.5 },
   eatAroundRuins: -3,
   eatAroundMinor: -0.5,
   sameForm: -2,
@@ -90,7 +96,14 @@ export interface RankContext {
 
 export interface RankReason {
   code:
-    'liked' | 'disliked' | 'not_served' | 'served_recently' | 'pantry' | 'occasion' | 'eat_around'
+    | 'liked'
+    | 'disliked'
+    | 'not_served'
+    | 'served_recently'
+    | 'pantry'
+    | 'occasion'
+    | 'kids'
+    | 'eat_around'
   text: string
   delta: number
 }
@@ -165,6 +178,7 @@ export function rankCandidates(
     ...DEFAULT_WEIGHTS,
     ...ctx.weights,
     occasion: { ...DEFAULT_WEIGHTS.occasion, ...ctx.weights?.occasion },
+    kidsLove: { ...DEFAULT_WEIGHTS.kidsLove, ...ctx.weights?.kidsLove },
   }
   const checker = createDishChecker(meal)
   const selectedIds = new Set(meal.selected.map((d) => d.id))
@@ -174,6 +188,8 @@ export function rankCandidates(
   const servings = (ctx.servings ?? []).filter(
     (s) => attendeeIds.has(s.personId) && s.date < meal.date,
   )
+
+  const kids = meal.attendees.filter((p) => isKid(p.age))
 
   const ranked: RankedDish[] = []
   const hidden: HiddenDish[] = []
@@ -273,6 +289,17 @@ export function rankCandidates(
               ? `Good for ${label(best.o).toLowerCase()}`
               : `Fine for ${label(best.o).toLowerCase()}`,
         delta: w.occasion[best.fit],
+      })
+    }
+
+    // Kids at the table: dishes tagged as kid favourites rise.
+    const kidFit = kids.length ? dish.occasionFit?.[w.kidsDimension] : undefined
+    if (kidFit) {
+      const who = kids.length === 1 ? kids[0].name : 'the kids'
+      add({
+        code: 'kids',
+        text: kidFit === 'fine' ? `Fine for ${who}` : `Kid-friendly for ${who}`,
+        delta: w.kidsLove[kidFit],
       })
     }
 

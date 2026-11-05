@@ -58,7 +58,11 @@ export function RecipeScreen() {
       actions={
         <View style={styles.wrapRow}>
           <Button label="Edit" variant="secondary" onPress={() => setEditing('edit')} />
-          <Button label="New variation" variant="secondary" onPress={() => setEditing('variation')} />
+          <Button
+            label="New variation"
+            variant="secondary"
+            onPress={() => setEditing('variation')}
+          />
           <Button label="Start cooking" href={`/cook/${v.id}?scale=${scale}`} />
         </View>
       }

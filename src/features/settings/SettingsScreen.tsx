@@ -135,11 +135,21 @@ function HouseholdCard() {
         <Badge label="Location not set: using New York until you save one" tone="warn" />
       ) : null}
       <TextField label="Household name" value={name} onChangeText={setName} />
-      <TextField label="Place (optional)" value={place} onChangeText={setPlace} placeholder="e.g. Teaneck" />
+      <TextField
+        label="Place (optional)"
+        value={place}
+        onChangeText={setPlace}
+        placeholder="e.g. Teaneck"
+      />
       <View style={styles.row}>
         <TextField label="Latitude" value={lat} onChangeText={setLat} keyboardType="numeric" />
         <TextField label="Longitude" value={lng} onChangeText={setLng} keyboardType="numeric" />
-        <TextField label="Time zone" value={tz} onChangeText={setTz} placeholder="America/New_York" />
+        <TextField
+          label="Time zone"
+          value={tz}
+          onChangeText={setTz}
+          placeholder="America/New_York"
+        />
       </View>
       <View style={styles.row}>
         <Segmented
@@ -151,7 +161,12 @@ function HouseholdCard() {
           onChange={setIsrael}
         />
         {Platform.OS === 'web' ? (
-          <Button label="Use my location" variant="secondary" loading={geoBusy} onPress={useMyLocation} />
+          <Button
+            label="Use my location"
+            variant="secondary"
+            loading={geoBusy}
+            onPress={useMyLocation}
+          />
         ) : null}
       </View>
       {message ? <Text variant="small">{message}</Text> : null}
@@ -231,9 +246,7 @@ function ConnectCard() {
         <CopyButton text={MCP_URL} label="Copy address" />
       </View>
       <Text variant="h3">Scripts and other tools</Text>
-      <Text>
-        Create an API key below and send it as a bearer token. The base address is:
-      </Text>
+      <Text>Create an API key below and send it as a bearer token. The base address is:</Text>
       <View style={styles.row}>
         <View style={{ flex: 1, minWidth: 220 }}>
           <Code>{REST_URL}</Code>
@@ -296,7 +309,9 @@ function KeysCard() {
             <Text variant="small">
               {k.scope === 'write' ? 'Read and write' : 'Read only'} · created{' '}
               {new Date(k.createdAt).toLocaleDateString()}
-              {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : ' · never used'}
+              {k.lastUsedAt
+                ? ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}`
+                : ' · never used'}
             </Text>
           </View>
           <Button
@@ -318,7 +333,11 @@ function KeysCard() {
           value={scope}
           onChange={setScope}
         />
-        <Button label="Create API key" loading={create.isPending} onPress={() => create.mutate(scope)} />
+        <Button
+          label="Create API key"
+          loading={create.isPending}
+          onPress={() => create.mutate(scope)}
+        />
       </View>
       {create.error ? <Text color={colors.danger}>{(create.error as Error).message}</Text> : null}
     </Card>
@@ -358,5 +377,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     padding: space.md,
   },
-  mono: { fontFamily: Platform.select({ web: 'ui-monospace, Menlo, Consolas, monospace', default: 'Courier' }), fontSize: 14, color: colors.ink },
+  mono: {
+    fontFamily: Platform.select({
+      web: 'ui-monospace, Menlo, Consolas, monospace',
+      default: 'Courier',
+    }),
+    fontSize: 14,
+    color: colors.ink,
+  },
 })

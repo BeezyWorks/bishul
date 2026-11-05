@@ -27,7 +27,9 @@ function Item({ it, today }: { it: PantryItem; today: string }) {
   if (editing)
     return (
       <View style={[styles.row, { flexWrap: 'wrap' }]}>
-        <Text variant="bodyStrong" style={{ width: '100%' }}>{it.name}</Text>
+        <Text variant="bodyStrong" style={{ width: '100%' }}>
+          {it.name}
+        </Text>
         <TextField label="Quantity" value={qty} onChangeText={setQty} />
         <TextField label="Location" value={loc} onChangeText={setLoc} />
         <TextField label="Expires" value={exp} onChangeText={setExp} placeholder="YYYY-MM-DD" />
@@ -55,7 +57,13 @@ function Item({ it, today }: { it: PantryItem; today: string }) {
         </Text>
         {it.heldFor ? <Badge label={`Held for ${it.heldFor}`} tone="info" /> : null}
       </View>
-      <Button label="Edit" variant="ghost" small accessibilityLabel={`Edit ${it.name}`} onPress={() => setEditing(true)} />
+      <Button
+        label="Edit"
+        variant="ghost"
+        small
+        accessibilityLabel={`Edit ${it.name}`}
+        onPress={() => setEditing(true)}
+      />
       <Button
         label="Remove"
         variant="ghost"

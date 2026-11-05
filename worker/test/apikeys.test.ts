@@ -24,7 +24,11 @@ describe('API keys and /v1', () => {
     expect(listed).toHaveLength(2)
     expect(JSON.stringify(listed)).not.toContain(write.key)
 
-    const made = await v1(write.key, 'POST', '/recipes/import', { title: 'Key soup', ingredients: ['1 onion'], steps: ['Boil'] })
+    const made = await v1(write.key, 'POST', '/recipes/import', {
+      title: 'Key soup',
+      ingredients: ['1 onion'],
+      steps: ['Boil'],
+    })
     expect(made.status).toBe(201)
     const body = (await made.json()) as any
     expect(body.version.id).toBeTruthy()
@@ -33,7 +37,11 @@ describe('API keys and /v1', () => {
     expect(((await res.json()) as any).results.map((r: any) => r.title)).toEqual(['Key soup'])
 
     // Read key cannot write.
-    const denied = await v1(read.key, 'POST', '/recipes/import', { title: 'Nope', ingredients: ['1 egg'], steps: ['x'] })
+    const denied = await v1(read.key, 'POST', '/recipes/import', {
+      title: 'Nope',
+      ingredients: ['1 egg'],
+      steps: ['x'],
+    })
     expect(denied.status).toBe(403)
     expect(((await denied.json()) as any).error.code).toBe('insufficient_scope')
 

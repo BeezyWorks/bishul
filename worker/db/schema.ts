@@ -103,6 +103,10 @@ export const persons = sqliteTable(
     userId: text('user_id'),
     name: text('name').notNull(),
     isChild: integer('is_child', { mode: 'boolean' }).notNull().default(false),
+    /** `YYYY-MM-DD`. Age is always derived from this and the household's today, never stored. */
+    birthDate: text('birth_date'),
+    /** True when `birth_date` was estimated from a stated age ("he's 5"), not a real birthday. */
+    birthDateApprox: integer('birth_date_approx', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => [index('persons_household_idx').on(t.householdId), index('persons_user_idx').on(t.userId)],
 )
@@ -459,6 +463,8 @@ export const mealItems = sqliteTable(
     broughtBy: text('brought_by'),
     description: text('description'),
     kashrut: text('kashrut', { enum: dishCategory }),
+    /** Checked off on the accepted menu. */
+    done: integer('done', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => [
     index('meal_items_meal_idx').on(t.mealId, t.position),
@@ -634,7 +640,10 @@ export const householdInvites = sqliteTable(
     acceptedAt: integer('accepted_at'),
     revokedAt: integer('revoked_at'),
   },
-  (t) => [uniqueIndex('household_invites_token_uq').on(t.token), index('household_invites_household_idx').on(t.householdId)],
+  (t) => [
+    uniqueIndex('household_invites_token_uq').on(t.token),
+    index('household_invites_household_idx').on(t.householdId),
+  ],
 )
 
 export type RecipeFilterSpec = {
@@ -672,7 +681,9 @@ export const userPrefs = sqliteTable(
   {
     ...base(),
     userId: text('user_id').notNull(),
-    system: text('system', { enum: ['us', 'metric'] }).notNull().default('us'),
+    system: text('system', { enum: ['us', 'metric'] })
+      .notNull()
+      .default('us'),
     overrides: text('overrides', { mode: 'json' }).$type<Record<string, UnitOverride>>(),
   },
   (t) => [uniqueIndex('user_prefs_user_uq').on(t.userId)],

@@ -26,7 +26,7 @@ import {
   type ConstraintTagInput,
   type Person,
 } from '@/lib/api/types'
-import { shortDate } from '@/lib/dates'
+import { parseBirthInput, shortDate } from '@/lib/dates'
 import { colors, space } from '@/theme/tokens'
 
 import { constraintTone } from './PeopleScreen'
@@ -72,6 +72,11 @@ export function PersonScreen() {
   const [note, setNote] = useState('')
   const addNote = useApiMutation((n: string) => api.addPersonNote(id, n), stale.reactions)
   const removeC = useApiMutation((cid: string) => api.removeConstraint(id, cid), stale.people)
+  const [birth, setBirth] = useState('')
+  const setBirthMut = useApiMutation(
+    (input: { birthDate: string | null } | { age: number }) => api.setPersonBirth(id, input),
+    stale.people,
+  )
   const setRules = useApiMutation((r: string[]) => api.setPersonRules(id, r), stale.people)
   if (isLoading || !data)
     return (
@@ -93,6 +98,47 @@ export function PersonScreen() {
       title={p.name}
       subtitle={[p.relation, p.age ? `age ${p.age}` : ''].filter(Boolean).join(' · ')}
     >
+      <Card tone="subtle">
+        <SectionHeader
+          title="Age"
+          hint="Kids’ ages scale portions down and bring up kid-friendly dishes. A birthday keeps the age current on its own."
+        />
+        <Text>
+          {p.birthDate
+            ? p.birthDateApprox
+              ? `About ${p.age} (estimated from the age you gave). Add the birthday to keep it exact.`
+              : `Born ${shortDate(p.birthDate)}${p.age !== undefined ? ` · ${p.age}` : ''}`
+            : 'Not set'}
+        </Text>
+        <TextField
+          label="Birthday or age"
+          value={birth}
+          onChangeText={setBirth}
+          placeholder="YYYY-MM-DD, or just 5"
+        />
+        {birth.trim() && !parseBirthInput(birth) ? (
+          <Text variant="small">Use a date like 2020-03-14, or a whole number for an age.</Text>
+        ) : null}
+        <View style={styles.addNote}>
+          <Button
+            label="Save"
+            disabled={!parseBirthInput(birth)}
+            loading={setBirthMut.isPending}
+            onPress={async () => {
+              await setBirthMut.mutateAsync(parseBirthInput(birth)!)
+              setBirth('')
+            }}
+          />
+          {p.birthDate ? (
+            <Button
+              label="Clear"
+              variant="ghost"
+              onPress={() => setBirthMut.mutate({ birthDate: null })}
+            />
+          ) : null}
+        </View>
+      </Card>
+
       {p.link ? (
         <Card tone="info">
           <Text variant="h3" color={colors.info}>
@@ -136,7 +182,9 @@ export function PersonScreen() {
                 label={r.label}
                 selected={on}
                 onPress={() =>
-                  setRules.mutate(on ? (p.rules ?? []).filter((x) => x !== r.id) : [...(p.rules ?? []), r.id])
+                  setRules.mutate(
+                    on ? (p.rules ?? []).filter((x) => x !== r.id) : [...(p.rules ?? []), r.id],
+                  )
                 }
               />
             )
@@ -202,7 +250,11 @@ const TAG_TYPES: { value: ConstraintTagInput; label: string; hint: string }[] = 
   { value: 'ingredient', label: 'Ingredient', hint: 'cilantro' },
   { value: 'diet', label: 'Diet', hint: 'vegetarian, vegan or pescatarian' },
   { value: 'kashrut-dish', label: 'Kashrut', hint: 'kitniyot, gebrokts' },
-  { value: 'kashrut-sourcing', label: 'Sourcing', hint: 'chalav_yisrael, pat_yisrael, yashan, glatt' },
+  {
+    value: 'kashrut-sourcing',
+    label: 'Sourcing',
+    hint: 'chalav_yisrael, pat_yisrael, yashan, glatt',
+  },
 ]
 
 /** Add a constraint: what, how serious, and when it applies. */
@@ -216,16 +268,28 @@ function AddConstraint({ personId }: { personId: string }) {
   const [to, setTo] = useState('')
   const [note, setNote] = useState('')
   const add = useApiMutation((c: ConstraintInput) => api.addConstraint(personId, c), stale.people)
-  if (!open) return <Button label="+ Add a constraint" variant="soft" small onPress={() => setOpen(true)} />
-  const kind = tagType === 'allergen' ? 'medical' : tagType === 'ingredient' || tagType === 'diet' ? 'preference' : 'religious'
+  if (!open)
+    return <Button label="+ Add a constraint" variant="soft" small onPress={() => setOpen(true)} />
+  const kind =
+    tagType === 'allergen'
+      ? 'medical'
+      : tagType === 'ingredient' || tagType === 'diet'
+        ? 'preference'
+        : 'religious'
   const range = when === 'range'
-  const ok = !!tag.trim() && (!range || (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)))
+  const ok =
+    !!tag.trim() && (!range || (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)))
   return (
     <Card>
       <Text variant="label">What</Text>
       <View style={styles.badges}>
         {TAG_TYPES.map((t) => (
-          <Pill key={t.value} label={t.label} selected={tagType === t.value} onPress={() => setTagType(t.value)} />
+          <Pill
+            key={t.value}
+            label={t.label}
+            selected={tagType === t.value}
+            onPress={() => setTagType(t.value)}
+          />
         ))}
       </View>
       <TextField
@@ -299,7 +363,14 @@ function RecordReaction({ person }: { person: Person }) {
   return (
     <View style={{ gap: space.sm }}>
       <Text variant="label">Record a like or dislike</Text>
-      <SearchField value={q} onChangeText={(t) => { setQ(t); setRecipeId(null) }} placeholder="Find a recipe" />
+      <SearchField
+        value={q}
+        onChangeText={(t) => {
+          setQ(t)
+          setRecipeId(null)
+        }}
+        placeholder="Find a recipe"
+      />
       {q.trim() && !recipeId ? (
         <View style={styles.badges}>
           {(found.data ?? []).slice(0, 8).map((r) => (
@@ -315,8 +386,18 @@ function RecordReaction({ person }: { person: Person }) {
                 {recipe.data!.title}
                 {v.label !== 'Original' ? `: ${v.label}` : ''}
               </Text>
-              <Button label="Liked it" variant="soft" small onPress={() => react.mutate({ versionId: v.id, reaction: 'like' })} />
-              <Button label="Didn’t like it" variant="secondary" small onPress={() => react.mutate({ versionId: v.id, reaction: 'dislike' })} />
+              <Button
+                label="Liked it"
+                variant="soft"
+                small
+                onPress={() => react.mutate({ versionId: v.id, reaction: 'like' })}
+              />
+              <Button
+                label="Didn’t like it"
+                variant="secondary"
+                small
+                onPress={() => react.mutate({ versionId: v.id, reaction: 'dislike' })}
+              />
             </View>
           ))
         : null}

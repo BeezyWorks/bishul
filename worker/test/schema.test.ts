@@ -86,26 +86,22 @@ describe('schema', () => {
       .values({ householdId: household.id, date: '2026-11-06', name: 'Leil Shabbat', kind: 'meat' })
       .returning()
     await db.insert(s.mealAttendees).values({ mealId: meal.id, personId: person.id })
-    await db
-      .insert(s.mealItems)
-      .values({
-        mealId: meal.id,
-        position: 0,
-        course: 'main',
-        versionId: version.id,
-        scale: 2,
-        servings: 8,
-      })
-    await db
-      .insert(s.mealItems)
-      .values({
-        mealId: meal.id,
-        position: 1,
-        course: 'side',
-        broughtBy: 'Ruth',
-        description: 'potatoes',
-        kashrut: 'parve',
-      })
+    await db.insert(s.mealItems).values({
+      mealId: meal.id,
+      position: 0,
+      course: 'main',
+      versionId: version.id,
+      scale: 2,
+      servings: 8,
+    })
+    await db.insert(s.mealItems).values({
+      mealId: meal.id,
+      position: 1,
+      course: 'side',
+      broughtBy: 'Ruth',
+      description: 'potatoes',
+      kashrut: 'parve',
+    })
 
     const items = await db.select().from(s.mealItems).where(eq(s.mealItems.mealId, meal.id))
     expect(items).toHaveLength(2)

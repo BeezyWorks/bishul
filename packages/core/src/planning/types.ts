@@ -77,6 +77,8 @@ export interface Constraint {
 export interface Person {
   id: string
   name: string
+  /** Whole years on the meal's day, when a birthday (or stated age) is known. */
+  age?: number
   /** Everything that applies to this person, including the host's private-layer additions (see `mergePrivateLayer`). */
   constraints: Constraint[]
 }

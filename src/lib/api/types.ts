@@ -67,7 +67,12 @@ export interface Person {
   name: string
   householdId: Id
   relation?: string
+  /** Whole years, worked out by the server from the birthday (so it ticks up on its own). */
   age?: number
+  /** `YYYY-MM-DD`; absent when only an age was given. */
+  birthDate?: ISODate
+  /** The birthday was estimated from a stated age; ask for the real one when convenient. */
+  birthDateApprox?: boolean
   constraints: Constraint[]
   /** Linked ghost: the real user's profile, live. */
   link?: { profileName: string; mode: 'merge' | 'overwrite' }
@@ -300,6 +305,8 @@ export interface MealItem {
   activeMin: number
   /** Someone else is bringing this dish: it counts for balance and kashrut, not cooking. */
   broughtBy?: string
+  /** Checked off on the accepted menu. */
+  done?: boolean
   adjustments: string[]
 }
 
@@ -340,6 +347,7 @@ export interface MealPerson {
   person: Person
   coming: boolean
   isGuest: boolean
+  householdName: string
 }
 
 export interface MealReview {

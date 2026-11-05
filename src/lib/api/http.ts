@@ -52,9 +52,9 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     throw new ApiError(0, 'network', 'Can’t reach Bishul. Check your connection and try again.')
   }
   if (res.status === 204) return undefined as T
-  const data = (await res.json().catch(() => null)) as
-    | { error?: { code?: string; message?: string; details?: unknown } }
-    | null
+  const data = (await res.json().catch(() => null)) as {
+    error?: { code?: string; message?: string; details?: unknown }
+  } | null
   if (res.status === 401) {
     expireSession()
     throw new ApiError(401, 'unauthorized', 'Your session has ended. Please sign in again.')

@@ -37,7 +37,7 @@ export function ReviewStep({ detail }: { detail: MealDetail }) {
       <Card>
         <SectionHeader title="Menu" />
         {meal.items.length ? (
-          <MenuList items={meal.items} />
+          <MenuList mealId={meal.id} items={meal.items} accepted={accepted} />
         ) : (
           <Empty>The menu is empty. Add dishes first.</Empty>
         )}
@@ -180,13 +180,10 @@ function Reactions({ detail }: { detail: MealDetail }) {
   const eaters = detail.people.filter((p) => p.coming)
   const [personId, setPersonId] = useState<string | null>(null)
   const [done, setDone] = useState<Record<string, 'like' | 'dislike'>>({})
-  const react = useApiMutation(
-    async (a: { versionId: string; reaction: 'like' | 'dislike' }) => {
-      await api.recordReaction(personId!, a.versionId, a.reaction)
-      setDone((d) => ({ ...d, [`${personId}:${a.versionId}`]: a.reaction }))
-    },
-    stale.reactions,
-  )
+  const react = useApiMutation(async (a: { versionId: string; reaction: 'like' | 'dislike' }) => {
+    await api.recordReaction(personId!, a.versionId, a.reaction)
+    setDone((d) => ({ ...d, [`${personId}:${a.versionId}`]: a.reaction }))
+  }, stale.reactions)
   if (!dishes.length || !eaters.length) return null
   return (
     <Card>
@@ -204,32 +201,32 @@ function Reactions({ detail }: { detail: MealDetail }) {
           />
         ))}
       </View>
-      {personId
-        ? dishes.map((d) => {
-            const mark = done[`${personId}:${d.versionId}`]
-            return (
-              <View key={d.id} style={styles.line}>
-                <Text style={{ flex: 1 }}>{dishName(d.title, d.versionLabel)}</Text>
-                <Button
-                  label={mark === 'like' ? 'Liked' : 'Liked it'}
-                  variant={mark === 'like' ? 'primary' : 'soft'}
-                  small
-                  accessibilityLabel={`Liked ${d.title}`}
-                  onPress={() => react.mutate({ versionId: d.versionId!, reaction: 'like' })}
-                />
-                <Button
-                  label={mark === 'dislike' ? 'Disliked' : 'Didn’t like it'}
-                  variant={mark === 'dislike' ? 'primary' : 'secondary'}
-                  small
-                  accessibilityLabel={`Didn’t like ${d.title}`}
-                  onPress={() => react.mutate({ versionId: d.versionId!, reaction: 'dislike' })}
-                />
-              </View>
-            )
-          })
-        : (
-          <Text color={colors.muted}>Choose who you are recording for.</Text>
-        )}
+      {personId ? (
+        dishes.map((d) => {
+          const mark = done[`${personId}:${d.versionId}`]
+          return (
+            <View key={d.id} style={styles.line}>
+              <Text style={{ flex: 1 }}>{dishName(d.title, d.versionLabel)}</Text>
+              <Button
+                label={mark === 'like' ? 'Liked' : 'Liked it'}
+                variant={mark === 'like' ? 'primary' : 'soft'}
+                small
+                accessibilityLabel={`Liked ${d.title}`}
+                onPress={() => react.mutate({ versionId: d.versionId!, reaction: 'like' })}
+              />
+              <Button
+                label={mark === 'dislike' ? 'Disliked' : 'Didn’t like it'}
+                variant={mark === 'dislike' ? 'primary' : 'secondary'}
+                small
+                accessibilityLabel={`Didn’t like ${d.title}`}
+                onPress={() => react.mutate({ versionId: d.versionId!, reaction: 'dislike' })}
+              />
+            </View>
+          )
+        })
+      ) : (
+        <Text color={colors.muted}>Choose who you are recording for.</Text>
+      )}
     </Card>
   )
 }

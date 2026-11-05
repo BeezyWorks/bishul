@@ -40,7 +40,11 @@ export function nameKey(name: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .map((w) => canonicalWord(w))
-    .map((w) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.replace(/(ie)?s$/, (m) => (m === 'ies' ? 'y' : '')) : w))
+    .map((w) =>
+      w.length > 3 && w.endsWith('s') && !w.endsWith('ss')
+        ? w.replace(/(ie)?s$/, (m) => (m === 'ies' ? 'y' : ''))
+        : w,
+    )
     .join(' ')
 }
 
@@ -52,7 +56,8 @@ export class Catalog {
     private householdId: string,
   ) {
     // Global entries first so a household's own entry of the same name wins.
-    for (const r of [...rows].sort((a, b) => Number(!!a.householdId) - Number(!!b.householdId))) this.add(r)
+    for (const r of [...rows].sort((a, b) => Number(!!a.householdId) - Number(!!b.householdId)))
+      this.add(r)
   }
   add(r: IngredientRow) {
     this.byId.set(r.id, r)
@@ -90,7 +95,9 @@ function flagsOf(
   source: s.FlagSource,
 ): s.IngredientFlags | undefined {
   if (!flags) return undefined
-  const entries = Array.isArray(flags) ? flags.map((f) => [f, true] as const) : Object.entries(flags)
+  const entries = Array.isArray(flags)
+    ? flags.map((f) => [f, true] as const)
+    : Object.entries(flags)
   return Object.fromEntries(
     entries.map(([k, v]) => [slugOf(k), { value: v, source } satisfies s.FlagValue]),
   )
@@ -282,7 +289,8 @@ export async function findDimension(
 export async function createDimension(db: Db, actor: Actor, name: string) {
   const clean = name.trim()
   if (!clean) throw invalid('A dimension needs a name')
-  if (await findDimension(db, actor, clean)) throw conflict(`There is already a dimension called "${clean}"`)
+  if (await findDimension(db, actor, clean))
+    throw conflict(`There is already a dimension called "${clean}"`)
   const [row] = await db
     .insert(s.dimensions)
     .values({ householdId: actor.householdId, name: clean, kind: 'custom' })
@@ -294,7 +302,11 @@ export async function renameDimension(db: Db, actor: Actor, ref: string, name: s
   const d = await findDimension(db, actor, ref)
   if (!d) throw notFound('Dimension')
   if (!d.householdId) throw forbidden('Built-in dimensions cannot be renamed')
-  const [row] = await db.update(s.dimensions).set({ name }).where(eq(s.dimensions.id, d.id)).returning()
+  const [row] = await db
+    .update(s.dimensions)
+    .set({ name })
+    .where(eq(s.dimensions.id, d.id))
+    .returning()
   return dimensionView(row)
 }
 
@@ -303,7 +315,10 @@ export async function deleteDimension(db: Db, actor: Actor, ref: string) {
   if (!d) throw notFound('Dimension')
   if (!d.householdId) throw forbidden('Built-in dimensions cannot be deleted')
   await db.batch([
-    db.update(s.versionDimensions).set({ deletedAt: Date.now() }).where(eq(s.versionDimensions.dimensionId, d.id)),
+    db
+      .update(s.versionDimensions)
+      .set({ deletedAt: Date.now() })
+      .where(eq(s.versionDimensions.dimensionId, d.id)),
     db.update(s.dimensions).set({ deletedAt: Date.now() }).where(eq(s.dimensions.id, d.id)),
   ])
   return { deleted: true }
@@ -327,15 +342,23 @@ export async function setVersionFit(
   const [existing] = await db
     .select()
     .from(s.versionDimensions)
-    .where(and(eq(s.versionDimensions.versionId, versionId), eq(s.versionDimensions.dimensionId, d.id)))
+    .where(
+      and(eq(s.versionDimensions.versionId, versionId), eq(s.versionDimensions.dimensionId, d.id)),
+    )
   if (fit === null) {
     if (existing)
-      await db.update(s.versionDimensions).set({ deletedAt: Date.now() }).where(eq(s.versionDimensions.id, existing.id))
+      await db
+        .update(s.versionDimensions)
+        .set({ deletedAt: Date.now() })
+        .where(eq(s.versionDimensions.id, existing.id))
     return { dimension: dimensionView(d), fit: null }
   }
   const f = fitFromInput(fit)
   if (existing)
-    await db.update(s.versionDimensions).set({ fit: f, deletedAt: null }).where(eq(s.versionDimensions.id, existing.id))
+    await db
+      .update(s.versionDimensions)
+      .set({ fit: f, deletedAt: null })
+      .where(eq(s.versionDimensions.id, existing.id))
   else await db.insert(s.versionDimensions).values({ versionId, dimensionId: d.id, fit: f })
   return { dimension: dimensionView(d), fit: f }
 }

@@ -99,3 +99,11 @@ export function shortHebrew(text: string | undefined | null): string {
   const m = ORDINAL.exec(text)
   return m ? `${m[1]} ${m[2]}` : text
 }
+
+/** What someone typed for "birthday or age": `2020-03-14` is a birthday, a small whole number is an age. */
+export function parseBirthInput(text: string): { birthDate: ISODate } | { age: number } | null {
+  const t = text.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t) && !Number.isNaN(Date.parse(t))) return { birthDate: t }
+  if (/^\d{1,3}$/.test(t) && +t <= 120) return { age: +t }
+  return null
+}

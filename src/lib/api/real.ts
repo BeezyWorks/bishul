@@ -210,17 +210,23 @@ export const realApi: BishulApi = {
               course,
             },
           }
-    return adaptMealDetail(await http.patch<ServerMealDetail>(`/meals/${id}`, { addItems: [entry] }))
+    return adaptMealDetail(
+      await http.patch<ServerMealDetail>(`/meals/${id}`, { addItems: [entry] }),
+    )
   },
 
   removeMenuItem: async (id, itemId) =>
-    adaptMealDetail(await http.patch<ServerMealDetail>(`/meals/${id}`, { removeItemIds: [itemId] })),
+    adaptMealDetail(
+      await http.patch<ServerMealDetail>(`/meals/${id}`, { removeItemIds: [itemId] }),
+    ),
+
+  setItemDone: async (id, itemId, done) =>
+    adaptMealDetail(
+      await http.patch<ServerMealDetail>(`/meals/${id}`, { updateItems: [{ id: itemId, done }] }),
+    ),
 
   getSuggestions: async (id, course) =>
-    adaptSuggestions(
-      course,
-      await http.get(`/meals/${id}/suggestions`, { course, limit: 30 }),
-    ),
+    adaptSuggestions(course, await http.get(`/meals/${id}/suggestions`, { course, limit: 30 })),
 
   suggestMenu: async (id) => {
     await http.post(`/meals/${id}/suggest-menu`, { apply: true })
@@ -263,7 +269,9 @@ export const realApi: BishulApi = {
       ),
       people().catch(() => null),
     ])
-    const all = everyone ? [...everyone.household.people, ...everyone.contacts.flatMap((c) => c.people)] : []
+    const all = everyone
+      ? [...everyone.household.people, ...everyone.contacts.flatMap((c) => c.people)]
+      : []
     const reactionsOf = (versionId: string): Reaction[] =>
       all.flatMap((p) =>
         [
@@ -303,7 +311,10 @@ export const realApi: BishulApi = {
       Object.entries(filtersOut(filters)).filter(([k, v]) => v !== undefined && k !== 'sort'),
     )
     return adaptCollection(
-      await http.post<Parameters<typeof adaptCollection>[0]>('/collections', { name, filters: spec }),
+      await http.post<Parameters<typeof adaptCollection>[0]>('/collections', {
+        name,
+        filters: spec,
+      }),
     )
   },
 
@@ -377,6 +388,10 @@ export const realApi: BishulApi = {
 
   addPerson: async (input) => adaptPerson(await http.post<ServerPersonView>('/people', input)),
 
+  setPersonBirth: async (personId, input) => {
+    await http.patch(`/people/${personId}`, input)
+  },
+
   addConstraint: async (personId, c) => {
     await http.put(`/people/${personId}/constraints`, {
       add: [
@@ -410,7 +425,9 @@ export const realApi: BishulApi = {
 
   // ---- Shopping, prep, pantry ----
   getShoppingList: async () =>
-    adaptShopping((await http.get<{ lines: Parameters<typeof adaptShopping>[0] }>('/shopping')).lines),
+    adaptShopping(
+      (await http.get<{ lines: Parameters<typeof adaptShopping>[0] }>('/shopping')).lines,
+    ),
 
   setShoppingChecked: async (key, checked) => {
     await http.patch('/shopping', { check: [{ key, checked }] })
