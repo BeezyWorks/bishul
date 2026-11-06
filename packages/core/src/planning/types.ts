@@ -103,6 +103,8 @@ export interface DishIngredient {
   allergens: string[]
   /** chametz, kitniyot, gebrokts, animal_derived, meat_derived, egg, honey, grain, pat, ... */
   flags: string[]
+  /** Flags the catalog explicitly says do NOT apply; they stop name-based inference (`effectiveFlags`). */
+  flagsOff?: string[]
   /** Where the allergen and kashrut data for this ingredient came from. `ai` data is called out in the brief. */
   dataSource: DataSource
   skipImpact: SkipImpact

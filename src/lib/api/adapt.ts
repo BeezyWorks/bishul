@@ -717,7 +717,7 @@ interface ServerVersion {
     prepNote: string | null
     skipImpact: 'none' | 'minor' | 'ruins'
   }[]
-  pesach: { friendly: boolean }
+  pesach: { friendly: boolean; kitniyot?: string[] }
   parentVersionId: string | null
 }
 
@@ -825,6 +825,7 @@ export function adaptVersion(
       ? { label: v.sourceLinks[0].label ?? v.sourceLinks[0].url, url: v.sourceLinks[0].url }
       : undefined,
     pesachFriendly: v.pesach.friendly,
+    pesachKitniyot: v.pesach.friendly && !!v.pesach.kitniyot?.length,
     ingredients,
     steps: v.steps.map((s, i) => ({
       id: `${v.id}:${i}`,
@@ -870,18 +871,19 @@ interface ServerResult {
   activeMinutes: number | null
   totalMinutes: number | null
   pesachFriendly: boolean
+  pesachKitniyotFree?: boolean
   dimensions: { name: string; fit: string }[]
   lastServed: string | null
   versionCount: number
   unsafeFor?: { personId: string; personName: string; reasons: string[] }[]
+  /** Every matching version of the recipe, the lead one first. */
+  versions?: { kashrut: string }[]
 }
 
-/** The server lists versions; the library lists dishes. Keeps the first (best-ranked) version of each. */
+/** The server returns one result per recipe, led by its best-ranked version; the library lists dishes. */
 export function adaptResults(results: ServerResult[]): RecipeSummary[] {
-  const byRecipe = new Map<string, ServerResult[]>()
-  for (const r of results) byRecipe.set(r.recipeId, [...(byRecipe.get(r.recipeId) ?? []), r])
-  return [...byRecipe.values()].map((group) => {
-    const r = group[0]
+  return results.map((r) => {
+    const group = r.versions?.length ? r.versions : [r]
     return {
       id: r.recipeId,
       title: r.title,
@@ -895,6 +897,7 @@ export function adaptResults(results: ServerResult[]): RecipeSummary[] {
       difficulty: difficultyIn(r.difficulty),
       cost: costIn(r.cost),
       pesachFriendly: r.pesachFriendly,
+      pesachKitniyot: r.pesachFriendly && r.pesachKitniyotFree === false,
       lastServed: r.lastServed ?? undefined,
       fits: r.dimensions.map((d) => ({ dimension: d.name, fit: FIT_FROM[d.fit] ?? 'fine' })),
       unsafeFor: (r.unsafeFor ?? []).map((u) => ({

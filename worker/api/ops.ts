@@ -484,11 +484,23 @@ export const operations: Operation[] = [
     run: (c, i) => recipes.getRecipeHistory(c.db, c.actor, i.id),
   }),
   op({
-    id: 'setVersionFit',
-    method: 'put',
-    path: '/versions/:id/dimensions',
-    tag: 'Recipes',
-    scope: 'write',
+    id: 'getVersionReactions', method: 'get', path: '/versions/:id/reactions', tag: 'Recipes', scope: 'read',
+    summary: 'Who liked or disliked a version (as your household recorded it), and when it was last served',
+    input: idParam,
+    run: (c, i) => recipes.getVersionReactions(c.db, c.actor, i.id),
+  }),
+  op({
+    id: 'setVersionReaction', method: 'put', path: '/versions/:id/reactions', tag: 'Recipes', scope: 'write',
+    summary: 'Set or clear a person’s reaction to a version (reaction none clears it)',
+    input: idParam.extend({
+      personId: S.id,
+      reaction: z.enum(['like', 'dislike', 'none']),
+      note: z.string().max(500).optional(),
+    }),
+    run: (c, i) => recipes.setVersionReaction(c.db, c.actor, i.id, { personId: i.personId, reaction: i.reaction, note: i.note }),
+  }),
+  op({
+    id: 'setVersionFit', method: 'put', path: '/versions/:id/dimensions', tag: 'Recipes', scope: 'write',
     summary: 'Set how well a version suits a dimension (fit null clears it)',
     input: idParam.extend({ dimension: z.string(), fit: S.fit.nullable() }),
     run: (c, i) => recipes.setRecipeFit(c.db, c.actor, i.id, i.dimension, i.fit),

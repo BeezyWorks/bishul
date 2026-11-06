@@ -1,5 +1,6 @@
 import {
   createDishChecker,
+  effectiveFlags,
   formatQuantity,
   parseQuantity,
   scaleLines,
@@ -39,12 +40,13 @@ import {
   fitFromInput,
   ingredientDataSource,
   toCoreLine,
+  toDishIngredient,
   toDishVersion,
   versionKashrut,
   type IngredientRow,
   type LoadedVersion,
 } from './mappers'
-import { loadEffectivePeople, householdPersonIds } from './people'
+import { loadEffectivePeople, householdPersonIds, recordReaction, requirePerson } from './people'
 import { getPrefs } from './prefs'
 import { wordVariants } from './translit'
 
@@ -164,25 +166,35 @@ export async function requireVersion(
 // ---------------------------------------------------------------------------------------------------------------
 // Views
 
-/** What Pesach means for a version: chametz rules it out; kitniyot is listed separately (custom varies). */
+/**
+ * What Pesach means for a version. Chametz rules it out (`friendly`); kitniyot is listed separately because custom
+ * varies, and `friendlyForKitniyotAvoiders` is the answer for a household or guest that avoids it. Flags come from
+ * the catalog and, where it has none, from the ingredient's name (core's `effectiveFlags`), so old rows are covered.
+ */
 export function pesachCheck(v: LoadedVersion) {
   const chametz: string[] = []
   const kitniyot: string[] = []
+  const gebrokts: string[] = []
   const unverified: string[] = []
   for (const l of v.lines) {
     const name = l.ingredient?.name ?? l.line.originalText
-    const flags = l.ingredient?.flags ?? {}
-    if (flags.chametz?.value) chametz.push(name)
-    if (flags.kitniyot?.value) kitniyot.push(name)
+    const flags = effectiveFlags(toDishIngredient(l.line, l.ingredient))
+    if (flags.includes('chametz')) chametz.push(name)
+    if (flags.includes('kitniyot')) kitniyot.push(name)
+    if (flags.includes('gebrokts')) gebrokts.push(name)
     if (!l.ingredient || ingredientDataSource(l.ingredient) === 'ai') unverified.push(name)
   }
   const handFlags = v.version.flags ?? {}
   if (handFlags.chametz?.value) chametz.push('(marked chametz)')
   if (handFlags.kitniyot?.value) kitniyot.push('(marked kitniyot)')
+  if (handFlags.gebrokts?.value) gebrokts.push('(marked gebrokts)')
   return {
     friendly: chametz.length === 0,
+    /** No chametz and no kitniyot: fine for Ashkenazi households that avoid kitniyot. */
+    friendlyForKitniyotAvoiders: chametz.length === 0 && kitniyot.length === 0,
     chametz: unique(chametz),
     kitniyot: unique(kitniyot),
+    gebrokts: unique(gebrokts),
     /** Ingredients whose flags are AI-filled or unknown: check labels before relying on this. */
     unverified: unique(unverified),
   }
@@ -1231,16 +1243,19 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     : await loadAllVersions(db, actor.householdId)
   const order = ids ? new Map(ids.map((id, i) => [id, i])) : null
 
-  // 2. Cheap filters.
+  // 2. Cheap filters. A Pesach filter also drops kitniyot when someone in the household avoids it.
+  const avoidKitniyot = input.pesach ? await householdAvoidsKitniyot(db, actor) : false
   let hits = pool.filter((v) => {
     const x = v.version
     if (input.course && (x.course ?? '').toLowerCase() !== input.course.toLowerCase()) return false
     if (input.kashrut && versionKashrut(v) !== input.kashrut) return false
     if (input.difficulty && x.difficulty !== input.difficulty) return false
     if (input.maxCost && (x.cost ?? 0) > input.maxCost) return false
-    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes)
-      return false
-    if (input.pesach && !pesachCheck(v).friendly) return false
+    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes) return false
+    if (input.pesach) {
+      const p = pesachCheck(v)
+      if (!(avoidKitniyot ? p.friendlyForKitniyotAvoiders : p.friendly)) return false
+    }
     return true
   })
   if (input.dimension) {
@@ -1329,16 +1344,18 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     }
   })
 
-  const total = hits.length
-  const page = hits.slice(input.offset ?? 0, (input.offset ?? 0) + Math.min(input.limit ?? 50, 200))
+  // 6. One result per recipe: its best-ranked matching version leads, the other matching versions are nested.
+  const byRecipe = new Map<string, LoadedVersion[]>()
+  for (const v of hits) byRecipe.set(v.recipe.id, [...(byRecipe.get(v.recipe.id) ?? []), v])
+  const groups = [...byRecipe.values()]
+  const total = groups.length
+  const page = groups.slice(input.offset ?? 0, (input.offset ?? 0) + Math.min(input.limit ?? 50, 200))
   const counts = new Map<string, number>()
   for (const v of pool) counts.set(v.recipe.id, (counts.get(v.recipe.id) ?? 0) + 1)
-  return {
-    total,
-    results: page.map((v) => ({
-      recipeId: v.recipe.id,
+  const summary = (v: LoadedVersion) => {
+    const pc = pesachCheck(v)
+    return {
       versionId: v.version.id,
-      title: v.recipe.title,
       versionTitle: v.version.title,
       course: v.version.course,
       form: v.version.form,
@@ -1348,16 +1365,106 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
       servings: v.version.servings,
       activeMinutes: v.version.activeMinutes,
       totalMinutes: v.version.totalMinutes,
-      pesachFriendly: pesachCheck(v).friendly,
+      pesachFriendly: pc.friendly,
+      pesachKitniyotFree: pc.friendlyForKitniyotAvoiders,
       dimensions: v.dims.map((d) => ({ name: d.dimension.name, fit: d.fit })),
       lastServed: served.get(v.version.id) ?? null,
-      versionCount: counts.get(v.recipe.id) ?? 1,
       ...(checked && { unsafeFor: unsafe.get(v.version.id) ?? [] }),
+    }
+  }
+  return {
+    total,
+    results: page.map(([lead, ...rest]) => ({
+      recipeId: lead.recipe.id,
+      title: lead.recipe.title,
+      // The lead version's fields stay at the top level for simple clients.
+      ...summary(lead),
+      versionCount: counts.get(lead.recipe.id) ?? 1,
+      matchingVersionCount: rest.length + 1,
+      versions: [lead, ...rest].map(summary),
     })),
     disclaimer: checked
       ? "Bishul helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
       : null,
   }
+}
+
+/** Whether anyone in the household avoids kitniyot (a kitniyot kashrut constraint, whenever it applies). */
+async function householdAvoidsKitniyot(db: Db, actor: Actor): Promise<boolean> {
+  const ids = await householdPersonIds(db, actor.householdId)
+  if (!ids.length) return false
+  const people = await loadEffectivePeople(db, actor, ids)
+  return people.some((p) =>
+    p.person.constraints.some((c) => c.tag.type === 'kashrut' && c.tag.value === 'kitniyot'),
+  )
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Reactions and serving history of one version (this household's layer)
+
+export type ReactionInput = {
+  personId: string
+  /** `null` (or `none`) clears the person's standing reaction. */
+  reaction: 'like' | 'dislike' | 'none' | null
+  note?: string
+}
+
+/** Everyone's reaction to a version and when it was last served, as this household recorded them. */
+export async function getVersionReactions(db: Db, actor: Actor, versionId: string) {
+  await requireVersion(db, actor, versionId)
+  const rows = await db
+    .select({ r: s.reactions, person: s.persons })
+    .from(s.reactions)
+    .innerJoin(s.persons, eq(s.persons.id, s.reactions.personId))
+    .where(
+      and(
+        eq(s.reactions.versionId, versionId),
+        eq(s.reactions.layerHouseholdId, actor.householdId),
+        isNull(s.reactions.deletedAt),
+        isNull(s.persons.deletedAt),
+      ),
+    )
+    .orderBy(desc(s.reactions.createdAt))
+  const served = await servedMap(db, actor.householdId, [versionId])
+  return {
+    versionId,
+    reactions: rows.map(({ r, person }) => ({
+      id: r.id,
+      personId: r.personId,
+      personName: person.name,
+      reaction: r.reaction,
+      note: r.note,
+      at: r.createdAt,
+    })),
+    lastServed: served.get(versionId) ?? null,
+  }
+}
+
+/** Sets (replacing any earlier one) or clears a person's reaction to a version. Returns the version's reactions. */
+export async function setVersionReaction(db: Db, actor: Actor, versionId: string, input: ReactionInput) {
+  if (input.reaction === 'like' || input.reaction === 'dislike') {
+    await recordReaction(db, actor, {
+      personId: input.personId,
+      versionId,
+      reaction: input.reaction,
+      note: input.note,
+    })
+  } else {
+    await requireVersion(db, actor, versionId)
+    await requirePerson(db, actor, input.personId)
+    await db
+      .update(s.reactions)
+      .set({ deletedAt: Date.now() })
+      .where(
+        and(
+          eq(s.reactions.personId, input.personId),
+          eq(s.reactions.versionId, versionId),
+          eq(s.reactions.layerHouseholdId, actor.householdId),
+          isNull(s.reactions.deletedAt),
+        ),
+      )
+  }
+  return getVersionReactions(db, actor, versionId)
 }
 
 function stripUndefined<T extends object>(o: T): Partial<T> {

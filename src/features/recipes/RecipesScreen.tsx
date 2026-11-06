@@ -268,7 +268,12 @@ export function RecipesScreen() {
                 <Badge label={formatMinutes(r.totalMin)} tone="muted" />
                 <Badge label={r.difficulty} tone="muted" />
                 <Badge label={r.cost} tone="muted" />
-                {r.pesachFriendly ? <Badge label="Pesach-friendly" tone="info" /> : null}
+                {r.pesachFriendly ? (
+                  <Badge
+                    label={r.pesachKitniyot ? 'Pesach, with kitniyot' : 'Pesach-friendly'}
+                    tone="info"
+                  />
+                ) : null}
                 <Badge
                   label={
                     r.lastServed

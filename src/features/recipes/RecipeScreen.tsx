@@ -16,7 +16,8 @@ import {
   Text,
   useLayout,
 } from '@/components'
-import { useRecipe } from '@/lib/api/hooks'
+import { api } from '@/lib/api/client'
+import { stale, useApiMutation, useHousehold, useRecipe } from '@/lib/api/hooks'
 
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
@@ -33,6 +34,71 @@ const SKIP_TEXT: Record<SkipImpact, { text: string; tone: Tone }> = {
   none: { text: 'Fine to skip', tone: 'accent' },
   minor: { text: 'Minor change', tone: 'warn' },
   ruins: { text: 'Don’t skip', tone: 'danger' },
+}
+
+/** Set or clear what someone in the household thought of this version. */
+function VersionReactions({ version }: { version: RecipeVersion }) {
+  const household = useHousehold()
+  const [personId, setPersonId] = useState<string | null>(null)
+  const react = useApiMutation(
+    (a: { reaction: 'like' | 'dislike' | 'none' }) =>
+      api.recordReaction(personId!, version.id, a.reaction),
+    stale.reactions,
+  )
+  const everyone = household.data?.people ?? []
+  if (!everyone.length) return null
+  const mine = version.reactions.find((r) => r.personId === personId)
+  return (
+    <View style={{ gap: space.xs }}>
+      <Text variant="label">Record a reaction</Text>
+      <View style={styles.wrapRow}>
+        {everyone.map((p) => (
+          <Pill
+            key={p.id}
+            label={p.name}
+            selected={p.id === personId}
+            onPress={() => setPersonId(p.id)}
+          />
+        ))}
+      </View>
+      {personId ? (
+        <View style={styles.wrapRow}>
+          <Button
+            label="Liked it"
+            variant={mine?.kind === 'like' ? 'primary' : 'soft'}
+            small
+            onPress={() => react.mutate({ reaction: 'like' })}
+          />
+          <Button
+            label="Didn’t like it"
+            variant={mine?.kind === 'dislike' ? 'primary' : 'secondary'}
+            small
+            onPress={() => react.mutate({ reaction: 'dislike' })}
+          />
+          {mine ? (
+            <Button
+              label="Clear"
+              variant="secondary"
+              small
+              onPress={() => react.mutate({ reaction: 'none' })}
+            />
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
+
+/**
+ * Whether the original text says nothing beyond what is already on screen (the name and the prep note). A line with
+ * no amount has no catalog name to fall back on, so the name is often the original text, and "salt to taste" splits
+ * into "salt" plus a "to taste" note; showing the original on top of those would print it twice.
+ */
+export function isCovered(original: string, shown: (string | undefined)[]): boolean {
+  const seen = new Set(shown.flatMap((s) => words(s ?? '')))
+  return words(original).every((w) => seen.has(w))
 }
 
 export function RecipeScreen() {
@@ -117,7 +183,12 @@ function VersionView({
       <Text color={colors.muted}>{v.description}</Text>
       <View style={styles.wrapRow}>
         <KindLabel kind={v.kind} />
-        {v.pesachFriendly ? <Badge label="Pesach-friendly" tone="info" /> : null}
+        {v.pesachFriendly ? (
+          <Badge
+            label={v.pesachKitniyot ? 'Pesach, with kitniyot' : 'Pesach-friendly'}
+            tone="info"
+          />
+        ) : null}
         {v.easyToDeliver ? <Badge label="Easy to deliver" tone="muted" /> : null}
         {v.flags.map((f) => (
           <Badge key={f} label={f} tone="warn" />
@@ -201,7 +272,9 @@ function VersionView({
                     <View style={styles.cName}>
                       <Text variant="bodyStrong">{l.name}</Text>
                       {l.prep ? <Text variant="small">{l.prep}</Text> : null}
-                      {l.unquantified ? <Text variant="small">{l.original}</Text> : null}
+                      {l.unquantified && !isCovered(l.original, [l.name, l.prep]) ? (
+                        <Text variant="small">{l.original}</Text>
+                      ) : null}
                       {l.allergens.length ? (
                         <Text variant="small" color={colors.danger}>
                           Contains {l.allergens.join(', ')}
@@ -260,6 +333,8 @@ function VersionView({
                 </Text>
               </View>
             ))}
+            <VersionReactions version={v} />
+            <Text variant="small">Reactions are private to your household.</Text>
           </Card>
         </View>
       </View>
