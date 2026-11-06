@@ -68,7 +68,7 @@ Instructions
     expect(dry.parsed.title).toBe('Lemon bars')
     expect(dry.parsed.servings).toBe(9)
     expect(dry.parsed.ingredients.map((i: any) => i.name)).toEqual(['flour', 'butter', 'lemons'])
-    expect(dry.parsed.steps).toEqual(['Mix the crust.', 'Bake it.'])
+    expect(dry.parsed.steps.map((s: any) => s.text)).toEqual(['Mix the crust.', 'Bake it.'])
     expect((await api('rec-2', 'GET', '/recipes')).total).toBe(0)
     const saved = await api('rec-2', 'POST', '/recipes/import', { text }, 201)
     expect(saved.version.servings).toBe(9)
@@ -101,6 +101,116 @@ Instructions
     expect(r.newIngredients).toEqual([])
     expect(r.version.ingredients[0].ingredient.allergens[0].tag).toBe('sesame')
     expect((await api(who, 'GET', '/ingredients?q=chickpea')).length).toBe(1)
+  })
+})
+
+const MOUSSE_CAKE = `# Chocolate mousse cake
+
+# Ingredients
+## Cake
+1/2 cup (75 g) unbleached all-purpose flour
+2 tbsp cocoa powder, sifted
+
+## Chocolate Mousse
+
+### whipped cream
+1/3 cup whipping cream
+1 tsp vanilla
+
+### Meringue
+1/2 cup sugar
+sprinkle of cream of tartar
+
+## Ganache
+3 oz (85 g) dark chocolate, chopped
+
+# Preparation
+
+## Cake
+1. Preheat the oven to 350F.
+2. Bake for 10 minutes.
+
+## Chocolate Mousse
+1. Beat the whites to firm peaks.
+2. Fold in the whipped cream.
+
+## Assembly
+1. Pour the mousse over the cooled cake.
+2. Pour the ganache over the cake.
+
+https://www.ricardocuisine.com/en/recipes/7472-chocolate-mousse-cake
+https://www.seriouseats.com/basic-italian-meringue-recipe`
+
+describe('recipes in several parts', () => {
+  it('reads sections, nesting and links from a pasted recipe, and keeps them through edit and variation', async () => {
+    const dry = await api(
+      'rec-parts',
+      'POST',
+      '/recipes/import',
+      { text: MOUSSE_CAKE, dryRun: true },
+      201,
+    )
+    expect(dry.parsed.ingredients.map((i: any) => i.section)).toEqual([
+      'Cake',
+      'Cake',
+      'Chocolate Mousse > whipped cream',
+      'Chocolate Mousse > whipped cream',
+      'Chocolate Mousse > Meringue',
+      'Chocolate Mousse > Meringue',
+      'Ganache',
+    ])
+    expect(dry.parsed.steps.map((s: any) => s.section)).toEqual([
+      'Cake',
+      'Cake',
+      'Chocolate Mousse',
+      'Chocolate Mousse',
+      'Assembly',
+      'Assembly',
+    ])
+
+    const saved = await api('rec-parts', 'POST', '/recipes/import', { text: MOUSSE_CAKE }, 201)
+    const v = saved.version
+    expect(v.title).toBe('Chocolate mousse cake')
+    expect(v.sourceLinks.map((l: any) => l.url)).toHaveLength(2)
+    expect(v.ingredients.map((i: any) => i.section)).toContain('Chocolate Mousse > Meringue')
+    expect(v.steps[2]).toMatchObject({
+      text: 'Beat the whites to firm peaks.',
+      section: 'Chocolate Mousse',
+    })
+    // Link lines are not steps.
+    expect(v.steps).toHaveLength(6)
+
+    // Editing the lists replaces them, sections included; a section-only change counts as a change.
+    const edited = await api('rec-parts', 'PUT', `/versions/${v.id}`, {
+      ingredients: [
+        { text: '1/2 cup flour', section: 'Cake' },
+        { text: '3 oz dark chocolate', section: ' Ganache ' },
+        { text: '1 cup almonds' },
+      ],
+      steps: [{ text: 'Bake.', section: 'Cake' }, 'Serve.'],
+    })
+    expect(edited.version.ingredients.map((i: any) => i.section)).toEqual(['Cake', 'Ganache', null])
+    expect(edited.version.steps).toEqual([{ text: 'Bake.', section: 'Cake' }, { text: 'Serve.' }])
+    const moved = await api('rec-parts', 'PUT', `/versions/${v.id}`, {
+      ingredients: [
+        { text: '1/2 cup flour', section: 'Base' },
+        { text: '3 oz dark chocolate', section: 'Ganache' },
+        { text: '1 cup almonds' },
+      ],
+    })
+    expect(moved.created).toBe(false)
+    expect(moved.version.ingredients[0].section).toBe('Base')
+
+    // A variation copies the sections.
+    const fork = await api(
+      'rec-parts',
+      'POST',
+      `/versions/${v.id}/variations`,
+      { title: 'Pesach' },
+      201,
+    )
+    expect(fork.version.ingredients.map((i: any) => i.section)).toEqual(['Base', 'Ganache', null])
+    expect(fork.version.steps[0].section).toBe('Cake')
   })
 })
 

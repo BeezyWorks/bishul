@@ -165,6 +165,7 @@ export function CookScreen() {
         <View style={styles.inner}>
           <Text style={styles.count}>
             Step {i + 1} of {total}
+            {step.section ? ` · ${step.section}` : ''}
           </Text>
           <Text style={styles.stepText}>{step.text}</Text>
 

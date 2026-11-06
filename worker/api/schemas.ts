@@ -99,6 +99,22 @@ export const ingredientMeta = z.object({
   gramsPerPiece: z.number().positive().optional(),
 })
 
+export const sectionName = z
+  .string()
+  .max(200)
+  .describe(
+    'The part of the recipe this belongs to ("Cake", "Ganache"). Nest with " > " ("Chocolate Mousse > Meringue"). Omit for a one-part recipe. Ingredients and steps are grouped independently, so a step section can cover several ingredient sections.',
+  )
+
+export const stepInput = z.union([
+  z.string(),
+  z.object({
+    text: z.string(),
+    timerMinutes: z.number().optional(),
+    section: sectionName.nullable().optional(),
+  }),
+])
+
 export const ingredientInput = z.object({
   text: z
     .string()
@@ -114,6 +130,7 @@ export const ingredientInput = z.object({
     .optional()
     .describe('What skipping it does: none, minor or ruins the dish'),
   substitutions: z.array(z.object({ text: z.string(), note: z.string().optional() })).optional(),
+  section: sectionName.nullable().optional(),
   ingredient: ingredientMeta.optional().describe('Catalog data if the ingredient is new'),
 })
 
@@ -157,11 +174,7 @@ export const versionFields = {
     .array(z.object({ step: z.string(), leadMinutes: z.number().int().min(0) }))
     .optional()
     .describe('Pre-prep steps with lead time ("marinate", 720 minutes)'),
-  steps: z
-    .array(
-      z.union([z.string(), z.object({ text: z.string(), timerMinutes: z.number().optional() })]),
-    )
-    .optional(),
+  steps: z.array(stepInput).optional(),
   flags: z
     .record(z.string(), z.boolean())
     .optional()

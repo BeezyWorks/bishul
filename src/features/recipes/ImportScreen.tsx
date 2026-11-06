@@ -2,10 +2,20 @@ import { useRouter, type Href } from 'expo-router'
 import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { Badge, Button, Card, Screen, SectionHeader, Text, TextField } from '@/components'
+import {
+  Badge,
+  Button,
+  Card,
+  PartHeading,
+  Screen,
+  SectionHeader,
+  Text,
+  TextField,
+} from '@/components'
 import { api } from '@/lib/api/client'
 import { stale, useApiMutation } from '@/lib/api/hooks'
 import type { ImportPreview } from '@/lib/api/types'
+import { groupBySection, headingFor } from '@/lib/sections'
 import { colors, space } from '@/theme/tokens'
 
 /** Paste a recipe, check how it was read, then save it. */
@@ -67,17 +77,27 @@ export function ImportScreen() {
             <Text color={colors.warn}>Add a title above so the recipe can be saved.</Text>
           ) : null}
           <Text variant="label">Ingredients ({preview.ingredients.length})</Text>
-          {preview.ingredients.map((i, n) => (
-            <View key={n} style={styles.row}>
-              <Text style={{ flex: 1 }}>{i.line}</Text>
-              <Badge label={i.name} tone="muted" />
+          {groupBySection(preview.ingredients).map((g, gi, all) => (
+            <View key={gi + g.section}>
+              <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+              {g.items.map((i, n) => (
+                <View key={n} style={styles.row}>
+                  <Text style={{ flex: 1 }}>{i.line}</Text>
+                  <Badge label={i.name} tone="muted" />
+                </View>
+              ))}
             </View>
           ))}
           <Text variant="label">Steps ({preview.steps.length})</Text>
-          {preview.steps.map((s, n) => (
-            <Text key={n}>
-              {n + 1}. {s}
-            </Text>
+          {groupBySection(preview.steps).map((g, gi, all) => (
+            <View key={gi + g.section}>
+              <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+              {g.items.map((s) => (
+                <Text key={preview.steps.indexOf(s)}>
+                  {preview.steps.indexOf(s) + 1}. {s.text}
+                </Text>
+              ))}
+            </View>
           ))}
           {save.error ? <Text color={colors.danger}>{(save.error as Error).message}</Text> : null}
           {notes ? (

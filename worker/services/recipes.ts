@@ -232,6 +232,7 @@ export function versionView(v: LoadedVersion, prefs?: DisplayPrefs) {
       return {
         id: line.id,
         position: line.position,
+        section: line.section,
         original: line.originalText,
         quantity: q && { amount: q.amount, unit: q.unit },
         display: q
@@ -315,8 +316,21 @@ export interface IngredientInput {
   prepNote?: string
   skipImpact?: 'none' | 'minor' | 'ruins'
   substitutions?: { text: string; note?: string }[]
+  /** The part of the recipe it belongs to ("Cake", "Chocolate Mousse > Meringue"). Omit for a one-part recipe. */
+  section?: string | null
   /** Data for the catalog if this ingredient is new (category, allergens, flags, density). */
   ingredient?: IngredientMeta
+}
+
+export type StepInput = string | { text: string; timerMinutes?: number; section?: string | null }
+
+/** Section names are trimmed, tidied and joined with " > " for nesting; empty means no section. */
+export function cleanSection(section: string | null | undefined): string | null {
+  const parts = (section ?? '')
+    .split(/\s*>\s*/)
+    .map((x) => x.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  return parts.length ? parts.join(' > ') : null
 }
 
 export interface VersionInput {
@@ -336,7 +350,7 @@ export interface VersionInput {
   cost?: number | null
   nutrition?: s.Nutrition | null
   prePrep?: { step: string; leadMinutes: number }[]
-  steps?: (string | { text: string; timerMinutes?: number })[]
+  steps?: StepInput[]
   flags?: Record<string, boolean>
   equipment?: { item: string; designation?: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions?: { dimension: string; fit: string }[]
@@ -371,11 +385,15 @@ function versionPatch(
   if (input.prePrep !== undefined)
     p.prePrep = input.prePrep.map((x) => ({ step: x.step, lead_minutes: x.leadMinutes }))
   if (input.steps !== undefined)
-    p.steps = input.steps.map((x) =>
-      typeof x === 'string'
-        ? { text: x.trim() }
-        : { text: x.text.trim(), ...(x.timerMinutes && { timer_minutes: x.timerMinutes }) },
-    )
+    p.steps = input.steps.map((x) => {
+      if (typeof x === 'string') return { text: x.trim() }
+      const section = cleanSection(x.section)
+      return {
+        text: x.text.trim(),
+        ...(x.timerMinutes && { timer_minutes: x.timerMinutes }),
+        ...(section && { section }),
+      }
+    })
   if (input.flags !== undefined)
     p.flags = Object.fromEntries(
       Object.entries(input.flags).map(([k, v]) => [slugOf(k), { value: v, source }]),
@@ -494,6 +512,7 @@ async function buildLines(
       row: {
         versionId,
         position: position++,
+        section: cleanSection(input.section),
         quantityMetric: p.quantityMetric,
         unitMetric: p.unitMetric,
         originalText: p.originalText,
@@ -520,7 +539,12 @@ function hashContent(
     course: p.course,
     category: p.category,
     steps: p.steps,
-    ingredients: lines.map((l) => [l.name.toLowerCase(), l.row.quantityMetric, l.row.unitMetric]),
+    ingredients: lines.map((l) => [
+      l.name.toLowerCase(),
+      l.row.quantityMetric,
+      l.row.unitMetric,
+      l.row.section ?? null,
+    ]),
   })
 }
 
@@ -629,8 +653,10 @@ export async function saveRecipe(
     }
     if (input.recipeTitle && input.recipeTitle !== cur.recipe.title)
       changed.recipeTitle = [cur.recipe.title, input.recipeTitle]
-    const linesBefore = cur.lines.map((l) => l.line.originalText)
-    const linesAfter = built?.map((b) => b.row.originalText)
+    const withSection = (text: string, section: string | null | undefined) =>
+      section ? `[${section}] ${text}` : text
+    const linesBefore = cur.lines.map((l) => withSection(l.line.originalText, l.line.section))
+    const linesAfter = built?.map((b) => withSection(b.row.originalText, b.row.section))
     const linesChanged = !!linesAfter && JSON.stringify(linesBefore) !== JSON.stringify(linesAfter)
     const extra = {
       ...(input.equipment && { equipment: true }),
@@ -777,6 +803,7 @@ export async function saveVariation(
         row: {
           versionId,
           position: i,
+          section: l.line.section,
           quantityMetric: l.line.quantityMetric,
           unitMetric: l.line.unitMetric,
           originalText: l.line.originalText,
@@ -857,7 +884,7 @@ export interface ImportRecipeInput {
   /** Everything pasted, if it is not already split: title, ingredients and method as one blob. */
   text?: string
   ingredients?: (string | IngredientInput)[] | string
-  steps?: (string | { text: string; timerMinutes?: number })[] | string
+  steps?: StepInput[] | string
   servings?: number
   description?: string
   sourceLinks?: { url: string; label?: string }[]
@@ -875,12 +902,25 @@ export interface ImportRecipeInput {
 
 const STEP_NUM = /^\s*(?:step\s*)?\d+\s*[.):-]\s*/i
 
-/** Pulls a title, ingredient lines and steps out of a pasted blob. Best effort; the AI is expected to structure it. */
+export interface PastedLine {
+  text: string
+  section?: string
+}
+
+const URL_LINE = /^<?(https?:\/\/\S+?)>?$/i
+const FOR_THE = /^(?:for\s+(?:the\s+)?)?(.+?)\s*:$/i
+
+/**
+ * Pulls a title, ingredient lines and steps out of a pasted blob. Best effort; the AI is expected to structure it.
+ * Under the Ingredients and Preparation headings, deeper headings ("## Cake", "### Meringue") or "For the cake:"
+ * lines start a section; a heading one level down nests inside the one above.
+ */
 export function parsePasted(text: string): {
   title?: string
-  ingredients: string[]
-  steps: string[]
+  ingredients: PastedLine[]
+  steps: PastedLine[]
   servings?: number
+  sourceLinks: { url: string }[]
 } {
   const lines = text
     .split(/\r?\n/)
@@ -889,22 +929,36 @@ export function parsePasted(text: string): {
   const IH = /^(?:#+\s*)?\**ingredients?\**:?$/i
   const SH =
     /^(?:#+\s*)?\**(?:instructions?|directions?|method|steps?|preparation|procedure)\**:?$/i
-  const ingredients: string[] = []
-  const steps: string[] = []
+  const ingredients: PastedLine[] = []
+  const steps: PastedLine[] = []
+  const sourceLinks: { url: string }[] = []
   let title: string | undefined
   let servings: number | undefined
   let mode: 'pre' | 'ing' | 'step' = 'pre'
+  // Section names by heading depth below the Ingredients / Preparation heading.
+  let stack: string[] = []
   const sawHeaders = lines.some((l) => IH.test(l) || SH.test(l))
+  const put = (list: PastedLine[], text: string) => {
+    const section = cleanSection(stack.join(' > '))
+    list.push({ text, ...(section && { section }) })
+  }
   for (const raw of lines) {
     const line = raw.replace(/^#+\s*/, '')
+    const url = URL_LINE.exec(raw.replace(/^[-*•]\s*/, ''))
+    if (url) {
+      sourceLinks.push({ url: url[1] })
+      continue
+    }
     const sv = /\b(?:serves|servings?|yields?|makes)\s*:?\s*(\d+)/i.exec(line)
     if (sv && !servings && line.length < 60) servings = +sv[1]
     if (IH.test(raw)) {
       mode = 'ing'
+      stack = []
       continue
     }
     if (SH.test(raw)) {
       mode = 'step'
+      stack = []
       continue
     }
     if (sawHeaders) {
@@ -912,8 +966,16 @@ export function parsePasted(text: string): {
         if (!title && !sv) title = line.replace(/\**/g, '')
         continue
       }
-      if (mode === 'ing') ingredients.push(line.replace(/^[-*•]\s*/, ''))
-      else steps.push(line.replace(STEP_NUM, '').replace(/^[-*•]\s*/, ''))
+      const heading = /^(#{2,6})\s+(.+)$/.exec(raw)
+      const forThe =
+        !heading && !parseQuantity(line) ? FOR_THE.exec(line.replace(/\*+/g, '')) : null
+      if (heading || forThe) {
+        const depth = heading ? heading[1].length - 2 : 0
+        stack = [...stack.slice(0, depth), (heading ? heading[2] : forThe![1]).replace(/\*+/g, '')]
+        continue
+      }
+      if (mode === 'ing') put(ingredients, line.replace(/^[-*•]\s*/, ''))
+      else put(steps, line.replace(STEP_NUM, '').replace(/^[-*•]\s*/, ''))
       continue
     }
     // No headers: the first short line is the title, quantity-led lines are ingredients, the rest steps.
@@ -921,12 +983,12 @@ export function parsePasted(text: string): {
       title = line
       continue
     }
-    if (STEP_NUM.test(line) || line.length > 70) steps.push(line.replace(STEP_NUM, ''))
+    if (STEP_NUM.test(line) || line.length > 70) steps.push({ text: line.replace(STEP_NUM, '') })
     else if (/^[-*•]/.test(raw) || parseQuantity(line))
-      ingredients.push(line.replace(/^[-*•]\s*/, ''))
-    else steps.push(line)
+      ingredients.push({ text: line.replace(/^[-*•]\s*/, '') })
+    else steps.push({ text: line })
   }
-  return { title, ingredients, steps, servings }
+  return { title, ingredients, steps, servings, sourceLinks }
 }
 
 export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInput) {
@@ -934,20 +996,22 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
   let ingredients = input.ingredients
   let steps = input.steps
   let servings = input.servings
+  let sourceLinks = input.sourceLinks
   if (input.text && (!ingredients || !steps)) {
     const p = parsePasted(input.text)
     title ??= p.title
     ingredients ??= p.ingredients
     steps ??= p.steps
     servings ??= p.servings
+    if (!sourceLinks?.length && p.sourceLinks.length) sourceLinks = p.sourceLinks
   }
   if (!title?.trim()) throw invalid('Give the recipe a title')
   const lines = (typeof ingredients === 'string' ? ingredients.split(/\r?\n/) : (ingredients ?? []))
     .map((x) => (typeof x === 'string' ? { text: x } : x))
     .filter((x) => (x.text ?? x.name ?? '').trim())
   const stepList = (typeof steps === 'string' ? steps.split(/\r?\n/) : (steps ?? []))
-    .map((x) => (typeof x === 'string' ? x.replace(STEP_NUM, '').trim() : x))
-    .filter((x) => (typeof x === 'string' ? x : x.text))
+    .map((x) => (typeof x === 'string' ? { text: x.replace(STEP_NUM, '').trim() } : x))
+    .filter((x) => x.text)
   const data = Object.fromEntries(
     Object.entries(input.ingredientData ?? {}).map(([k, v]) => [k.toLowerCase(), v]),
   )
@@ -964,6 +1028,7 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
       unit: p.unitMetric,
       prepNote: p.prepNote,
       skipImpact: p.skipImpact,
+      section: cleanSection(l.section),
     }
   })
   if (input.dryRun)
@@ -972,7 +1037,7 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
     recipeTitle: title,
     title,
     description: input.description,
-    sourceLinks: input.sourceLinks,
+    sourceLinks,
     servings,
     course: input.course,
     form: input.form,

@@ -239,7 +239,8 @@ export type Nutrition = {
 }
 export type SourceLink = { url: string; label?: string }
 export type PrePrepStep = { step: string; lead_minutes: number }
-export type RecipeStep = { text: string; timer_minutes?: number }
+/** `section` is the part of the recipe this belongs to ("Cake"); nesting is written "Mousse > Meringue". */
+export type RecipeStep = { text: string; timer_minutes?: number; section?: string }
 
 export const recipeVersions = sqliteTable(
   'versions',
@@ -386,6 +387,8 @@ export const ingredientLines = sqliteTable(
       .notNull()
       .references(() => recipeVersions.id),
     position: integer('position').notNull(),
+    /** The part of the recipe this line belongs to ("Cake", "Mousse > Meringue"); null for a one-part recipe. */
+    section: text('section'),
     /** Canonical metric amount; the original as written is `originalText`. */
     quantityMetric: real('quantity_metric'),
     unitMetric: text('unit_metric'),

@@ -3,6 +3,7 @@
  * Everything the server does not say in the UI's vocabulary is translated here, and nowhere else.
  */
 import { clock12, shortHebrew, weekdayName } from '@/lib/dates'
+import { sectionPath } from '@/lib/sections'
 import { DISCLAIMER } from '@/lib/strings'
 
 import {
@@ -697,12 +698,13 @@ interface ServerVersion {
   easyToDeliver: boolean | null
   cost: number | null
   prePrep: { step: string; lead_minutes: number }[]
-  steps: { text: string; timer_minutes?: number }[]
+  steps: { text: string; timer_minutes?: number; section?: string }[]
   flags: Record<string, { value: boolean } | undefined>
   equipment: { item: string; designation: string | null }[]
   dimensions: { name: string; fit: string }[]
   ingredients: {
     id: string
+    section?: string | null
     original: string
     quantity: { amount: number; unit: string } | null
     name: string
@@ -738,11 +740,15 @@ function adaptLine(l: ServerVersion['ingredients'][number]): IngredientLine {
     density: ing?.densityGPerMl ?? undefined,
     aiFilled: ing?.aiFilled || undefined,
     unquantified: l.quantity ? undefined : true,
+    section: l.section || undefined,
   }
 }
 
-/** Steps carry no ingredient links on the server; guess them from the words, else show all on step 1. */
-function linkSteps(steps: { text: string; timer_minutes?: number }[], lines: IngredientLine[]) {
+/**
+ * Steps carry no ingredient links on the server; guess them from the words. An ingredient no step names goes
+ * to the first step of its own part ("Cake"), else to a step that names the part ("pour the ganache"), else step 1.
+ */
+function linkSteps(steps: { text: string; section?: string }[], lines: IngredientLine[]) {
   const mentions = steps.map((s) =>
     lines
       .filter((l) => {
@@ -756,8 +762,16 @@ function linkSteps(steps: { text: string; timer_minutes?: number }[], lines: Ing
       .map((l) => l.id),
   )
   const used = new Set(mentions.flat())
-  const rest = lines.filter((l) => !used.has(l.id)).map((l) => l.id)
-  if (rest.length && mentions.length) mentions[0] = [...mentions[0], ...rest]
+  if (!mentions.length) return mentions
+  for (const l of lines) {
+    if (used.has(l.id)) continue
+    const path = sectionPath(l.section)
+    const top = path[0]?.toLowerCase()
+    const last = path[path.length - 1]?.toLowerCase()
+    let at = top ? steps.findIndex((s) => sectionPath(s.section)[0]?.toLowerCase() === top) : -1
+    if (at < 0 && last) at = steps.findIndex((s) => s.text.toLowerCase().includes(last))
+    mentions[Math.max(0, at)].push(l.id)
+  }
   return mentions
 }
 
@@ -817,6 +831,7 @@ export function adaptVersion(
       text: s.text,
       timerSec: s.timer_minutes ? Math.round(s.timer_minutes * 60) : undefined,
       ingredientIds: links[i] ?? [],
+      section: s.section || undefined,
     })),
     reactions: extras.reactions ?? [],
     history: (extras.history ?? []).map((h) => ({

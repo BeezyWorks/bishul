@@ -383,17 +383,7 @@ export const operations: Operation[] = [
       ingredients: z
         .union([z.string(), z.array(z.union([z.string(), S.ingredientInput]))])
         .optional(),
-      steps: z
-        .union([
-          z.string(),
-          z.array(
-            z.union([
-              z.string(),
-              z.object({ text: z.string(), timerMinutes: z.number().optional() }),
-            ]),
-          ),
-        ])
-        .optional(),
+      steps: z.union([z.string(), z.array(S.stepInput)]).optional(),
       servings: z.number().int().positive().optional(),
       description: z.string().optional(),
       sourceLinks: z

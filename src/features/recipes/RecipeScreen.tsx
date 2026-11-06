@@ -8,6 +8,7 @@ import {
   Card,
   KindLabel,
   Loading,
+  PartHeading,
   Pill,
   Screen,
   SectionHeader,
@@ -17,12 +18,14 @@ import {
 } from '@/components'
 import { useRecipe } from '@/lib/api/hooks'
 
+import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
 import type { Fit, RecipeVersion, SkipImpact } from '@/lib/api/types'
 import { useUnits } from '@/lib/prefs'
+import { groupBySection, headingFor } from '@/lib/sections'
 import { COURSE_LABEL } from '@/lib/strings'
-import { formatAmount, formatMinutes } from '@/lib/units'
-import { colors, radius, space, type Tone } from '@/theme/tokens'
+import { formatAmount } from '@/lib/units'
+import { colors, space, type Tone } from '@/theme/tokens'
 
 const SCALES = [0.5, 1, 2, 3]
 const FIT_TONE: Record<Fit, Tone> = { fine: 'muted', good: 'info', 'especially suited': 'accent' }
@@ -109,14 +112,6 @@ function VersionView({
   setUnits: (u: 'metric' | 'us') => void
 }) {
   const { wide } = useLayout()
-  const tiles: [string, string][] = [
-    ['Serves', String(Math.round(v.servings * scale))],
-    ['Hands-on', formatMinutes(v.activeMin)],
-    ['Total', formatMinutes(v.totalMin)],
-    ['Difficulty', v.difficulty],
-    ['Cost', v.cost],
-    ['Served', v.serving + (v.holdsOnBlech ? ', holds on the blech' : '')],
-  ]
   return (
     <View style={styles.col}>
       <Text color={colors.muted}>{v.description}</Text>
@@ -130,14 +125,7 @@ function VersionView({
         {v.parentId ? <Badge label="A variation" tone="muted" /> : null}
       </View>
 
-      <View style={styles.tiles}>
-        {tiles.map(([k, val]) => (
-          <View key={k} style={styles.tile}>
-            <Text variant="label">{k}</Text>
-            <Text variant="h3">{val}</Text>
-          </View>
-        ))}
-      </View>
+      <EditableTiles v={v} scale={scale} />
 
       {v.prePrep.length ? (
         <Card tone="info">
@@ -202,33 +190,38 @@ function VersionView({
               If you skip it
             </Text>
           </View>
-          {v.ingredients.map((l) => {
-            const a = formatAmount(l, scale, units)
-            const skip = SKIP_TEXT[l.skipImpact]
-            return (
-              <View key={l.id} style={styles.tr}>
-                <View style={styles.cName}>
-                  <Text variant="bodyStrong">{l.name}</Text>
-                  {l.prep ? <Text variant="small">{l.prep}</Text> : null}
-                  {l.unquantified ? <Text variant="small">{l.original}</Text> : null}
-                  {l.allergens.length ? (
-                    <Text variant="small" color={colors.danger}>
-                      Contains {l.allergens.join(', ')}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.cAmt}>
-                  <Text>
-                    {a.approx ? '~' : ''}
-                    {a.text}
-                  </Text>
-                </View>
-                <View style={styles.cSkip}>
-                  <Badge label={skip.text} tone={skip.tone} />
-                </View>
-              </View>
-            )
-          })}
+          {groupBySection(v.ingredients).map((g, gi, all) => (
+            <View key={gi + g.section}>
+              <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+              {g.items.map((l) => {
+                const a = formatAmount(l, scale, units)
+                const skip = SKIP_TEXT[l.skipImpact]
+                return (
+                  <View key={l.id} style={styles.tr}>
+                    <View style={styles.cName}>
+                      <Text variant="bodyStrong">{l.name}</Text>
+                      {l.prep ? <Text variant="small">{l.prep}</Text> : null}
+                      {l.unquantified ? <Text variant="small">{l.original}</Text> : null}
+                      {l.allergens.length ? (
+                        <Text variant="small" color={colors.danger}>
+                          Contains {l.allergens.join(', ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.cAmt}>
+                      <Text>
+                        {a.approx ? '~' : ''}
+                        {a.text}
+                      </Text>
+                    </View>
+                    <View style={styles.cSkip}>
+                      <Badge label={skip.text} tone={skip.tone} />
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          ))}
           {units === 'us' ? (
             <Text variant="small">
               ~ means converted from weight using ingredient density, so approximate.
@@ -273,19 +266,24 @@ function VersionView({
 
       <Card>
         <SectionHeader title="Steps" />
-        {v.steps.map((s, i) => (
-          <View key={s.id} style={styles.step}>
-            <View style={styles.num}>
-              <Text variant="bodyStrong" color={colors.accent}>
-                {i + 1}
-              </Text>
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text>{s.text}</Text>
-              {s.timerSec ? (
-                <Text variant="small">Timer: {Math.round(s.timerSec / 60)} min</Text>
-              ) : null}
-            </View>
+        {groupBySection(v.steps).map((g, gi, all) => (
+          <View key={gi + g.section} style={{ gap: space.md }}>
+            <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+            {g.items.map((s) => (
+              <View key={s.id} style={styles.step}>
+                <View style={styles.num}>
+                  <Text variant="bodyStrong" color={colors.accent}>
+                    {v.steps.indexOf(s) + 1}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text>{s.text}</Text>
+                  {s.timerSec ? (
+                    <Text variant="small">Timer: {Math.round(s.timerSec / 60)} min</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
           </View>
         ))}
       </Card>
@@ -307,18 +305,6 @@ const styles = StyleSheet.create({
   cols: { gap: space.lg },
   colsWide: { flexDirection: 'row', alignItems: 'flex-start' },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  tile: {
-    minWidth: 140,
-    flexGrow: 1,
-    flexBasis: 140,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.tile,
-    padding: space.md,
-    gap: 2,
-  },
   link: { minHeight: 44, justifyContent: 'center' },
   tableHead: {
     flexDirection: 'row',

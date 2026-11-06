@@ -12,6 +12,7 @@ import { loadCatalog } from './catalog'
 // can save a recipe to their household as an independent copy that keeps its lineage.
 
 interface SnapshotIngredient {
+  section?: string | null
   original: string
   name: string
   quantity: { amount: number; unit: 'g' | 'ml' | 'piece' } | null
@@ -45,7 +46,7 @@ interface SnapshotVersion {
   cost: number | null
   nutrition: s.Nutrition | null
   prePrep: { step: string; leadMinutes: number }[]
-  steps: { text: string; timerMinutes?: number }[]
+  steps: { text: string; timerMinutes?: number; section?: string }[]
   flags: Record<string, boolean>
   equipment: { item: string; designation: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions: { name: string; fit: string }[]
@@ -79,11 +80,13 @@ function snapshotVersion(
     steps: (x.steps ?? []).map((st) => ({
       text: st.text,
       ...(st.timer_minutes && { timerMinutes: st.timer_minutes }),
+      ...(st.section && { section: st.section }),
     })),
     flags: Object.fromEntries(Object.entries(x.flags ?? {}).map(([k, f]) => [k, !!f?.value])),
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
     dimensions: v.dims.map((d) => ({ name: d.dimension.name, fit: d.fit })),
     ingredients: v.lines.map((l) => ({
+      section: l.line.section,
       original: l.line.originalText,
       name: l.ingredient?.name ?? l.line.originalText,
       quantity:
@@ -264,6 +267,7 @@ export async function getShared(db: Db, token: string) {
 function toInput(v: SnapshotVersion): SaveRecipeInput {
   const ingredients: IngredientInput[] = v.ingredients.map((i) => ({
     text: i.original,
+    section: i.section,
     name: i.name,
     quantity: i.quantity?.amount,
     unit: i.quantity && i.quantity.unit !== 'piece' ? i.quantity.unit : undefined,

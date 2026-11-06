@@ -16,6 +16,8 @@ import {
   adaptShopping,
   adaptSuggestions,
   adaptVersion,
+  costOut,
+  difficultyOut,
   filtersOut,
   type ServerMealDetail,
   type ServerOccasion,
@@ -68,11 +70,21 @@ function versionBody(e: VersionEdit) {
     ...(e.servings !== undefined && { servings: e.servings }),
     ...(e.activeMin !== undefined && { activeMinutes: e.activeMin }),
     ...(e.totalMin !== undefined && { totalMinutes: e.totalMin }),
+    ...(e.difficulty !== undefined && { difficulty: difficultyOut(e.difficulty) }),
+    ...(e.cost !== undefined && { cost: costOut(e.cost) }),
+    ...(e.serving !== undefined && { servingStyle: e.serving.replace(' ', '_') }),
+    ...(e.holdsOnBlech !== undefined && { holdsOnBlech: e.holdsOnBlech }),
     ...(e.description !== undefined && { description: e.description }),
     ...(e.ingredients && {
-      ingredients: e.ingredients.filter((l) => l.trim()).map((text) => ({ text: text.trim() })),
+      ingredients: e.ingredients
+        .filter((l) => l.text.trim())
+        .map((l) => ({ text: l.text.trim(), section: l.section ?? null })),
     }),
-    ...(e.steps && { steps: e.steps.filter((s) => s.trim()).map((s) => s.trim()) }),
+    ...(e.steps && {
+      steps: e.steps
+        .filter((s) => s.text.trim())
+        .map((s) => ({ text: s.text.trim(), section: s.section ?? null })),
+    }),
   }
 }
 
@@ -323,11 +335,20 @@ export const realApi: BishulApi = {
       parsed: {
         title?: string
         servings?: number
-        ingredients: { line: string; name: string; skipImpact: 'none' | 'minor' | 'ruins' }[]
-        steps: string[]
+        ingredients: {
+          line: string
+          name: string
+          skipImpact: 'none' | 'minor' | 'ruins'
+          section?: string | null
+        }[]
+        steps: { text: string; section?: string | null }[]
       }
     }>('/recipes/import', { text, ...(title?.trim() && { title: title.trim() }), dryRun: true })
-    return r.parsed
+    return {
+      ...r.parsed,
+      ingredients: r.parsed.ingredients.map((i) => ({ ...i, section: i.section || undefined })),
+      steps: r.parsed.steps.map((s) => ({ text: s.text, section: s.section || undefined })),
+    }
   },
 
   importRecipe: async ({ text, title, servings }) => {

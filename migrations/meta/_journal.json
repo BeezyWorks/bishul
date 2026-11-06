@@ -43,6 +43,13 @@
       "when": 1793839356600,
       "tag": "0005_chunky_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793903222509,
+      "tag": "0006_cute_veda",
+      "breakpoints": true
     }
   ]
 }

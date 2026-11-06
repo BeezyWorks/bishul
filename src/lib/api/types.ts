@@ -120,6 +120,8 @@ export interface IngredientLine {
   aiFilled?: boolean
   /** No quantity could be read ("salt to taste"): show `original` as written. */
   unquantified?: boolean
+  /** The part of the recipe it belongs to: "Cake", or "Chocolate Mousse > Meringue". */
+  section?: string
 }
 
 export interface RecipeStep {
@@ -127,6 +129,8 @@ export interface RecipeStep {
   text: string
   timerSec?: number
   ingredientIds: Id[]
+  /** The part of the recipe this step belongs to; steps and ingredients are sectioned independently. */
+  section?: string
 }
 
 export interface Reaction {
@@ -495,8 +499,8 @@ export interface CreatedApiKey extends ApiKey {
 export interface ImportPreview {
   title?: string
   servings?: number
-  ingredients: { line: string; name: string; skipImpact: SkipImpact }[]
-  steps: string[]
+  ingredients: { line: string; name: string; skipImpact: SkipImpact; section?: string }[]
+  steps: { text: string; section?: string }[]
 }
 
 export interface ImportResult {
@@ -506,7 +510,7 @@ export interface ImportResult {
   unquantified: string[]
 }
 
-/** What the version editor can change. Ingredients and steps are plain text, one per line. */
+/** What the version editor can change. Ingredients and steps are plain text, one per line, each in its section. */
 export interface VersionEdit {
   /** Recipe title (the dish). */
   recipeTitle?: string
@@ -517,9 +521,13 @@ export interface VersionEdit {
   servings?: number
   activeMin?: number
   totalMin?: number
+  difficulty?: Difficulty
+  cost?: Cost
+  serving?: RecipeVersion['serving']
+  holdsOnBlech?: boolean
   description?: string
-  ingredients?: string[]
-  steps?: string[]
+  ingredients?: { text: string; section?: string }[]
+  steps?: { text: string; section?: string }[]
 }
 
 export type ConstraintTagInput =
