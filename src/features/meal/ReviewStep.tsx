@@ -124,7 +124,7 @@ export function ReviewStep({ detail }: { detail: MealDetail }) {
       {accepted ? (
         <Card tone="accent">
           <Text variant="h3" color={colors.accent}>
-            Accepted. Pantry items are held and the cooking is scheduled.
+            Accepted. Use-soon items are held and the cooking is scheduled.
           </Text>
           <View style={styles.actions}>
             <Button label="See the prep schedule" href="/prep" variant="secondary" />

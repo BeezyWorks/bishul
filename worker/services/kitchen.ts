@@ -20,7 +20,8 @@ import { getPrefs } from './prefs'
 import { todayIn } from '@beitecha/engine'
 
 // ---------------------------------------------------------------------------------------------------------------
-// Pantry (BRIEF §8): item, quantity, location, expiry. Holds and expiry are computed on every read.
+// Use soon (BRIEF §8): perishables to use up before they go bad. Stored as `pantry_items`. Every item needs a
+// use-by date, except chametz, which defaults to the pre-Pesach cutoff. Holds and expiry are computed on every read.
 
 export interface PantryInput {
   name?: string
@@ -59,27 +60,30 @@ export async function listPantry(db: Db, actor: Actor, opts: { soonDays?: number
     .from(s.pantryItems)
     .where(and(eq(s.pantryItems.householdId, actor.householdId), isNull(s.pantryItems.deletedAt)))
   const info = new Map(rows.map((r) => [r.id, r]))
+  const useBy = (it: (typeof items)[number]) => effectiveExpiry(it, cutoff) ?? '9999-12-31'
 
   const upcoming = await mealsInRange(db, actor.householdId, today, '2100-01-01', 'accepted')
   const plan = await planMeals(db, actor.householdId, upcoming)
   const holds = computeHolds(items, plan.planned, cutoff)
   const mealById = new Map(upcoming.map((m) => [m.id, m]))
-  const soon = new Set(expiringSoon(items, today, opts.soonDays ?? 7, cutoff).map((e) => e.item.id))
+  // Dates matter even without a quantity ("some spinach"), so expiry is judged as if each item were in stock.
+  const dated = items.map((it) => ({ ...it, amount: 1 }))
   const soonInfo = new Map(
-    expiringSoon(items, today, opts.soonDays ?? 7, cutoff).map((e) => [e.item.id, e]),
+    expiringSoon(dated, today, opts.soonDays ?? 7, cutoff).map((e) => [e.item.id, e]),
   )
 
   return {
     today,
     chametzCutoff: cutoff,
     items: items
-      .sort((a, b) => a.name.localeCompare(b.name))
+      // Soonest first: the point of the list is what to use up next.
+      .sort((a, b) => useBy(a).localeCompare(useBy(b)) || a.name.localeCompare(b.name))
       .map((it) => {
         const row = info.get(it.id)!
         const hold = holds.find((h) => h.pantryId === it.id)
         const eff = effectiveExpiry(it, cutoff)
         const q: Quantity = { amount: it.amount, unit: it.unit, approx: false }
-        const expired = it.amount > 0 && !isAvailableAt(it, today, cutoff)
+        const expired = !isAvailableAt({ ...it, amount: 1 }, today, cutoff)
         return {
           id: it.id,
           ingredientId: it.ingredientId,
@@ -101,7 +105,7 @@ export async function listPantry(db: Db, actor: Actor, opts: { soonDays?: number
             soonInfo.get(it.id)?.chametzLimited ??
             (!!it.chametz && !!eff && (!row.expiresOn || eff.slice(0, 10) < row.expiresOn)),
           expired,
-          expiringSoon: soon.has(it.id),
+          expiringSoon: soonInfo.has(it.id),
           daysLeft: soonInfo.get(it.id)?.daysLeft ?? null,
           held: hold
             ? {
@@ -121,12 +125,12 @@ export async function listPantry(db: Db, actor: Actor, opts: { soonDays?: number
           })),
         }
       }),
-    note: 'Expired items are never suggested and never count against shopping. Items expiring soon are boosted in suggestions.',
+    note: 'Things to use up before they go bad, soonest first. Expired items are never suggested and never count against shopping; items expiring soon are boosted in suggestions. Shelf-stable staples are not tracked.',
   }
 }
 
 export async function addPantryItem(db: Db, actor: Actor, input: PantryInput) {
-  if (!input.name?.trim()) throw invalid('A pantry item needs a name')
+  if (!input.name?.trim()) throw invalid('An item needs a name')
   if (input.expiresOn && !isDate(input.expiresOn)) throw invalid('expiresOn must be YYYY-MM-DD')
   const catalog = await loadCatalog(db, actor.householdId)
   const { row } = await ensureIngredient(
@@ -136,6 +140,9 @@ export async function addPantryItem(db: Db, actor: Actor, input: PantryInput) {
     input.ingredient,
     actor.via === 'web' ? 'user' : 'ai',
   )
+  // Chametz needs no date of its own: it has to be used up before Pesach anyway.
+  if (!input.expiresOn && !row.flags?.chametz?.value)
+    throw invalid(`Give ${row.name} a use-by date: this list is for things to use up.`)
   const amount = parseAmount(input.quantity, input.unit)
   const [item] = await db
     .insert(s.pantryItems)
@@ -162,7 +169,7 @@ async function requireItem(db: Db, actor: Actor, id: string) {
         isNull(s.pantryItems.deletedAt),
       ),
     )
-  if (!it) throw notFound('Pantry item')
+  if (!it) throw notFound('Use-soon item')
   return it
 }
 
@@ -177,6 +184,7 @@ export async function updatePantryItem(db: Db, actor: Actor, id: string, input: 
   if (input.location !== undefined) patch.location = input.location
   if (input.expiresOn !== undefined) {
     if (input.expiresOn && !isDate(input.expiresOn)) throw invalid('expiresOn must be YYYY-MM-DD')
+    if (!input.expiresOn) throw invalid('A use-by date can be changed but not cleared')
     patch.expiresOn = input.expiresOn
   }
   if (Object.keys(patch).length)
@@ -194,7 +202,7 @@ export interface PantryChange extends PantryInput {
   op: 'add' | 'set' | 'use' | 'remove'
 }
 
-/** Several pantry edits at once (the MCP `update_pantry`): add stock, set what is left, use some, or remove. */
+/** Several edits at once (the MCP `update_use_soon`): add an item, set what is left, use some, or remove. */
 export async function applyPantryChanges(db: Db, actor: Actor, changes: PantryChange[]) {
   const results: { op: string; name?: string; id?: string; note?: string }[] = []
   for (const c of changes) {
@@ -223,7 +231,7 @@ export async function applyPantryChanges(db: Db, actor: Actor, changes: PantryCh
         it = rows[0]
       }
     }
-    if (!it) throw notFound(`Pantry item ${c.name ?? c.itemId ?? ''}`.trim())
+    if (!it) throw notFound(`Use-soon item ${c.name ?? c.itemId ?? ''}`.trim())
     if (c.op === 'remove') {
       await removePantryItem(db, actor, it.id)
       results.push({ op: 'remove', id: it.id })
@@ -234,11 +242,12 @@ export async function applyPantryChanges(db: Db, actor: Actor, changes: PantryCh
       const used = parseAmount(c.quantity, c.unit)
       if (!used) throw invalid('Say how much was used')
       const left = Math.max(0, (it.quantityMetric ?? 0) - used.amount)
+      // Used up means gone, as when a passed meal settles.
       await db
         .update(s.pantryItems)
-        .set({ quantityMetric: left })
+        .set(left > 0 ? { quantityMetric: left } : { quantityMetric: 0, deletedAt: Date.now() })
         .where(eq(s.pantryItems.id, it.id))
-      results.push({ op: 'use', id: it.id, note: left === 0 ? 'now empty' : undefined })
+      results.push({ op: 'use', id: it.id, note: left === 0 ? 'used up and removed' : undefined })
     }
   }
   return { changes: results }

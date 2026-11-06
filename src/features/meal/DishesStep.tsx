@@ -221,7 +221,7 @@ function Brought({
     <Card>
       <Text variant="h3">Someone’s bringing it</Text>
       <Text variant="small">
-        It counts for balance and kashrut, but stays out of shopping, the pantry and cooking.
+        It counts for balance and kashrut, but stays out of shopping, use-soon holds and cooking.
       </Text>
       <TextField label="Dish" value={name} onChangeText={setName} placeholder="e.g. Potatoes" />
       <TextField

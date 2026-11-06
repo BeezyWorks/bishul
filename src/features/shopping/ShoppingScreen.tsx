@@ -44,7 +44,7 @@ export function ShoppingScreen() {
   return (
     <Screen
       title="Shopping list"
-      subtitle="Totals across your accepted meals, minus what is in the pantry. Drag the handle to match your route."
+      subtitle="Totals across your accepted meals, minus what you already have to use up. Drag the handle to match your route."
     >
       {isLoading || !data ? (
         <Loading />

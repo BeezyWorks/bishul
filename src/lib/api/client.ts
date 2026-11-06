@@ -124,16 +124,9 @@ export interface BishulApi {
   removeShoppingLine(lineId: Id): Promise<void>
   getPrepSchedule(): Promise<PrepDay[]>
   getPantry(): Promise<PantryList>
-  addPantryItem(item: {
-    name: string
-    quantity: string
-    location?: string
-    expires?: ISODate
-  }): Promise<void>
-  updatePantryItem(
-    itemId: Id,
-    patch: { quantity?: string; location?: string | null; expires?: ISODate | null },
-  ): Promise<void>
+  /** The use-soon list: `expires` is required unless the item is chametz. */
+  addPantryItem(item: { name: string; quantity: string; expires?: ISODate }): Promise<void>
+  updatePantryItem(itemId: Id, patch: { quantity?: string; expires?: ISODate }): Promise<void>
   removePantryItem(itemId: Id): Promise<void>
 }
 

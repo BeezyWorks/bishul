@@ -355,7 +355,7 @@ function buildReview(m: Meal): MealReview {
     sourcing: [...sourcing].map(([k, v]) => `${k} (${[...v].join(', ')})`),
     shopping: need.length
       ? [
-          `${toBuy} of ${need.length} ingredients to buy; the rest are in your pantry.`,
+          `${toBuy} of ${need.length} ingredients to buy; the rest you already have to use up.`,
           ...need
             .filter((n) => n.soon)
             .map((n) => `Use your ${n.name.toLowerCase()} soon: it expires ${shortDate(n.soon!)}.`)
@@ -397,7 +397,7 @@ function mealDetail(id: Id): MealDetail {
 
 // ---- Pantry, shopping math ----
 
-const pantryLive = (): PantryRow[] => pantry.filter((p) => !p.expires || p.expires >= TODAY)
+const pantryLive = (): PantryRow[] => pantry.filter((p) => p.expires >= TODAY)
 
 interface Need {
   key: string
@@ -1097,17 +1097,19 @@ export const mockApi: BishulApi = {
       heldBy.set(n.name.toLowerCase(), n.meals)
     return delay({
       today: TODAY,
-      items: pantry.map((p) => ({
-        id: p.id,
-        name: p.name,
-        quantity: fmt(p, p.amount),
-        location: p.location,
-        expires: p.expires,
-        heldFor: heldBy.get(p.name.toLowerCase())?.join(', '),
-      })),
+      items: [...pantry]
+        .sort((a, b) => a.expires.localeCompare(b.expires))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          quantity: fmt(p, p.amount),
+          expires: p.expires,
+          heldFor: heldBy.get(p.name.toLowerCase())?.join(', '),
+        })),
     })
   },
   addPantryItem: async ({ name, quantity, expires }) => {
+    if (!expires) throw new Error(`Give ${name} a use-by date: this list is for things to use up.`)
     const m = quantity.trim().match(/^([\d.]+)\s*(g|kg|ml|l)?/i)
     const amount = m ? parseFloat(m[1]) : 1
     const u = (m?.[2] ?? '').toLowerCase()
@@ -1118,7 +1120,7 @@ export const mockApi: BishulApi = {
         name,
         amount: u === 'kg' || u === 'l' ? amount * 1000 : amount,
         unit: u === 'g' || u === 'kg' ? 'g' : u === 'ml' || u === 'l' ? 'ml' : 'pc',
-        expires: expires || undefined,
+        expires,
       },
     ]
     return delay(undefined)

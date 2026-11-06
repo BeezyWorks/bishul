@@ -444,8 +444,9 @@ export interface PrepDay {
 export interface PantryItem {
   id: Id
   name: string
+  /** "some" when no quantity was given. */
   quantity: string
-  location?: string
+  /** Use-by date (for chametz, the pre-Pesach cutoff if that is sooner). */
   expires?: ISODate
   /** Held aside for an accepted menu. */
   heldFor?: string

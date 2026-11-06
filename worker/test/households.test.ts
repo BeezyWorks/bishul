@@ -48,7 +48,7 @@ describe('households', () => {
       201,
     )
     const person = (await api('scope-a', 'GET', '/people')).household.people[0]
-    await api('scope-a', 'POST', '/pantry', { name: 'sugar', quantity: '1 kg' }, 201)
+    await api('scope-a', 'POST', '/pantry', { name: 'milk', expiresOn: '2099-01-01' }, 201)
 
     for (const [method, path] of [
       ['GET', `/meals/${meal.meal.id}`],

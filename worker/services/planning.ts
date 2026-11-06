@@ -842,7 +842,7 @@ export async function acceptMeals(db: Db, actor: Actor, input: AcceptInput) {
     notes,
     message: blocked.length
       ? 'Some meals were not accepted because the dining brief found problems. Show them to the host; accept with force only if the host says so.'
-      : 'Accepted. Pantry items are held for these meals and the cooking is scheduled.',
+      : 'Accepted. Use-soon items are held for these meals and the cooking is scheduled.',
   }
 }
 

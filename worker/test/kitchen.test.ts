@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { api, nextFriday } from './helpers'
 
-describe('pantry', () => {
+describe('use soon', () => {
   it('parses quantities, flags expired and expiring-soon items, and holds stock for accepted menus', async () => {
     const who = 'pan-1'
     const kugel = await api(
@@ -27,11 +27,17 @@ describe('pantry', () => {
       who,
       'POST',
       '/pantry',
-      { name: 'potatoes', quantity: '10', location: 'basement' },
+      { name: 'potatoes', quantity: '10', location: 'basement', expiresOn: '2099-01-01' },
       201,
     )
     await api(who, 'POST', '/pantry', { name: 'eggs', quantity: 12, expiresOn: soon }, 201)
-    await api(who, 'POST', '/pantry', { name: 'oil', quantity: '1 liter' }, 201)
+    await api(
+      who,
+      'POST',
+      '/pantry',
+      { name: 'oil', quantity: '1 liter', expiresOn: '2099-01-01' },
+      201,
+    )
     await api(
       who,
       'POST',
@@ -71,20 +77,35 @@ describe('pantry', () => {
     expect(by('potatoes').held).toBeNull()
   })
 
-  it('applies several changes at once: use, set, remove', async () => {
+  it('applies several changes at once: use, set, remove; used up means removed', async () => {
     const who = 'pan-2'
-    await api(who, 'POST', '/pantry', { name: 'sugar', quantity: '1 kg' }, 201)
-    await api(who, 'POST', '/pantry', { name: 'rice', quantity: '500 g' }, 201)
+    const later = { expiresOn: '2099-01-01' }
+    await api(who, 'POST', '/pantry', { name: 'milk', quantity: '1 liter', ...later }, 201)
+    await api(who, 'POST', '/pantry', { name: 'spinach', quantity: '200 g', ...later }, 201)
+    await api(who, 'POST', '/pantry', { name: 'cream', quantity: '1 cup', ...later }, 201)
     await api(who, 'POST', '/pantry/changes', {
       changes: [
-        { op: 'use', name: 'sugar', quantity: '250 g' },
-        { op: 'remove', name: 'rice' },
-        { op: 'add', name: 'honey', quantity: '1 cup' },
+        { op: 'use', name: 'milk', quantity: '250 ml' },
+        { op: 'remove', name: 'spinach' },
+        { op: 'use', name: 'cream', quantity: '1 cup' },
+        { op: 'add', name: 'dill', expiresOn: '2098-01-01' },
       ],
     })
     const p = await api(who, 'GET', '/pantry')
-    expect(p.items.map((i: any) => i.name).sort()).toEqual(['Honey', 'Sugar'])
-    expect(p.items.find((i: any) => i.name === 'Sugar').amount).toBe(750)
+    // Soonest first; dill has no quantity and that is fine.
+    expect(p.items.map((i: any) => i.name)).toEqual(['Dill', 'Milk'])
+    expect(p.items[0]).toMatchObject({ amount: 0, display: 'some', expired: false })
+    expect(p.items[1].amount).toBe(750)
+  })
+
+  it('needs a use-by date, and still knows a dated item without a quantity is expired', async () => {
+    const who = 'pan-4'
+    await api(who, 'POST', '/pantry', { name: 'sour cream', quantity: '1 cup' }, 400)
+    await api(who, 'POST', '/pantry', { name: 'parsley', expiresOn: '2020-01-01' }, 201)
+    const p = await api(who, 'GET', '/pantry')
+    expect(p.items).toHaveLength(1)
+    expect(p.items[0]).toMatchObject({ name: 'Parsley', expired: true })
+    await api(who, 'PATCH', `/pantry/${p.items[0].id}`, { expiresOn: null }, 400)
   })
 
   it('gives chametz items the pre-Pesach cutoff as their effective expiry', async () => {
@@ -99,13 +120,19 @@ describe('pantry', () => {
       { name: 'flour', quantity: '2 kg', ingredient: { category: 'parve', flags: ['chametz'] } },
       201,
     )
-    await api(who, 'POST', '/pantry', { name: 'rice', quantity: '1 kg' }, 201)
+    await api(
+      who,
+      'POST',
+      '/pantry',
+      { name: 'rice', quantity: '1 kg', expiresOn: '2099-01-01' },
+      201,
+    )
     const p = await api(who, 'GET', '/pantry')
     expect(p.chametzCutoff).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     const flour = p.items.find((i: any) => i.name === 'Flour')
     expect(flour).toMatchObject({ chametz: true, chametzLimited: true })
     expect(flour.effectiveExpiry).toBe(p.chametzCutoff)
-    expect(p.items.find((i: any) => i.name === 'Rice').effectiveExpiry).toBeNull()
+    expect(p.items.find((i: any) => i.name === 'Rice').effectiveExpiry).toBe('2099-01-01')
   })
 })
 

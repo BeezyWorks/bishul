@@ -477,20 +477,18 @@ export const realApi: BishulApi = {
 
   getPantry: async () => adaptPantry(await http.get('/pantry')),
 
-  addPantryItem: async ({ name, quantity, location, expires }) => {
+  addPantryItem: async ({ name, quantity, expires }) => {
     await http.post('/pantry', {
       name,
       ...(quantity.trim() && { quantity: quantity.trim() }),
-      ...(location?.trim() && { location: location.trim() }),
       ...(expires && { expiresOn: expires }),
     })
   },
 
-  updatePantryItem: async (id, { quantity, location, expires }) => {
+  updatePantryItem: async (id, { quantity, expires }) => {
     await http.patch(`/pantry/${id}`, {
       ...(quantity !== undefined && quantity.trim() && { quantity: quantity.trim() }),
-      ...(location !== undefined && { location }),
-      ...(expires !== undefined && { expiresOn: expires }),
+      ...(expires && { expiresOn: expires }),
     })
   },
 

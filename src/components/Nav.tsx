@@ -64,11 +64,11 @@ const TABS = [
   { href: '/more', label: 'More' },
 ] as const
 
-/** Phones: bottom tabs. Prep, People and Pantry live under More. */
+/** Phones: bottom tabs. Prep, People and Use soon live under More. */
 export function BottomTabs() {
   const path = usePathname()
   const router = useRouter()
-  const more = ['/more', '/prep', '/people', '/pantry', '/settings']
+  const more = ['/more', '/prep', '/people', '/use-soon', '/settings']
   return (
     <View style={styles.tabs} accessibilityRole="tablist">
       {TABS.map((t) => {

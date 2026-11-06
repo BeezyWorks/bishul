@@ -8,18 +8,26 @@ import type { PantryItem } from '@/lib/api/types'
 import { diffDays, shortDate } from '@/lib/dates'
 import { colors, space } from '@/theme/tokens'
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/
+
+function daysLeftLabel(days: number): string {
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  return `${days} days`
+}
+
 function Item({ it, today }: { it: PantryItem; today: string }) {
   const days = it.expires ? diffDays(today, it.expires) : undefined
+  const expired = days !== undefined && days < 0
   const [editing, setEditing] = useState(false)
-  const [qty, setQty] = useState(it.quantity)
-  const [loc, setLoc] = useState(it.location ?? '')
+  const [qty, setQty] = useState(it.quantity === 'some' ? '' : it.quantity)
   const [exp, setExp] = useState(it.expires ?? '')
   const update = useApiMutation(
     () =>
       api.updatePantryItem(it.id, {
         quantity: qty,
-        location: loc.trim() || null,
-        expires: exp.trim() || null,
+        // Chametz may have no date of its own; an empty field leaves it as it is.
+        expires: exp.trim() || undefined,
       }),
     stale.pantry,
   )
@@ -30,20 +38,17 @@ function Item({ it, today }: { it: PantryItem; today: string }) {
         <Text variant="bodyStrong" style={{ width: '100%' }}>
           {it.name}
         </Text>
-        <TextField label="Quantity" value={qty} onChangeText={setQty} />
-        <TextField label="Location" value={loc} onChangeText={setLoc} />
-        <TextField label="Expires" value={exp} onChangeText={setExp} placeholder="YYYY-MM-DD" />
+        <TextField label="How much (optional)" value={qty} onChangeText={setQty} />
+        <TextField label="Use by" value={exp} onChangeText={setExp} placeholder="YYYY-MM-DD" />
         <Button
           label="Save"
           small
           loading={update.isPending}
-          disabled={!!exp && !/^\d{4}-\d{2}-\d{2}$/.test(exp)}
-          onPress={async () => {
-            await update.mutateAsync(undefined)
-            setEditing(false)
-          }}
+          disabled={!!exp && !DATE.test(exp)}
+          onPress={() => update.mutate(undefined, { onSuccess: () => setEditing(false) })}
         />
         <Button label="Cancel" small variant="ghost" onPress={() => setEditing(false)} />
+        {update.error ? <Text color={colors.danger}>{(update.error as Error).message}</Text> : null}
       </View>
     )
   return (
@@ -51,39 +56,40 @@ function Item({ it, today }: { it: PantryItem; today: string }) {
       <View style={{ flex: 1, gap: 4 }}>
         <Text variant="bodyStrong">{it.name}</Text>
         <Text variant="small">
-          {it.quantity}
-          {it.location ? ` · ${it.location}` : ''}
-          {it.expires ? ` · expires ${shortDate(it.expires)}` : ''}
+          {[
+            it.quantity !== 'some' ? it.quantity : null,
+            it.expires && `use by ${shortDate(it.expires)}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </Text>
         {it.heldFor ? <Badge label={`Held for ${it.heldFor}`} tone="info" /> : null}
       </View>
+      {days !== undefined && days >= 0 && days <= 7 ? (
+        <Badge label={daysLeftLabel(days)} tone="warn" />
+      ) : null}
+      {!expired ? (
+        <Button
+          label="Edit"
+          variant="ghost"
+          small
+          accessibilityLabel={`Edit ${it.name}`}
+          onPress={() => setEditing(true)}
+        />
+      ) : null}
       <Button
-        label="Edit"
+        label={expired ? 'Clear' : 'Used it'}
         variant="ghost"
         small
-        accessibilityLabel={`Edit ${it.name}`}
-        onPress={() => setEditing(true)}
-      />
-      <Button
-        label="Remove"
-        variant="ghost"
-        small
-        accessibilityLabel={`Remove ${it.name}`}
+        accessibilityLabel={expired ? `Clear ${it.name}` : `Used up ${it.name}`}
         loading={remove.isPending}
         onPress={() => remove.mutate(undefined)}
       />
-      {days !== undefined && days < 0 ? <Badge label="Expired" tone="danger" /> : null}
-      {days !== undefined && days >= 0 && days <= 7 ? (
-        <Badge
-          label={days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} left`}
-          tone="warn"
-        />
-      ) : null}
     </View>
   )
 }
 
-export function PantryScreen() {
+export function UseSoonScreen() {
   const { data, isLoading } = usePantry()
   const [name, setName] = useState('')
   const [qty, setQty] = useState('')
@@ -98,81 +104,74 @@ export function PantryScreen() {
         <Loading />
       </Screen>
     )
-  const soon = data.items.filter(
-    (i) =>
-      i.expires && diffDays(data.today, i.expires) >= 0 && diffDays(data.today, i.expires) <= 7,
-  )
   const expired = data.items.filter((i) => i.expires && diffDays(data.today, i.expires) < 0)
-  const rest = data.items.filter((i) => !soon.includes(i) && !expired.includes(i))
-  const validExp = !exp || /^\d{4}-\d{2}-\d{2}$/.test(exp)
+  const current = data.items.filter((i) => !expired.includes(i))
+  const validExp = !exp || DATE.test(exp)
 
   return (
     <Screen
-      title="Pantry"
-      subtitle="Expired items are never suggested. Items expiring soon are used first. Accepted menus hold what they need."
+      title="Use soon"
+      subtitle="Things to use up before they go bad, soonest first. Suggestions favor dishes that use them, and accepted menus hold what they need."
     >
-      {soon.length ? (
-        <Card tone="warn">
-          <SectionHeader title="Expiring soon" hint="Menus that use these are ranked higher." />
-          {soon.map((i) => (
-            <Item key={i.id} it={i} today={data.today} />
-          ))}
-        </Card>
-      ) : null}
-      <Card>
-        <SectionHeader title="Everything else" />
-        {rest.length === 0 ? (
-          <Text color={colors.muted}>
-            Nothing in the pantry yet. Add what you have, and menus will use it up.
-          </Text>
-        ) : null}
-        {rest.map((i) => (
-          <Item key={i.id} it={i} today={data.today} />
-        ))}
-      </Card>
       {expired.length ? (
         <Card tone="danger">
-          <SectionHeader
-            title="Expired"
-            hint="Not counted in the shopping list and never suggested."
-          />
+          <SectionHeader title="Past their date" hint="Never suggested. Clear them out." />
           {expired.map((i) => (
             <Item key={i.id} it={i} today={data.today} />
           ))}
         </Card>
       ) : null}
+      <Card>
+        {current.length === 0 ? (
+          <Text color={colors.muted}>
+            Nothing to use up. Add the chicken in the fridge or the half bag of spinach, and menus
+            will use it before it goes bad.
+          </Text>
+        ) : null}
+        {current.map((i) => (
+          <Item key={i.id} it={i} today={data.today} />
+        ))}
+      </Card>
       <Card tone="subtle">
-        <SectionHeader title="Add item" />
+        <SectionHeader title="Add something to use up" />
         <View style={styles.form}>
-          <TextField label="Item" value={name} onChangeText={setName} placeholder="e.g. Tahini" />
+          <TextField label="Item" value={name} onChangeText={setName} placeholder="e.g. Pargiyot" />
           <TextField
-            label="Quantity"
-            value={qty}
-            onChangeText={setQty}
-            placeholder="e.g. 500 g or 3"
-          />
-          <TextField
-            label="Expires (optional)"
+            label="Use by"
             value={exp}
             onChangeText={setExp}
             placeholder="YYYY-MM-DD"
             hint={validExp ? undefined : 'Use YYYY-MM-DD'}
           />
+          <TextField
+            label="How much (optional)"
+            value={qty}
+            onChangeText={setQty}
+            placeholder="e.g. 500 g or 3"
+          />
         </View>
         <Button
-          label="Add to pantry"
+          label="Add"
           disabled={!name.trim() || !validExp}
           loading={add.isPending}
-          onPress={async () => {
-            await add.mutateAsync({ name: name.trim(), quantity: qty, expires: exp || undefined })
-            setName('')
-            setQty('')
-            setExp('')
-          }}
+          onPress={() =>
+            add.mutate(
+              { name: name.trim(), quantity: qty, expires: exp || undefined },
+              {
+                onSuccess: () => {
+                  setName('')
+                  setQty('')
+                  setExp('')
+                },
+              },
+            )
+          }
         />
+        {add.error ? <Text color={colors.danger}>{(add.error as Error).message}</Text> : null}
       </Card>
       <Text variant="small" color={colors.muted}>
-        Chametz items get an earlier effective expiry before Pesach.
+        Not for staples like sugar, rice or oil. Chametz can go in without a date: it's used up
+        before Pesach.
       </Text>
     </Screen>
   )

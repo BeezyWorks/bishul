@@ -671,7 +671,7 @@ export const operations: Operation[] = [
     path: '/meals/accept',
     tag: 'Planning',
     scope: 'write',
-    summary: 'Accept meals (ids, a date, or a range): holds pantry items and schedules the cooking',
+    summary: 'Accept meals (ids, a date, or a range): holds use-soon items and schedules the cooking',
     input: z.object({
       mealIds: z.array(S.id).optional(),
       date: S.date.optional(),
@@ -822,7 +822,7 @@ export const operations: Operation[] = [
     tag: 'Shopping',
     scope: 'read',
     summary:
-      'The shopping list: totals for accepted meals minus unexpired pantry stock, with order and checked state',
+      'The shopping list: totals for accepted meals minus unexpired use-soon items, with order and checked state',
     input: z.object({ from: S.date.optional(), to: S.date.optional() }),
     run: (c, i) => shopping.getShoppingList(c.db, c.actor, i),
   }),
@@ -853,7 +853,7 @@ export const operations: Operation[] = [
     path: '/pantry',
     tag: 'Kitchen',
     scope: 'read',
-    summary: 'Pantry with expiry, holds for accepted menus, and the chametz cutoff',
+    summary: 'Use soon: perishables to use up, soonest first, with holds for accepted menus and the chametz cutoff',
     input: none,
     run: (c) => kitchen.listPantry(c.db, c.actor),
   }),
@@ -864,7 +864,7 @@ export const operations: Operation[] = [
     tag: 'Kitchen',
     scope: 'write',
     status: 201,
-    summary: 'Add a pantry item',
+    summary: 'Add something to use soon (needs a use-by date unless it is chametz)',
     input: z.object({
       name: z.string().min(1),
       quantity: z
@@ -884,7 +884,7 @@ export const operations: Operation[] = [
     path: '/pantry/:id',
     tag: 'Kitchen',
     scope: 'write',
-    summary: 'Change a pantry item’s quantity, location or expiry',
+    summary: 'Change a use-soon item’s quantity or use-by date',
     input: idParam.extend({
       quantity: z.union([z.string(), z.number()]).optional(),
       unit: z.string().optional(),
@@ -899,7 +899,7 @@ export const operations: Operation[] = [
     path: '/pantry/:id',
     tag: 'Kitchen',
     scope: 'write',
-    summary: 'Remove a pantry item',
+    summary: 'Remove a use-soon item',
     input: idParam,
     run: (c, i) => kitchen.removePantryItem(c.db, c.actor, i.id),
   }),
@@ -909,7 +909,7 @@ export const operations: Operation[] = [
     path: '/pantry/changes',
     tag: 'Kitchen',
     scope: 'write',
-    summary: 'Several pantry edits at once: add, set, use or remove',
+    summary: 'Several use-soon edits at once: add, set, use or remove',
     input: z.object({
       changes: z.array(
         z.object({

@@ -1034,7 +1034,6 @@ interface ServerPantry {
     id: string
     name: string
     display: string
-    location: string | null
     expiresOn: string | null
     effectiveExpiry: string | null
     expired: boolean
@@ -1050,7 +1049,6 @@ export function adaptPantry(p: ServerPantry): PantryList {
       id: i.id,
       name: i.name,
       quantity: i.display,
-      location: i.location ?? undefined,
       // The effective expiry is earlier for chametz before Pesach; that is the date that matters.
       expires: i.effectiveExpiry ?? i.expiresOn ?? undefined,
       heldFor: i.heldFor.length ? i.heldFor.map((h) => h.name).join(', ') : undefined,

@@ -1561,83 +1561,20 @@ export interface PantryRow {
   name: string
   amount: number
   unit: 'g' | 'ml' | 'pc'
-  location?: string
-  expires?: string
+  /** Use-by date. */
+  expires: string
   heldFor?: string
 }
 
+/** The Levins' use-soon list: perishables to use up, not a cupboard inventory. */
 export function buildPantry(): PantryRow[] {
   return [
-    {
-      id: 'pa-1',
-      name: 'Pargiyot',
-      amount: 1200,
-      unit: 'g',
-      location: 'Freezer',
-      expires: '2026-11-13',
-    },
-    {
-      id: 'pa-2',
-      name: 'Sweet potatoes',
-      amount: 3,
-      unit: 'pc',
-      location: 'Pantry',
-      expires: '2026-11-16',
-    },
-    {
-      id: 'pa-3',
-      name: 'Carrots',
-      amount: 4,
-      unit: 'pc',
-      location: 'Fridge',
-      expires: '2026-11-14',
-    },
-    {
-      id: 'pa-4',
-      name: 'Onions',
-      amount: 5,
-      unit: 'pc',
-      location: 'Pantry',
-      expires: '2026-11-24',
-    },
-    { id: 'pa-5', name: 'Eggs', amount: 8, unit: 'pc', location: 'Fridge', expires: '2026-11-20' },
-    {
-      id: 'pa-6',
-      name: 'Flour',
-      amount: 1500,
-      unit: 'g',
-      location: 'Pantry',
-      expires: '2027-03-01',
-    },
-    { id: 'pa-7', name: 'Sugar', amount: 1000, unit: 'g', location: 'Pantry' },
-    {
-      id: 'pa-8',
-      name: 'Olive oil',
-      amount: 500,
-      unit: 'ml',
-      location: 'Pantry',
-      expires: '2027-06-01',
-    },
-    {
-      id: 'pa-9',
-      name: 'Margarine',
-      amount: 250,
-      unit: 'g',
-      location: 'Fridge',
-      expires: '2026-12-15',
-    },
-    { id: 'pa-10', name: 'Red lentils', amount: 500, unit: 'g', location: 'Pantry' },
-    { id: 'pa-11', name: 'Potato starch', amount: 300, unit: 'g', location: 'Pantry' },
-    { id: 'pa-12', name: 'Silan', amount: 250, unit: 'ml', location: 'Pantry' },
-    { id: 'pa-13', name: 'Cocoa', amount: 100, unit: 'g', location: 'Pantry' },
-    {
-      id: 'pa-14',
-      name: 'Sour cream',
-      amount: 150,
-      unit: 'ml',
-      location: 'Fridge',
-      expires: '2026-11-06',
-    },
-    { id: 'pa-15', name: 'Salt', amount: 500, unit: 'g', location: 'Pantry' },
+    { id: 'pa-1', name: 'Pargiyot', amount: 1200, unit: 'g', expires: '2026-11-13' },
+    { id: 'pa-2', name: 'Sweet potatoes', amount: 3, unit: 'pc', expires: '2026-11-16' },
+    { id: 'pa-3', name: 'Carrots', amount: 4, unit: 'pc', expires: '2026-11-14' },
+    { id: 'pa-5', name: 'Eggs', amount: 8, unit: 'pc', expires: '2026-11-20' },
+    { id: 'pa-9', name: 'Margarine', amount: 250, unit: 'g', expires: '2026-12-15' },
+    { id: 'pa-14', name: 'Sour cream', amount: 150, unit: 'ml', expires: '2026-11-06' },
+    { id: 'pa-16', name: 'Fresh dill', amount: 1, unit: 'pc', expires: '2026-11-09' },
   ]
 }

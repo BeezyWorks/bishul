@@ -180,7 +180,7 @@ export const TOOLS: Tool[] = [
     name: 'get_suggestions',
     title: 'Get dish suggestions',
     description:
-      'Ranked dishes for one course of a meal. Only dishes that work for the people coming and the meal type are listed, ranked by likes (fading if served recently), pantry items that expire soon, how long since it was served and how well it suits the occasion, with the reasons. Dishes that do not fit come back as hidden, with why (hard exclusions). Carries the allergy disclaimer.',
+      'Ranked dishes for one course of a meal. Only dishes that work for the people coming and the meal type are listed, ranked by likes (fading if served recently), use-soon items that expire soon, how long since it was served and how well it suits the occasion, with the reasons. Dishes that do not fit come back as hidden, with why (hard exclusions). Carries the allergy disclaimer.',
     readOnly: true,
     input: z.object({
       mealId: S.id,
@@ -209,7 +209,7 @@ export const TOOLS: Tool[] = [
     name: 'accept_meals',
     title: 'Accept meals',
     description:
-      'Accept draft meals, by ids, for one date, or for a range (all of Shabbat, all of Yom Tov). Accepting holds the pantry items the menu needs and puts the meals into the shopping list and prep schedule. A meal whose brief has hard problems (meat with dairy, a strict allergy exclusion) is not accepted and comes back as blocked with the problems: show them to the host. Use force only if the host explicitly says to go ahead. Offer the next meal afterwards.',
+      'Accept draft meals, by ids, for one date, or for a range (all of Shabbat, all of Yom Tov). Accepting holds the use-soon items the menu needs and puts the meals into the shopping list and prep schedule. A meal whose brief has hard problems (meat with dairy, a strict allergy exclusion) is not accepted and comes back as blocked with the problems: show them to the host. Use force only if the host explicitly says to go ahead. Offer the next meal afterwards.',
     input: z.object({
       mealIds: z.array(S.id).optional(),
       date: S.date.optional(),
@@ -471,19 +471,19 @@ export const TOOLS: Tool[] = [
   // ---------------------------------------------------------------------------------------------------------------
   // Kitchen
   tool({
-    name: 'get_pantry',
-    title: 'Get pantry',
+    name: 'get_use_soon',
+    title: 'Get use-soon list',
     description:
-      'The pantry: items with quantity, location, expiry and effective expiry (chametz items expire at the pre-Pesach cutoff), what is expired, what expires soon, and what is held aside for accepted menus. Expired items are never suggested; items expiring soon are boosted.',
+      'Perishables to use up before they go bad (not a pantry inventory), soonest first: each with its use-by date and effective expiry (chametz expires at the pre-Pesach cutoff), quantity if known, whether it is expired or expires soon, and what is held aside for accepted menus. Expired items are never suggested; items expiring soon are boosted.',
     readOnly: true,
     input: empty,
-    run: async (c) => ok('Pantry.', await kitchen.listPantry(c.db, c.actor)),
+    run: async (c) => ok('Use soon.', await kitchen.listPantry(c.db, c.actor)),
   }),
   tool({
-    name: 'update_pantry',
-    title: 'Update pantry',
+    name: 'update_use_soon',
+    title: 'Update use-soon list',
     description:
-      'Change the pantry: add stock, set what is left, record that some was used, or remove an item. Quantities as written ("2 cups", "500 g"). Dates are YYYY-MM-DD.',
+      'Change the use-soon list of perishables: add an item, set what is left or its use-by date, record that some was used, or remove it (used up or thrown out). Every added item needs a use-by date (expiresOn, YYYY-MM-DD) except chametz, which defaults to the pre-Pesach cutoff; ask if she has not said. Quantity is optional ("2 cups", "500 g"). Do not add shelf-stable staples.',
     input: z.object({
       changes: z
         .array(
@@ -493,15 +493,14 @@ export const TOOLS: Tool[] = [
             itemId: z.string().optional(),
             quantity: z.union([z.string(), z.number()]).optional(),
             unit: z.string().optional(),
-            location: z.string().nullable().optional(),
-            expiresOn: S.date.nullable().optional(),
+            expiresOn: S.date.optional().describe('Use-by date'),
             ingredient: S.ingredientMeta.optional(),
           }),
         )
         .min(1),
     }),
     run: async (c, a) =>
-      ok('Pantry updated.', await kitchen.applyPantryChanges(c.db, c.actor, a.changes)),
+      ok('Use-soon list updated.', await kitchen.applyPantryChanges(c.db, c.actor, a.changes)),
   }),
   tool({
     name: 'get_kitchen',
@@ -542,7 +541,7 @@ export const TOOLS: Tool[] = [
     name: 'get_shopping_list',
     title: 'Get shopping list',
     description:
-      'The shopping list: one line per ingredient with the total needed across accepted meals (default: the next 30 days) minus unexpired pantry stock, with checked state, order and sourcing notes ("buy chalav Yisrael butter"). Brought dishes are not included.',
+      'The shopping list: one line per ingredient with the total needed across accepted meals (default: the next 30 days) minus unexpired use-soon items, with checked state, order and sourcing notes ("buy chalav Yisrael butter"). Brought dishes are not included.',
     readOnly: true,
     input: z.object({ from: S.date.optional(), to: S.date.optional() }),
     run: async (c, a) => ok('Shopping list.', await shopping.getShoppingList(c.db, c.actor, a)),

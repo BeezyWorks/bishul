@@ -282,8 +282,9 @@ describe('meal planning flow', () => {
     const who = 'planner-4'
     await api(who, 'PATCH', '/household', { location: NY })
     const r = await importAll(who)
-    await api(who, 'POST', '/pantry', { name: 'potatoes', quantity: '10' }, 201)
-    await api(who, 'POST', '/pantry', { name: 'eggs', quantity: '2' }, 201)
+    const later = { expiresOn: '2099-01-01' }
+    await api(who, 'POST', '/pantry', { name: 'potatoes', quantity: '10', ...later }, 201)
+    await api(who, 'POST', '/pantry', { name: 'eggs', quantity: '2', ...later }, 201)
     const m = await api(
       who,
       'POST',
