@@ -4,8 +4,8 @@ import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import { Checkbox, Segmented, Text } from '@/components'
 import { useVersion } from '@/lib/api/hooks'
-import { useUnits } from '@/lib/prefs'
-import { formatAmount, formatClock } from '@/lib/units'
+import { useMeasure, useUnits } from '@/lib/prefs'
+import { formatAmount, formatClock, portionLabel } from '@/lib/units'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
 type WakeLockSentinel = { release: () => Promise<void> }
@@ -87,6 +87,8 @@ export function CookScreen() {
   const router = useRouter()
   const { data } = useVersion(versionId)
   const [units, setUnits] = useUnits()
+  const [measure, setMeasure] = useMeasure()
+  const [showAll, setShowAll] = useState(false)
   const [i, setI] = useState(0)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const awake = useWakeLock()
@@ -115,7 +117,9 @@ export function CookScreen() {
       </View>
     )
   const { version, recipe } = data
-  const lines = version.ingredients.filter((l) => step.ingredientIds.includes(l.id))
+  const lines = showAll
+    ? version.ingredients
+    : version.ingredients.filter((l) => step.ingredientIds.includes(l.id))
   const last = i === total - 1
   const exit = () => router.replace(`/recipes/${recipe.id}` as Href)
 
@@ -144,10 +148,20 @@ export function CookScreen() {
           dark
           options={[
             { value: 'metric', label: 'Metric' },
-            { value: 'us', label: 'Cups' },
+            { value: 'us', label: 'US' },
           ]}
           value={units}
           onChange={setUnits}
+        />
+        <Segmented
+          dark
+          options={[
+            { value: 'auto', label: 'Auto' },
+            { value: 'weight', label: 'Weight' },
+            { value: 'volume', label: 'Volume' },
+          ]}
+          value={measure}
+          onChange={setMeasure}
         />
       </View>
 
@@ -192,10 +206,22 @@ export function CookScreen() {
           ) : null}
 
           <View style={styles.ings}>
-            <Text style={styles.label}>For this step</Text>
+            <View style={styles.ingHead}>
+              <Text style={styles.label}>{showAll ? 'All ingredients' : 'For this step'}</Text>
+              <Pressable accessibilityRole="button" onPress={() => setShowAll(!showAll)}>
+                <Text style={styles.link}>{showAll ? 'This step only' : 'Show all'}</Text>
+              </Pressable>
+            </View>
             {lines.length === 0 ? <Text style={styles.sub}>No ingredients needed.</Text> : null}
             {lines.map((l) => {
-              const a = formatAmount(l, scale, units)
+              const portion = showAll ? undefined : step.portions?.[l.id]
+              const a = formatAmount(
+                portion ? { ...l, amount: l.amount * portion } : l,
+                scale,
+                units,
+                measure,
+              )
+              const whole = portion ? formatAmount(l, scale, units, measure).text : ''
               return (
                 <View key={l.id} style={styles.ingRow}>
                   <Checkbox
@@ -220,6 +246,11 @@ export function CookScreen() {
                     {'  '}
                     {l.name}
                     {l.prep ? `, ${l.prep}` : ''}
+                    {portion ? (
+                      <Text style={[styles.ing, { color: colors.cookMuted }]}>
+                        {`  (${portionLabel(portion)} of ${whole})`}
+                      </Text>
+                    ) : null}
                   </Text>
                 </View>
               )
@@ -323,6 +354,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.cookMuted,
   },
+  ingHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  link: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.sm, color: colors.cookAccent },
   ingRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   ing: { fontFamily: fonts.body, fontSize: fontSize.xl, color: colors.cookInk, flex: 1 },
   bottom: {

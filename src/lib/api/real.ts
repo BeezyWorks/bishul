@@ -83,7 +83,13 @@ function versionBody(e: VersionEdit) {
     ...(e.steps && {
       steps: e.steps
         .filter((s) => s.text.trim())
-        .map((s) => ({ text: s.text.trim(), section: s.section ?? null })),
+        .map((s) => ({
+          text: s.text.trim(),
+          section: s.section ?? null,
+          ...(s.uses && {
+            uses: s.uses.map((u) => ({ ingredient: u.line, portion: u.portion })),
+          }),
+        })),
     }),
   }
 }

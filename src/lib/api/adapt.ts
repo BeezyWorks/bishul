@@ -3,7 +3,6 @@
  * Everything the server does not say in the UI's vocabulary is translated here, and nowhere else.
  */
 import { clock12, shortHebrew, weekdayName } from '@/lib/dates'
-import { sectionPath } from '@/lib/sections'
 import { DISCLAIMER } from '@/lib/strings'
 
 import {
@@ -698,7 +697,12 @@ interface ServerVersion {
   easyToDeliver: boolean | null
   cost: number | null
   prePrep: { step: string; lead_minutes: number }[]
-  steps: { text: string; timer_minutes?: number; section?: string }[]
+  steps: {
+    text: string
+    timer_minutes?: number
+    section?: string
+    uses?: { line: number; portion?: number }[]
+  }[]
   flags: Record<string, { value: boolean } | undefined>
   equipment: { item: string; designation: string | null }[]
   dimensions: { name: string; fit: string }[]
@@ -744,37 +748,6 @@ function adaptLine(l: ServerVersion['ingredients'][number]): IngredientLine {
   }
 }
 
-/**
- * Steps carry no ingredient links on the server; guess them from the words. An ingredient no step names goes
- * to the first step of its own part ("Cake"), else to a step that names the part ("pour the ganache"), else step 1.
- */
-function linkSteps(steps: { text: string; section?: string }[], lines: IngredientLine[]) {
-  const mentions = steps.map((s) =>
-    lines
-      .filter((l) => {
-        const first = l.name
-          .toLowerCase()
-          .split(/[\s,]+/)
-          .filter((w) => w.length > 2)
-        const hay = s.text.toLowerCase()
-        return first.length > 0 && first.every((w) => hay.includes(w.replace(/s$/, '')))
-      })
-      .map((l) => l.id),
-  )
-  const used = new Set(mentions.flat())
-  if (!mentions.length) return mentions
-  for (const l of lines) {
-    if (used.has(l.id)) continue
-    const path = sectionPath(l.section)
-    const top = path[0]?.toLowerCase()
-    const last = path[path.length - 1]?.toLowerCase()
-    let at = top ? steps.findIndex((s) => sectionPath(s.section)[0]?.toLowerCase() === top) : -1
-    if (at < 0 && last) at = steps.findIndex((s) => s.text.toLowerCase().includes(last))
-    mentions[Math.max(0, at)].push(l.id)
-  }
-  return mentions
-}
-
 export function adaptVersion(
   v: ServerVersion,
   extras: {
@@ -783,7 +756,6 @@ export function adaptVersion(
   } = {},
 ): RecipeVersion {
   const ingredients = v.ingredients.map(adaptLine)
-  const links = linkSteps(v.steps, ingredients)
   const label = v.title && v.title !== v.recipeTitle ? v.title : 'Original'
   return {
     id: v.id,
@@ -831,7 +803,14 @@ export function adaptVersion(
       id: `${v.id}:${i}`,
       text: s.text,
       timerSec: s.timer_minutes ? Math.round(s.timer_minutes * 60) : undefined,
-      ingredientIds: links[i] ?? [],
+      ingredientIds: (s.uses ?? []).flatMap((u) =>
+        ingredients[u.line] ? [ingredients[u.line].id] : [],
+      ),
+      portions: Object.fromEntries(
+        (s.uses ?? []).flatMap((u) =>
+          ingredients[u.line] && u.portion ? [[ingredients[u.line].id, u.portion]] : [],
+        ),
+      ),
       section: s.section || undefined,
     })),
     reactions: extras.reactions ?? [],

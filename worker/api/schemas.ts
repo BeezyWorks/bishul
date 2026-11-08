@@ -112,6 +112,28 @@ export const stepInput = z.union([
     text: z.string(),
     timerMinutes: z.number().optional(),
     section: sectionName.nullable().optional(),
+    uses: z
+      .array(
+        z.union([
+          z.string(),
+          z.number().int().min(0),
+          z.object({
+            ingredient: z.union([z.string(), z.number().int().min(0)]),
+            portion: z
+              .number()
+              .gt(0)
+              .max(1)
+              .optional()
+              .describe(
+                'The share of the ingredient this step uses, when it is divided between steps: 0.5 for half, 0.25 for a quarter. Omit for all of it. The shares across steps should add up to 1.',
+              ),
+          }),
+        ]),
+      )
+      .optional()
+      .describe(
+        'The ingredients this step uses, so cooking mode shows them with the step. Each is an ingredient name as in the ingredients list ("dark chocolate"), its 0-based position in that list, or {ingredient, portion} when the amount is divided ("2 tbsp butter, divided": {ingredient: "butter", portion: 0.5} in two steps; uneven splits are fine, like 0.25 and 0.75). Send it on every step that adds or handles an ingredient. When you edit steps and leave `uses` out, the existing links of the matching step are kept; send [] to clear them.',
+      ),
   }),
 ])
 

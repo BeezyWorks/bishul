@@ -129,6 +129,8 @@ export interface RecipeStep {
   text: string
   timerSec?: number
   ingredientIds: Id[]
+  /** Share (0-1) of an ingredient this step uses when its amount is divided between steps; absent means all. */
+  portions?: Record<Id, number>
   /** The part of the recipe this step belongs to; steps and ingredients are sectioned independently. */
   section?: string
 }
@@ -532,7 +534,12 @@ export interface VersionEdit {
   holdsOnBlech?: boolean
   description?: string
   ingredients?: { text: string; section?: string }[]
-  steps?: { text: string; section?: string }[]
+  steps?: {
+    text: string
+    section?: string
+    /** Ingredient lines (0-based positions in the ingredient list). Omit to keep the step's current links. */
+    uses?: { line: number; portion?: number }[]
+  }[]
 }
 
 export type ConstraintTagInput =

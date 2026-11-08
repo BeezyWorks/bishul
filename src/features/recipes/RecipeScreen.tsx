@@ -21,11 +21,12 @@ import { stale, useApiMutation, useHousehold, useRecipe } from '@/lib/api/hooks'
 
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
+import { LinkSteps } from './LinkSteps'
 import type { Fit, RecipeVersion, SkipImpact } from '@/lib/api/types'
-import { useUnits } from '@/lib/prefs'
+import { useMeasure, useUnits } from '@/lib/prefs'
 import { groupBySection, headingFor } from '@/lib/sections'
 import { COURSE_LABEL } from '@/lib/strings'
-import { formatAmount } from '@/lib/units'
+import { formatAmount, portionLabel } from '@/lib/units'
 import { colors, space, type Tone } from '@/theme/tokens'
 
 const SCALES = [0.5, 1, 2, 3]
@@ -106,7 +107,7 @@ export function RecipeScreen() {
   const { data: recipe, isLoading } = useRecipe(id)
   const [versionId, setVersionId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
-  const [editing, setEditing] = useState<null | 'edit' | 'variation'>(null)
+  const [editing, setEditing] = useState<null | 'edit' | 'variation' | 'link'>(null)
   const [units, setUnits] = useUnits()
   if (isLoading || !recipe)
     return (
@@ -127,6 +128,7 @@ export function RecipeScreen() {
       actions={
         <View style={styles.wrapRow}>
           <Button label="Edit" variant="secondary" onPress={() => setEditing('edit')} />
+          <Button label="Link ingredients" variant="secondary" onPress={() => setEditing('link')} />
           <Button
             label="New variation"
             variant="secondary"
@@ -136,7 +138,15 @@ export function RecipeScreen() {
         </View>
       }
     >
-      {editing ? (
+      {editing === 'link' ? (
+        <LinkSteps
+          key={`link:${v.id}`}
+          version={v}
+          onCancel={() => setEditing(null)}
+          onDone={() => setEditing(null)}
+        />
+      ) : null}
+      {editing === 'edit' || editing === 'variation' ? (
         <EditVersion
           key={`${editing}:${v.id}`}
           recipe={recipe}
@@ -178,6 +188,7 @@ function VersionView({
   setUnits: (u: 'metric' | 'us') => void
 }) {
   const { wide } = useLayout()
+  const [measure, setMeasure] = useMeasure()
   return (
     <View style={styles.col}>
       <Text color={colors.muted}>{v.description}</Text>
@@ -244,10 +255,19 @@ function VersionView({
             <Segmented
               options={[
                 { value: 'metric', label: 'Metric' },
-                { value: 'us', label: 'Cups' },
+                { value: 'us', label: 'US' },
               ]}
               value={units}
               onChange={setUnits}
+            />
+            <Segmented
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'weight', label: 'Weight' },
+                { value: 'volume', label: 'Volume' },
+              ]}
+              value={measure}
+              onChange={setMeasure}
             />
           </View>
           <View style={styles.tableHead}>
@@ -265,7 +285,7 @@ function VersionView({
             <View key={gi + g.section}>
               <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
               {g.items.map((l) => {
-                const a = formatAmount(l, scale, units)
+                const a = formatAmount(l, scale, units, measure)
                 const skip = SKIP_TEXT[l.skipImpact]
                 return (
                   <View key={l.id} style={styles.tr}>
@@ -353,6 +373,18 @@ function VersionView({
                 </View>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text>{s.text}</Text>
+                  {s.ingredientIds.length ? (
+                    <Text variant="small" color={colors.muted}>
+                      Uses:{' '}
+                      {s.ingredientIds
+                        .map((id) => {
+                          const name = v.ingredients.find((l) => l.id === id)?.name ?? ''
+                          const p = s.portions?.[id]
+                          return p ? `${name} (${portionLabel(p)})` : name
+                        })
+                        .join(', ')}
+                    </Text>
+                  ) : null}
                   {s.timerSec ? (
                     <Text variant="small">Timer: {Math.round(s.timerSec / 60)} min</Text>
                   ) : null}

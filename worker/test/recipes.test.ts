@@ -2,6 +2,72 @@ import { describe, expect, it } from 'vitest'
 
 import { api, call, sign, tool } from './helpers'
 
+describe('steps use ingredients', () => {
+  const brownies = {
+    title: 'Brownies',
+    ingredients: ['200 g dark chocolate', '2 tbsp butter', '1 cup sugar', '3 eggs'],
+    steps: [
+      {
+        text: 'Melt the chocolate with half the butter.',
+        uses: ['dark chocolate', { ingredient: 'butter', portion: 0.25 }],
+      },
+      { text: 'Whisk the eggs with the sugar.', uses: ['egg', 2] },
+      { text: 'Stir in the rest of the butter.', uses: [{ ingredient: 'butter', portion: 0.75 }] },
+      { text: 'Bake.' },
+    ],
+  }
+
+  it('ties each step to its ingredient lines by name or position, with portions', async () => {
+    const r = await api('rec-uses', 'POST', '/recipes/import', brownies, 201)
+    expect(r.version.steps.map((s: any) => s.uses)).toEqual([
+      [{ line: 0 }, { line: 1, portion: 0.25 }],
+      [{ line: 2 }, { line: 3 }],
+      [{ line: 1, portion: 0.75 }],
+      undefined,
+    ])
+    const bad = await api(
+      'rec-uses',
+      'POST',
+      '/recipes/import',
+      { title: 'Bad', ingredients: ['1 cup sugar'], steps: [{ text: 'Add.', uses: ['saffron'] }] },
+      400,
+    )
+    expect(bad.error.message).toContain('saffron')
+  })
+
+  it('keeps links through edits: reworded or inserted ingredients, reworded steps, and clearing', async () => {
+    const who = 'rec-uses-2'
+    const r = await api(who, 'POST', '/recipes/import', brownies, 201)
+    const id = r.version.id
+    // Reword one line and insert another at the top: the links follow their lines.
+    const e1 = await api(who, 'PUT', `/versions/${id}`, {
+      ingredients: [
+        { text: 'pinch of salt' },
+        { text: '200 g dark chocolate' },
+        { text: '4 tbsp butter' },
+        { text: '1 cup sugar' },
+        { text: '3 eggs' },
+      ],
+    })
+    expect(e1.version.steps.map((s: any) => s.uses?.map((u: any) => u.line))).toEqual([
+      [1, 2],
+      [3, 4],
+      [2],
+      undefined,
+    ])
+    // Reword a step without sending uses: it keeps its links. Send [] to clear.
+    const e2 = await api(who, 'PUT', `/versions/${id}`, {
+      steps: [
+        { text: 'Melt the chocolate and a little butter.' },
+        { text: 'Whisk the eggs with the sugar.', uses: [] },
+        { text: 'Stir in the rest of the butter.' },
+        { text: 'Bake.' },
+      ],
+    })
+    expect(e2.version.steps.map((s: any) => s.uses?.length ?? 0)).toEqual([2, 0, 1, 0])
+  })
+})
+
 describe('recipe import', () => {
   it('parses ingredient lines as written: quantity, unit, name, prep note', async () => {
     const r = await api(
@@ -275,7 +341,11 @@ describe('recipe search', () => {
     expect(await titles('difficulty=easy')).toEqual(['Shabbat cholent'])
     // Barley is chametz by name, even though the catalog row carries no flag.
     expect(await titles('pesach=true')).toEqual(['Cucumber salad'])
-    expect(await titles('sort=quickest')).toEqual(['Cucumber salad', 'Lemon tart', 'Shabbat cholent'])
+    expect(await titles('sort=quickest')).toEqual([
+      'Cucumber salad',
+      'Lemon tart',
+      'Shabbat cholent',
+    ])
     expect(await titles('q=nonexistentword')).toEqual([])
   })
 
@@ -478,41 +548,112 @@ describe('versions', () => {
 describe('kitniyot and chametz by name', () => {
   it('flags rice as kitniyot, and a recipe is not kitniyot-free just because nothing was flagged by hand', async () => {
     const who = 'rec-9'
-    const r = await api(who, 'POST', '/recipes/import', { title: 'Rice pilaf', ingredients: ['2 cups basmati rice', '1 onion', '2 tbsp oil'], steps: ['Cook'] }, 201)
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      {
+        title: 'Rice pilaf',
+        ingredients: ['2 cups basmati rice', '1 onion', '2 tbsp oil'],
+        steps: ['Cook'],
+      },
+      201,
+    )
     expect(r.version.pesach.kitniyot).toEqual(['Basmati rice'])
     expect(r.version.pesach.friendly).toBe(true)
     expect(r.version.pesach.friendlyForKitniyotAvoiders).toBe(false)
-    const m = await api(who, 'POST', '/recipes/import', { title: 'Kneidlach', ingredients: ['1 cup matzah meal', '2 eggs'], steps: ['Boil'] }, 201)
-    expect(m.version.pesach).toMatchObject({ friendly: true, chametz: [], gebrokts: ['Matzah meal'] })
+    const m = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Kneidlach', ingredients: ['1 cup matzah meal', '2 eggs'], steps: ['Boil'] },
+      201,
+    )
+    expect(m.version.pesach).toMatchObject({
+      friendly: true,
+      chametz: [],
+      gebrokts: ['Matzah meal'],
+    })
   })
 
   it('a Pesach search drops kitniyot once someone in the household avoids it', async () => {
     const who = 'rec-10'
-    await api(who, 'POST', '/recipes/import', { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] }, 201)
-    await api(who, 'POST', '/recipes/import', { title: 'Roast potatoes', ingredients: ['1 kg potatoes'], steps: ['Roast'] }, 201)
-    const titles = async () => (await api(who, 'GET', '/recipes?pesach=true&sort=a_z')).results.map((r: any) => r.title)
+    await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
+      201,
+    )
+    await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Roast potatoes', ingredients: ['1 kg potatoes'], steps: ['Roast'] },
+      201,
+    )
+    const titles = async () =>
+      (await api(who, 'GET', '/recipes?pesach=true&sort=a_z')).results.map((r: any) => r.title)
     expect(await titles()).toEqual(['Rice pilaf', 'Roast potatoes'])
     const me = (await api(who, 'GET', '/people')).household.people[0]
-    await api(who, 'PUT', `/people/${me.id}/constraints`, { set: [{ tagType: 'kashrut_dish', tag: 'kitniyot', severity: 'strict', activeWhen: 'Pesach' }] })
+    await api(who, 'PUT', `/people/${me.id}/constraints`, {
+      set: [{ tagType: 'kashrut_dish', tag: 'kitniyot', severity: 'strict', activeWhen: 'Pesach' }],
+    })
     expect(await titles()).toEqual(['Roast potatoes'])
   })
 
   it('the dining brief excludes a rice dish for a no-kitniyot guest on Pesach, with no hand flags', async () => {
     const who = 'rec-11'
-    const r = await api(who, 'POST', '/recipes/import', { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] }, 201)
-    const noa = await api(who, 'POST', '/people', { name: 'Noa', newContactHousehold: 'Levis' }, 201)
-    await api(who, 'PUT', `/people/${noa.id}/constraints`, { set: [{ tagType: 'kashrut_dish', tag: 'kitniyot', severity: 'strict', activeWhen: 'Pesach' }] })
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
+      201,
+    )
+    const noa = await api(
+      who,
+      'POST',
+      '/people',
+      { name: 'Noa', newContactHousehold: 'Levis' },
+      201,
+    )
+    await api(who, 'PUT', `/people/${noa.id}/constraints`, {
+      set: [{ tagType: 'kashrut_dish', tag: 'kitniyot', severity: 'strict', activeWhen: 'Pesach' }],
+    })
     const marked = await api(who, 'GET', `/recipes?safeFor=${noa.id}&date=2027-04-23`)
-    expect(marked.results.find((x: any) => x.recipeId === r.version.recipeId).unsafeFor[0].reasons.join(' ')).toMatch(/kitniyot/)
+    expect(
+      marked.results
+        .find((x: any) => x.recipeId === r.version.recipeId)
+        .unsafeFor[0].reasons.join(' '),
+    ).toMatch(/kitniyot/)
   })
 })
 
 describe('search returns one row per recipe', () => {
   it('nests the versions and counts recipes, not versions', async () => {
     const who = 'rec-12'
-    const r = await api(who, 'POST', '/recipes/import', { title: 'Lemon cake', ingredients: ['1 cup sugar', '2 lemons'], steps: ['Bake'] }, 201)
-    await api(who, 'POST', `/versions/${r.version.id}/variations`, { title: 'Gluten free', ingredients: [{ text: '1 cup sugar' }, { text: '2 lemons' }] }, 201)
-    await api(who, 'POST', '/recipes/import', { title: 'Lemon soup', ingredients: ['2 lemons'], steps: ['Simmer'] }, 201)
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Lemon cake', ingredients: ['1 cup sugar', '2 lemons'], steps: ['Bake'] },
+      201,
+    )
+    await api(
+      who,
+      'POST',
+      `/versions/${r.version.id}/variations`,
+      { title: 'Gluten free', ingredients: [{ text: '1 cup sugar' }, { text: '2 lemons' }] },
+      201,
+    )
+    await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Lemon soup', ingredients: ['2 lemons'], steps: ['Simmer'] },
+      201,
+    )
     for (const qs of ['q=lemon', '']) {
       const res = await api(who, 'GET', `/recipes?${qs}`)
       expect(res.total).toBe(2)
@@ -520,7 +661,9 @@ describe('search returns one row per recipe', () => {
       const cake = res.results.find((x: any) => x.title === 'Lemon cake')
       expect(cake.versionCount).toBe(2)
       expect(cake.versions).toHaveLength(2)
-      expect(cake.versions.map((v: any) => v.versionTitle).sort()).toEqual(['Gluten free', r.version.title].sort())
+      expect(cake.versions.map((v: any) => v.versionTitle).sort()).toEqual(
+        ['Gluten free', r.version.title].sort(),
+      )
       expect(cake.versionId).toBe(cake.versions[0].versionId)
     }
   })
@@ -529,29 +672,78 @@ describe('search returns one row per recipe', () => {
 describe('reactions to a version', () => {
   it('sets, replaces and clears a reaction through the API and MCP', async () => {
     const who = 'rec-13'
-    const r = await api(who, 'POST', '/recipes/import', { title: 'Potato kugel', ingredients: ['1 kg potatoes', '3 eggs'], steps: ['Bake'] }, 201)
-    const noa = await api(who, 'POST', '/people', { name: 'Noa', newContactHousehold: 'Levis' }, 201)
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Potato kugel', ingredients: ['1 kg potatoes', '3 eggs'], steps: ['Bake'] },
+      201,
+    )
+    const noa = await api(
+      who,
+      'POST',
+      '/people',
+      { name: 'Noa', newContactHousehold: 'Levis' },
+      201,
+    )
     const vid = r.version.id
     expect((await api(who, 'GET', `/versions/${vid}/reactions`)).reactions).toEqual([])
 
-    const liked = await api(who, 'PUT', `/versions/${vid}/reactions`, { personId: noa.id, reaction: 'like', note: 'Crispy edges' })
-    expect(liked.reactions).toMatchObject([{ personId: noa.id, personName: 'Noa', reaction: 'like', note: 'Crispy edges' }])
-    const flipped = await api(who, 'PUT', `/versions/${vid}/reactions`, { personId: noa.id, reaction: 'dislike' })
+    const liked = await api(who, 'PUT', `/versions/${vid}/reactions`, {
+      personId: noa.id,
+      reaction: 'like',
+      note: 'Crispy edges',
+    })
+    expect(liked.reactions).toMatchObject([
+      { personId: noa.id, personName: 'Noa', reaction: 'like', note: 'Crispy edges' },
+    ])
+    const flipped = await api(who, 'PUT', `/versions/${vid}/reactions`, {
+      personId: noa.id,
+      reaction: 'dislike',
+    })
     expect(flipped.reactions).toHaveLength(1)
     expect(flipped.reactions[0].reaction).toBe('dislike')
 
     const token = await sign(who)
-    const cleared = await tool(token, 'record_reaction', { personId: noa.id, versionId: vid, reaction: 'none' })
+    const cleared = await tool(token, 'record_reaction', {
+      personId: noa.id,
+      versionId: vid,
+      reaction: 'none',
+    })
     expect(cleared.data.reactions).toEqual([])
-    const again = await tool(token, 'record_reaction', { personId: noa.id, versionId: vid, reaction: 'like' })
+    const again = await tool(token, 'record_reaction', {
+      personId: noa.id,
+      versionId: vid,
+      reaction: 'like',
+    })
     expect(again.data.reactions).toHaveLength(1)
-    expect((await api(who, 'PUT', `/versions/${vid}/reactions`, { personId: noa.id, reaction: 'none' })).reactions).toEqual([])
+    expect(
+      (await api(who, 'PUT', `/versions/${vid}/reactions`, { personId: noa.id, reaction: 'none' }))
+        .reactions,
+    ).toEqual([])
   })
 
   it('refuses someone else’s version or person', async () => {
-    const r = await api('rec-14', 'POST', '/recipes/import', { title: 'Soup', ingredients: ['1 onion'], steps: ['Simmer'] }, 201)
-    const noa = await api('rec-15', 'POST', '/people', { name: 'Noa', newContactHousehold: 'Levis' }, 201)
-    const res = await call('PUT', `/api/versions/${r.version.id}/reactions`, { personId: noa.id, reaction: 'like' }, 'rec-15')
+    const r = await api(
+      'rec-14',
+      'POST',
+      '/recipes/import',
+      { title: 'Soup', ingredients: ['1 onion'], steps: ['Simmer'] },
+      201,
+    )
+    const noa = await api(
+      'rec-15',
+      'POST',
+      '/people',
+      { name: 'Noa', newContactHousehold: 'Levis' },
+      201,
+    )
+    const res = await call(
+      'PUT',
+      `/api/versions/${r.version.id}/reactions`,
+      { personId: noa.id, reaction: 'like' },
+      'rec-15',
+    )
     expect(res.status).toBe(404)
   })
 })

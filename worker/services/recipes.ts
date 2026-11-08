@@ -334,7 +334,17 @@ export interface IngredientInput {
   ingredient?: IngredientMeta
 }
 
-export type StepInput = string | { text: string; timerMinutes?: number; section?: string | null }
+export type StepInput =
+  | string
+  | {
+      text: string
+      timerMinutes?: number
+      section?: string | null
+      /** Ingredients the step uses: names from the ingredient list, or 0-based positions in it. */
+      uses?: UseInput[]
+    }
+
+export type UseInput = string | number | { ingredient: string | number; portion?: number }
 
 /** Section names are trimmed, tidied and joined with " > " for nesting; empty means no section. */
 export function cleanSection(section: string | null | undefined): string | null {
@@ -404,6 +414,7 @@ function versionPatch(
         text: x.text.trim(),
         ...(x.timerMinutes && { timer_minutes: x.timerMinutes }),
         ...(section && { section }),
+        ...(x.uses && { uses: x.uses as never }),
       }
     })
   if (input.flags !== undefined)
@@ -413,6 +424,135 @@ function versionPatch(
   if (typeof p.cost === 'number' && (p.cost < 1 || p.cost > 3))
     throw invalid('cost is 1, 2 or 3 ($, $$, $$$)')
   return p as Partial<typeof s.recipeVersions.$inferInsert>
+}
+
+/**
+ * Turns the `uses` of each step (ingredient names or positions, with optional portions) into stored links to
+ * positions in the version's ingredient list. A name that matches nothing is an error, so the AI fixes the link
+ * instead of it silently going missing.
+ */
+export function resolveStepUses(
+  steps: s.RecipeStep[] | undefined,
+  lines: { name: string; original: string }[],
+) {
+  if (!steps) return
+  const norm = (x: string) =>
+    x
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+  const names = lines.map((l) => [norm(l.name), norm(l.original)] as const)
+  for (const [n, st] of steps.entries()) {
+    const raw = st.uses as unknown as UseInput[] | undefined
+    if (!raw?.length) {
+      delete st.uses
+      continue
+    }
+    const found = new Map<number, number>()
+    for (const u of raw) {
+      const ref = typeof u === 'object' ? u.ingredient : u
+      const portion = typeof u === 'object' ? (u.portion ?? 1) : 1
+      if (!(portion > 0 && portion <= 1))
+        throw invalid(`Step ${n + 1}: a portion is more than 0 and at most 1`)
+      let at = -1
+      if (typeof ref === 'number') at = ref < lines.length ? ref : -1
+      else {
+        const k = norm(ref)
+        at = names.findIndex(([name]) => name === k)
+        if (at < 0) at = names.findIndex(([name, orig]) => name.includes(k) || orig.includes(k))
+        if (at < 0) at = names.findIndex(([name]) => k.includes(name) && name.length > 2)
+      }
+      if (at < 0)
+        throw invalid(
+          `Step ${n + 1} uses "${ref}", which is not in the ingredient list (${lines.map((l) => l.name).join(', ')})`,
+        )
+      found.set(at, Math.min(1, (found.get(at) ?? 0) + portion))
+    }
+    st.uses = [...found]
+      .sort((a, b) => a[0] - b[0])
+      .map(([line, portion]) => ({
+        line,
+        ...(portion < 0.9999 && { portion: Math.round(portion * 1000) / 1000 }),
+      }))
+  }
+}
+
+/**
+ * Pairs old items with new ones: identical text first, then the closest wording (so "2 tbsp butter" becomes
+ * "4 tbsp butter" even when other lines were added), then what is left in order if there are equally many.
+ */
+function pairByText(oldT: string[], newT: string[]): number[] {
+  const to = oldT.map(() => -1)
+  const taken = new Set<number>()
+  oldT.forEach((t, i) => {
+    const j = newT.findIndex((x, k) => x === t && !taken.has(k))
+    if (j >= 0) {
+      to[i] = j
+      taken.add(j)
+    }
+  })
+  const words = (x: string) => new Set(x.toLowerCase().match(/\p{L}{3,}/gu) ?? [])
+  const similarity = (a: Set<string>, b: Set<string>) => {
+    let both = 0
+    for (const w of a) if (b.has(w)) both++
+    return both / (a.size + b.size - both || 1)
+  }
+  const oldW = oldT.map(words)
+  const newW = newT.map(words)
+  const scored: [number, number, number][] = []
+  oldT.forEach((_, i) => {
+    if (to[i] >= 0) return
+    newT.forEach((_, j) => {
+      if (!taken.has(j)) scored.push([similarity(oldW[i], newW[j]), i, j])
+    })
+  })
+  scored.sort((x, y) => y[0] - x[0])
+  for (const [score, i, j] of scored) {
+    if (score < 0.4) break
+    if (to[i] >= 0 || taken.has(j)) continue
+    to[i] = j
+    taken.add(j)
+  }
+  const restOld = oldT.map((_, i) => i).filter((i) => to[i] < 0)
+  const restNew = newT.map((_, j) => j).filter((j) => !taken.has(j))
+  if (restOld.length === restNew.length) restOld.forEach((i, k) => (to[i] = restNew[k]))
+  return to
+}
+
+/**
+ * Keeps step links through an edit. Links point at ingredient positions, so when the ingredient list changes they
+ * are moved to where each line went (a line that was reworded in place keeps its links; a removed one loses them).
+ * Steps sent without `uses` take the links of the old step they match (same text, else reworded in place).
+ * Returns the steps to store, or undefined when there is nothing to change.
+ */
+export function carryStepLinks(args: {
+  oldLines: string[]
+  newLines: string[]
+  oldSteps: s.RecipeStep[]
+  newSteps: s.RecipeStep[] | undefined
+}): s.RecipeStep[] | undefined {
+  const { oldLines, newLines, oldSteps, newSteps } = args
+  if (!oldSteps.some((st) => st.uses?.length)) return newSteps
+  const lineTo = pairByText(oldLines, newLines)
+  const moved = oldSteps.map((st) =>
+    (st.uses ?? [])
+      .filter((u) => lineTo[u.line] >= 0)
+      .map((u) => ({ ingredient: lineTo[u.line], ...(u.portion && { portion: u.portion }) })),
+  )
+  if (!newSteps)
+    return oldSteps.map((st, i) => {
+      const { uses: _drop, ...rest } = st
+      return moved[i].length ? { ...rest, uses: moved[i] as never } : rest
+    })
+  const stepTo = pairByText(
+    oldSteps.map((st) => st.text),
+    newSteps.map((st) => st.text),
+  )
+  return newSteps.map((st, j) => {
+    if (st.uses !== undefined) return st
+    const i = stepTo.indexOf(j)
+    return i >= 0 && moved[i].length ? { ...st, uses: moved[i] as never } : st
+  })
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -657,6 +797,25 @@ export async function saveRecipe(
     const built = input.ingredients
       ? await buildLines(db, actor, catalog, cur.version.id, input.ingredients)
       : null
+    if (built || patch.steps) {
+      const before = cur.lines.map((l) => l.line.originalText)
+      const carried = carryStepLinks({
+        oldLines: before,
+        newLines: built ? built.map((b) => b.row.originalText) : before,
+        oldSteps: cur.version.steps ?? [],
+        newSteps: patch.steps ?? undefined,
+      })
+      if (carried) patch.steps = carried
+    }
+    resolveStepUses(
+      patch.steps ?? undefined,
+      built
+        ? built.map((b) => ({ name: b.name, original: b.row.originalText }))
+        : cur.lines.map((l) => ({
+            name: l.ingredient?.name ?? l.line.originalText,
+            original: l.line.originalText,
+          })),
+    )
     const changed: Record<string, [unknown, unknown]> = {}
     for (const [k, v] of Object.entries(patch)) {
       const before = (cur.version as Record<string, unknown>)[k]
@@ -747,6 +906,10 @@ export async function saveRecipe(
   }
   const versionId = ulid()
   const built = await buildLines(db, actor, catalog, versionId, input.ingredients ?? [])
+  resolveStepUses(
+    patch.steps ?? undefined,
+    built.map((b) => ({ name: b.name, original: b.row.originalText })),
+  )
   const vtitle = input.title?.trim() || recipeTitle
   const hash = await hashContent(recipeTitle, { ...patch, title: vtitle }, built)
   await db.insert(s.recipeVersions).values({
@@ -825,6 +988,19 @@ export async function saveVariation(
           substitutions: l.line.substitutions,
         },
       }))
+  if (input.ingredients || patch.steps) {
+    const carried = carryStepLinks({
+      oldLines: src.lines.map((l) => l.line.originalText),
+      newLines: built.map((b) => b.row.originalText),
+      oldSteps: base.steps ?? [],
+      newSteps: patch.steps ?? undefined,
+    })
+    if (carried) patch.steps = carried
+  }
+  resolveStepUses(
+    patch.steps ?? undefined,
+    built.map((b) => ({ name: b.name, original: b.row.originalText })),
+  )
   const copied: Partial<typeof s.recipeVersions.$inferInsert> = {
     description: base.description,
     sourceLinks: base.sourceLinks,
@@ -1251,7 +1427,8 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     if (input.kashrut && versionKashrut(v) !== input.kashrut) return false
     if (input.difficulty && x.difficulty !== input.difficulty) return false
     if (input.maxCost && (x.cost ?? 0) > input.maxCost) return false
-    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes) return false
+    if (input.maxMinutes && (x.totalMinutes ?? x.activeMinutes ?? 0) > input.maxMinutes)
+      return false
     if (input.pesach) {
       const p = pesachCheck(v)
       if (!(avoidKitniyot ? p.friendlyForKitniyotAvoiders : p.friendly)) return false
@@ -1349,7 +1526,10 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
   for (const v of hits) byRecipe.set(v.recipe.id, [...(byRecipe.get(v.recipe.id) ?? []), v])
   const groups = [...byRecipe.values()]
   const total = groups.length
-  const page = groups.slice(input.offset ?? 0, (input.offset ?? 0) + Math.min(input.limit ?? 50, 200))
+  const page = groups.slice(
+    input.offset ?? 0,
+    (input.offset ?? 0) + Math.min(input.limit ?? 50, 200),
+  )
   const counts = new Map<string, number>()
   for (const v of pool) counts.set(v.recipe.id, (counts.get(v.recipe.id) ?? 0) + 1)
   const summary = (v: LoadedVersion) => {
@@ -1441,7 +1621,12 @@ export async function getVersionReactions(db: Db, actor: Actor, versionId: strin
 }
 
 /** Sets (replacing any earlier one) or clears a person's reaction to a version. Returns the version's reactions. */
-export async function setVersionReaction(db: Db, actor: Actor, versionId: string, input: ReactionInput) {
+export async function setVersionReaction(
+  db: Db,
+  actor: Actor,
+  versionId: string,
+  input: ReactionInput,
+) {
   if (input.reaction === 'like' || input.reaction === 'dislike') {
     await recordReaction(db, actor, {
       personId: input.personId,

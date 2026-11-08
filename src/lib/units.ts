@@ -29,36 +29,70 @@ function roundG(g: number): string {
   return String(Math.round(g))
 }
 
+/**
+ * What to show amounts as: `weight` (g, oz), `volume` (ml, cups) or `auto` (the usual kitchen choice: liquids by
+ * volume; metric dry goods by weight; US dry goods in cups when a density is known, else ounces).
+ */
+export type Measure = 'auto' | 'weight' | 'volume'
+
+function metricAmount(unit: 'g' | 'ml', a: number): string {
+  if (unit === 'g') return a >= 1000 ? `${(a / 1000).toFixed(1)} kg` : `${roundG(a)} g`
+  return a >= 1000 ? `${(a / 1000).toFixed(1)} l` : `${Math.round(a)} ml`
+}
+
+function usVolume(ml: number): string {
+  if (ml >= 60) return `${fraction(ml / 240)} cup${ml / 240 > 1.05 ? 's' : ''}`
+  if (ml >= 14) return `${fraction(ml / 15)} tbsp`
+  return `${fraction(ml / 5)} tsp`
+}
+
+function usWeight(g: number): string {
+  const oz = g / 28.35
+  return oz >= 16 ? `${(oz / 16).toFixed(1)} lb` : `${fraction(oz)} oz`
+}
+
 /** Format one ingredient line for display. Returns text and whether it is approximate. */
 export function formatAmount(
   line: Pick<IngredientLine, 'amount' | 'unit' | 'density'> &
     Partial<Pick<IngredientLine, 'unquantified' | 'original'>>,
   scale: number,
   system: UnitSystem,
+  measure: Measure = 'auto',
 ): { text: string; approx: boolean } {
   if (line.unquantified) return { text: 'as needed', approx: false }
   const a = line.amount * scale
   if (line.unit === 'pc') return { text: fraction(a), approx: false }
-  if (system === 'metric') {
-    if (line.unit === 'g')
-      return a >= 1000
-        ? { text: `${(a / 1000).toFixed(1)} kg`, approx: false }
-        : { text: `${roundG(a)} g`, approx: false }
-    return a >= 1000
-      ? { text: `${(a / 1000).toFixed(1)} l`, approx: false }
-      : { text: `${Math.round(a)} ml`, approx: false }
+  const d = line.density && line.density > 0 ? line.density : undefined
+
+  // Pick the dimension to show, converting through density where that is possible.
+  let unit: 'g' | 'ml' = line.unit
+  if (measure === 'auto') {
+    if (system === 'us' && line.unit === 'g' && d) unit = 'ml'
+  } else {
+    const want = measure === 'weight' ? 'g' : 'ml'
+    if (want === line.unit || d) unit = want
   }
-  const ml = line.unit === 'ml' ? a : line.density ? a / line.density : undefined
-  if (ml !== undefined) {
-    const approx = line.unit === 'g'
-    if (ml >= 60) return { text: `${fraction(ml / 240)} cup${ml / 240 > 1.05 ? 's' : ''}`, approx }
-    if (ml >= 14) return { text: `${fraction(ml / 15)} tbsp`, approx }
-    return { text: `${fraction(ml / 5)} tsp`, approx }
-  }
-  const oz = a / 28.35
-  return oz >= 16
-    ? { text: `${(oz / 16).toFixed(1)} lb`, approx: true }
-    : { text: `${fraction(oz)} oz`, approx: true }
+  let amount = a
+  if (unit !== line.unit) amount = unit === 'ml' ? a / d! : a * d!
+  const approx = unit !== line.unit
+
+  if (system === 'metric') return { text: metricAmount(unit, amount), approx }
+  return { text: unit === 'ml' ? usVolume(amount) : usWeight(amount), approx }
+}
+
+export const SHARES: [number, string][] = [
+  [0.125, '⅛'],
+  [0.25, '¼'],
+  [1 / 3, '⅓'],
+  [0.5, '½'],
+  [2 / 3, '⅔'],
+  [0.75, '¾'],
+]
+
+/** A share of an ingredient: ½, ⅓, ¾ when it is a kitchen fraction, else a percentage. */
+export function portionLabel(p: number): string {
+  const hit = SHARES.find(([v]) => Math.abs(v - p) < 0.01)
+  return hit ? hit[1] : `${Math.round(p * 100)}%`
 }
 
 export function formatClock(sec: number): string {

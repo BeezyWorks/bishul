@@ -46,7 +46,7 @@ interface SnapshotVersion {
   cost: number | null
   nutrition: s.Nutrition | null
   prePrep: { step: string; leadMinutes: number }[]
-  steps: { text: string; timerMinutes?: number; section?: string }[]
+  steps: { text: string; timerMinutes?: number; section?: string; uses?: s.StepUse[] }[]
   flags: Record<string, boolean>
   equipment: { item: string; designation: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions: { name: string; fit: string }[]
@@ -81,6 +81,7 @@ function snapshotVersion(
       text: st.text,
       ...(st.timer_minutes && { timerMinutes: st.timer_minutes }),
       ...(st.section && { section: st.section }),
+      ...(st.uses?.length && { uses: st.uses }),
     })),
     flags: Object.fromEntries(Object.entries(x.flags ?? {}).map(([k, f]) => [k, !!f?.value])),
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
@@ -303,7 +304,10 @@ function toInput(v: SnapshotVersion): SaveRecipeInput {
     cost: v.cost,
     nutrition: v.nutrition,
     prePrep: v.prePrep,
-    steps: v.steps,
+    steps: v.steps.map(({ uses, ...st }) => ({
+      ...st,
+      ...(uses && { uses: uses.map((u) => ({ ingredient: u.line, portion: u.portion })) }),
+    })),
     flags: v.flags,
     equipment: v.equipment,
     dimensions: v.dimensions.map((d) => ({ dimension: d.name, fit: d.fit })),

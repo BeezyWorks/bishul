@@ -240,7 +240,18 @@ export type Nutrition = {
 export type SourceLink = { url: string; label?: string }
 export type PrePrepStep = { step: string; lead_minutes: number }
 /** `section` is the part of the recipe this belongs to ("Cake"); nesting is written "Mousse > Meringue". */
-export type RecipeStep = { text: string; timer_minutes?: number; section?: string }
+export type RecipeStep = {
+  text: string
+  timer_minutes?: number
+  section?: string
+  /** The ingredient lines this step uses. */
+  uses?: StepUse[]
+}
+/**
+ * `line` is the 0-based position in the version's ingredient list. `portion` is the share of that line this step
+ * uses (0-1) when the amount is divided between steps; absent means all of it.
+ */
+export type StepUse = { line: number; portion?: number }
 
 export const recipeVersions = sqliteTable(
   'versions',
