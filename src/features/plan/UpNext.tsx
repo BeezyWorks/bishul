@@ -1,14 +1,15 @@
 import { useRouter, type Href } from 'expo-router'
-import React from 'react'
+import React, { useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { Card, Text, useLayout } from '@/components'
 import { usePlan } from '@/lib/api/hooks'
-import type { ISODate, MealCard, PlanView, WeekDay } from '@/lib/api/types'
+import type { DaySlot, ISODate, MealCard, PlanView, WeekDay } from '@/lib/api/types'
 import { addDays, weekdayName } from '@/lib/dates'
 import { hostedHref, summaryLine } from '@/lib/plan'
 import { colors, space } from '@/theme/tokens'
 
+import { MealEditor } from './MealEditor'
 import { plural } from './model'
 
 interface Info {
@@ -19,6 +20,8 @@ interface Info {
   muted?: boolean
   sub?: string
   href?: string
+  /** No hosted page: open the meal preview on this day instead. */
+  edit?: { date: ISODate; slot: DaySlot; meal?: MealCard }
 }
 
 const people = (m: MealCard) =>
@@ -39,6 +42,7 @@ const ofMeal = (m: MealCard, name?: string): Info => ({
   muted: !m.summary.length,
   sub: people(m) || undefined,
   href: m.hosted ? hostedHref(m.hostedKey) : undefined,
+  edit: m.hosted ? undefined : { date: m.date, slot: m.slot, meal: m },
 })
 
 /** The dinner of a civil evening, as the strip would show it. */
@@ -52,7 +56,11 @@ function dinnerOf(day?: WeekDay): Info | null {
   if (m) return ofMeal(m)
   if (day.holyDay)
     return { name: day.holyDay.label, line: 'Open the meals', href: hostedHref(day.holyDay.runKey) }
-  return { line: 'Nothing planned', muted: true }
+  return {
+    line: 'Nothing planned',
+    muted: true,
+    edit: { date: day.date, slot: 'dinner' },
+  }
 }
 
 /** The first hosted meal from today on: a weekday one or a meal inside a run. */
@@ -72,6 +80,7 @@ function nextHosted(view: PlanView): { meal: MealCard; runTitle?: string } | nul
 export function UpNext({ today }: { today: ISODate }) {
   const { wide } = useLayout()
   const router = useRouter()
+  const [editing, setEditing] = useState<NonNullable<Info['edit']> | null>(null)
   const q = usePlan(today, addDays(today, 21))
   const byDate = new Map((q.data?.days ?? []).map((d) => [d.date, d]))
   const next = q.data ? nextHosted(q.data) : null
@@ -99,9 +108,12 @@ export function UpNext({ today }: { today: ISODate }) {
       {cards.map((c) => (
         <Pressable
           key={c.eyebrow}
-          accessibilityRole={c.info?.href ? 'link' : undefined}
-          disabled={!c.info?.href}
-          onPress={() => c.info?.href && router.push(c.info.href as Href)}
+          accessibilityRole={c.info?.href ? 'link' : c.info?.edit ? 'button' : undefined}
+          disabled={!c.info?.href && !c.info?.edit}
+          onPress={() => {
+            if (c.info?.href) router.push(c.info.href as Href)
+            else if (c.info?.edit) setEditing(c.info.edit)
+          }}
           style={styles.item}
         >
           <Card>
@@ -133,6 +145,14 @@ export function UpNext({ today }: { today: ISODate }) {
           </Card>
         </Pressable>
       ))}
+      {editing ? (
+        <MealEditor
+          date={editing.date}
+          slot={editing.slot}
+          meal={editing.meal}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </View>
   )
 }

@@ -1,3 +1,4 @@
+import { useRouter, type Href } from 'expo-router'
 import React, { useRef, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
@@ -34,6 +35,7 @@ export function MealEditor({
   createdId?: Id
   onClose: () => void
 }) {
+  const router = useRouter()
   const [text, setText] = useState('')
   const [picking, setPicking] = useState(false)
   const [mine, setMine] = useState<Id | null>(createdId ?? null)
@@ -85,7 +87,23 @@ export function MealEditor({
         <View style={styles.list}>
           {dishes.map((d) => (
             <View key={d.itemId} style={styles.dish}>
-              <Text style={{ flex: 1 }}>{d.title}</Text>
+              {d.recipeId ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open recipe: ${d.title}`}
+                  onPress={() => {
+                    onClose()
+                    router.push(`/recipes/${d.recipeId}` as Href)
+                  }}
+                  style={{ flex: 1, paddingVertical: space.sm }}
+                >
+                  <Text color={colors.accent} style={{ textDecorationLine: 'underline' }}>
+                    {`${d.title} →`}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text style={{ flex: 1 }}>{d.title}</Text>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${d.title}`}
