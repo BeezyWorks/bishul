@@ -4,12 +4,14 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-nat
 
 import { colors, radius, size, space, fonts, fontSize } from '@/theme/tokens'
 
+import { Icon, type IconName } from './Icon'
 import { Text } from './Text'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'soft'
 
 interface Props {
   label: string
+  icon?: IconName
   onPress?: () => void
   /** Navigates instead of calling onPress. */
   href?: string
@@ -33,6 +35,7 @@ const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }>
 
 export function Button({
   label,
+  icon,
   onPress,
   href,
   variant = 'primary',
@@ -65,6 +68,7 @@ export function Button({
         style,
       ]}
     >
+      {icon && !loading ? <Icon name={icon} size={small ? 15 : 18} color={p.fg} /> : null}
       <Text
         style={{
           fontFamily: fonts.bodySemiBold,
@@ -84,6 +88,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
     borderRadius: radius.pill,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: space.sm,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-start',
