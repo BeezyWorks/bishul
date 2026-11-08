@@ -7,6 +7,7 @@ export * from './shopping'
 export * from './pantry'
 export * from './planning'
 export * from './steps'
+export * from './cook'
 // Both modules define a pantry item; the pantry module's is the canonical one, ranking's is renamed.
 export type { PantryItem } from './pantry'
 export type { PantryItem as RankPantryItem } from './planning'

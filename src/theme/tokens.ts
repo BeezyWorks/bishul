@@ -23,6 +23,7 @@ export const colors = {
   cookInk: '#F4F2EA',
   cookMuted: '#A9AFA5',
   cookAccent: '#7FC8A0',
+  cookAlert: '#F2B84B',
 } as const
 
 /**

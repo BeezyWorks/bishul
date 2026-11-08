@@ -96,9 +96,11 @@ export function portionLabel(p: number): string {
 }
 
 export function formatClock(sec: number): string {
-  const m = Math.floor(sec / 60)
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
   const s = sec % 60
-  return `${m}:${String(s).padStart(2, '0')}`
+  const ss = String(s).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
 }
 
 export function formatMinutes(min: number): string {

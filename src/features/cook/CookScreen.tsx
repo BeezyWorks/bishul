@@ -1,12 +1,18 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+
+// Deep import: the app needs only the timer maths, not the calendar engine behind the index.
+import { remainingSec, timerId, timerStatus } from '@bishul/core/src/cook'
 
 import { Checkbox, Segmented, Text } from '@/components'
 import { useVersion } from '@/lib/api/hooks'
 import { useMeasure, useUnits } from '@/lib/prefs'
 import { formatAmount, formatClock, portionLabel } from '@/lib/units'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
+
+import { cookHref } from './notifications'
+import { timerActions, useTray, type CookTimerEntry } from './timers'
 
 type WakeLockSentinel = { release: () => Promise<void> }
 
@@ -45,57 +51,34 @@ function useWakeLock() {
   return active
 }
 
-function useTimer(seconds: number | undefined, resetKey: unknown) {
-  const [left, setLeft] = useState(seconds ?? 0)
-  const [running, setRunning] = useState(false)
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
-  useEffect(() => {
-    setLeft(seconds ?? 0)
-    setRunning(false)
-  }, [resetKey, seconds])
-  useEffect(() => {
-    if (!running) return
-    ref.current = setInterval(() => {
-      setLeft((l) => {
-        if (l <= 1) {
-          setRunning(false)
-          return 0
-        }
-        return l - 1
-      })
-    }, 1000)
-    return () => {
-      if (ref.current) clearInterval(ref.current)
-    }
-  }, [running])
-  return {
-    left,
-    running,
-    toggle: () => setRunning((r) => (left === 0 ? false : !r)),
-    reset: () => {
-      setRunning(false)
-      setLeft(seconds ?? 0)
-    },
-  }
-}
-
 export function CookScreen() {
-  const { versionId, scale: scaleParam } = useLocalSearchParams<{
+  const {
+    versionId,
+    scale: scaleParam,
+    step: stepParam,
+  } = useLocalSearchParams<{
     versionId: string
     scale?: string
+    step?: string
   }>()
   const router = useRouter()
   const { data } = useVersion(versionId)
   const [units, setUnits] = useUnits()
   const [measure, setMeasure] = useMeasure()
   const [showAll, setShowAll] = useState(false)
-  const [i, setI] = useState(0)
+  const [i, setI] = useState(() => Math.max(0, Number(stepParam) || 0))
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const awake = useWakeLock()
   const scale = Number(scaleParam) || 1
   const step = data?.version.steps[i]
-  const timer = useTimer(step?.timerSec, i)
   const total = data?.version.steps.length ?? 0
+  const { all, tray, now } = useTray()
+  // Opened from a timer (its notification or its chip): jump to that step.
+  useEffect(() => {
+    if (stepParam === undefined) return
+    const n = Number(stepParam)
+    if (Number.isFinite(n)) setI(Math.max(0, Math.min(Math.max(0, total - 1), n)))
+  }, [stepParam, total])
 
   const go = (n: number) => setI(Math.max(0, Math.min(total - 1, n)))
   useEffect(() => {
@@ -175,6 +158,32 @@ export function CookScreen() {
         ))}
       </View>
 
+      {tray.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.trayScroll}
+          contentContainerStyle={styles.tray}
+        >
+          {tray.map((t) => (
+            <TimerChip
+              key={t.id}
+              entry={t}
+              now={now}
+              current={t.versionId === version.id && t.stepIndex === i}
+              showRecipe={t.versionId !== version.id}
+              onPress={() =>
+                t.versionId === version.id
+                  ? setI(t.stepIndex)
+                  : router.navigate(
+                      cookHref({ versionId: t.versionId, step: t.stepIndex, scale: t.scale }),
+                    )
+              }
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.inner}>
           <Text style={styles.count}>
@@ -184,25 +193,21 @@ export function CookScreen() {
           <Text style={styles.stepText}>{step.text}</Text>
 
           {step.timerSec ? (
-            <View style={styles.timer}>
-              <Text style={styles.clock} accessibilityLiveRegion="polite">
-                {formatClock(timer.left)}
-              </Text>
-              <View style={styles.timerBtns}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={timer.toggle}
-                  style={[styles.tBtn, { backgroundColor: colors.cookAccent }]}
-                >
-                  <Text style={[styles.tBtnText, { color: colors.cookBg }]}>
-                    {timer.left === 0 ? 'Time is up' : timer.running ? 'Pause' : 'Start timer'}
-                  </Text>
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={timer.reset} style={styles.tBtn}>
-                  <Text style={styles.tBtnText}>Reset</Text>
-                </Pressable>
-              </View>
-            </View>
+            <StepTimer
+              entry={all.find((e) => e.id === timerId(version.id, i))}
+              now={now}
+              plannedSec={step.timerSec}
+              onStart={() =>
+                timerActions.start({
+                  versionId: version.id,
+                  stepIndex: i,
+                  label: `Step ${i + 1}`,
+                  totalSec: step.timerSec!,
+                  recipeTitle: recipe.title,
+                  scale,
+                })
+              }
+            />
           ) : null}
 
           <View style={styles.ings}>
@@ -280,6 +285,106 @@ export function CookScreen() {
   )
 }
 
+function TimerChip({
+  entry,
+  now,
+  current,
+  showRecipe,
+  onPress,
+}: {
+  entry: CookTimerEntry
+  now: number
+  current: boolean
+  showRecipe: boolean
+  onPress: () => void
+}) {
+  const status = timerStatus(entry, now)
+  const done = status === 'done'
+  const text = done ? colors.cookBg : colors.cookInk
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Timer for step ${entry.stepIndex + 1}, ${
+        done ? 'time is up' : `${formatClock(remainingSec(entry, now))} left`
+      }. Go to step.`}
+      onPress={onPress}
+      style={[
+        styles.chip,
+        current && { borderColor: colors.cookAccent },
+        done && { backgroundColor: colors.cookAlert, borderColor: colors.cookAlert },
+      ]}
+    >
+      <Text style={[styles.chipStep, { color: done ? colors.cookBg : colors.cookMuted }]}>
+        {showRecipe ? `${entry.recipeTitle} · ` : ''}Step {entry.stepIndex + 1}
+        {status === 'paused' ? ' · paused' : ''}
+      </Text>
+      <Text style={[styles.chipClock, { color: text }]}>
+        {done ? 'Time is up' : formatClock(remainingSec(entry, now))}
+      </Text>
+    </Pressable>
+  )
+}
+
+function StepTimer({
+  entry,
+  now,
+  plannedSec,
+  onStart,
+}: {
+  entry: CookTimerEntry | undefined
+  now: number
+  plannedSec: number
+  onStart: () => void
+}) {
+  const status = entry ? timerStatus(entry, now) : 'idle'
+  const left = entry ? remainingSec(entry, now) : plannedSec
+  return (
+    <View style={styles.timer}>
+      <Text style={styles.clock} accessibilityLiveRegion="polite">
+        {status === 'done' ? 'Time is up' : formatClock(left)}
+      </Text>
+      <View style={styles.timerBtns}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={status === 'running' ? () => timerActions.pause(entry!.id) : onStart}
+          style={[styles.tBtn, { backgroundColor: colors.cookAccent }]}
+        >
+          <Text style={[styles.tBtnText, { color: colors.cookBg }]}>
+            {status === 'running'
+              ? 'Pause'
+              : status === 'paused'
+                ? 'Resume'
+                : status === 'done'
+                  ? 'Restart'
+                  : 'Start timer'}
+          </Text>
+        </Pressable>
+        {entry && status !== 'idle' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => timerActions.addMinute(entry.id)}
+            style={styles.tBtn}
+          >
+            <Text style={styles.tBtnText}>+1 min</Text>
+          </Pressable>
+        ) : null}
+        {entry && status !== 'idle' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => timerActions.reset(entry.id)}
+            style={styles.tBtn}
+          >
+            <Text style={styles.tBtnText}>Reset</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {status === 'running' ? (
+        <Text style={styles.sub}>Keeps running if you change step or leave the app.</Text>
+      ) : null}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cookBg },
   top: {
@@ -301,6 +406,20 @@ const styles = StyleSheet.create({
   closeText: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.md },
   title: { fontFamily: fonts.display, fontSize: fontSize.xl, color: colors.cookInk },
   sub: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.cookMuted },
+  trayScroll: { flexGrow: 0, marginTop: space.md },
+  tray: { gap: space.sm, paddingHorizontal: space.lg },
+  chip: {
+    minHeight: size.touch,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.cookLine,
+    backgroundColor: colors.cookSurface,
+    justifyContent: 'center',
+  },
+  chipStep: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.xs },
+  chipClock: { fontFamily: fonts.display, fontSize: fontSize.xl, fontVariant: ['tabular-nums'] },
   progress: { flexDirection: 'row', gap: 4, paddingHorizontal: space.lg },
   seg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.cookLine },
   body: { padding: space.lg, paddingBottom: space.huge },

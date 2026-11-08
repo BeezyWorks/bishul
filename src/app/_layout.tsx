@@ -11,7 +11,16 @@ import { StatusBar } from 'expo-status-bar'
 import React, { useEffect, useRef, useState } from 'react'
 
 import { refreshAccount, useAccount } from '@/features/account/store'
+import { configureNotifications, useTimerTapRouting } from '@/features/cook/notifications'
 import { colors } from '@/theme/tokens'
+
+configureNotifications()
+
+/** Sends a tapped timer notification to its step; mounted after the Stack so navigation is ready. */
+function TimerTapRouting() {
+  useTimerTapRouting()
+  return null
+}
 
 export default function RootLayout() {
   // Hold the first paint until the faces are ready (or have failed: the fallback stack is a sans).
@@ -46,6 +55,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}
       />
+      <TimerTapRouting />
     </QueryClientProvider>
   )
 }
