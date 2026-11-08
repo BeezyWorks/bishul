@@ -38,8 +38,10 @@ import type {
   PrepDay,
   Recipe,
   RecipeFilters,
+  RecipeShare,
   RecipeSummary,
   RecipeVersion,
+  SharedRecipe,
   ShoppingLine,
   SuggestionResult,
   VersionEdit,
@@ -134,6 +136,15 @@ export interface BishulApi {
   saveVersion(versionId: Id, edit: VersionEdit): Promise<void>
   /** Forks a version into a named variation and returns the new version's id. */
   createVariation(versionId: Id, label: string, edit?: VersionEdit): Promise<Id>
+
+  // Sharing: a recipe link is live; a saved copy is independent
+  /** The recipe's public link (the same one if it is already shared). */
+  shareRecipe(recipeId: Id): Promise<RecipeShare>
+  stopSharing(shareId: Id): Promise<void>
+  /** Public: no sign-in needed. The recipe as the author has it now. */
+  getShared(token: string): Promise<SharedRecipe>
+  /** Copies the recipe, as it is now, into the signed-in user's cookbook. */
+  saveShared(token: string): Promise<{ recipeId: Id }>
 
   // People
   getHousehold(): Promise<Household>

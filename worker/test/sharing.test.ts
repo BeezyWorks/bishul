@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { api, call } from './helpers'
 
 describe('share links', () => {
-  it('are snapshots: later edits do not change them; anyone can read; a signed-in user saves a copy with lineage', async () => {
+  it('are live: later edits show on the link; anyone can read; a copy saved earlier keeps its own version', async () => {
     const r = await api(
       'sh-a',
       'POST',
@@ -26,32 +26,49 @@ describe('share links', () => {
     )
     expect(share.url).toMatch(/\/s\/.+/)
 
-    // The recipe changes afterwards.
-    await api('sh-a', 'PUT', `/versions/${r.version.id}`, {
-      servings: 20,
-      steps: ['Totally different'],
-    })
+    // Sharing again returns the same link.
+    const again = await api(
+      'sh-a',
+      'POST',
+      '/shares',
+      { kind: 'version', targetId: r.version.id },
+      201,
+    )
+    expect(again.token).toBe(share.token)
 
-    // No account needed to read the link, and it still shows the recipe as it was.
+    // No account needed to read the link.
+    const read = async () => (await (await call('GET', `/api/shared/${share.token}`)).json()) as any
     const pub = await call('GET', `/api/shared/${share.token}`)
     expect(pub.status).toBe(200)
     const snap = (await pub.json()) as any
     expect(snap.kind).toBe('version')
     expect(snap.recipe.title).toBe('Babka')
     expect(snap.version.servings).toBe(10)
-    expect(snap.version.steps.map((s: any) => s.text)).toEqual(['Knead', 'Rise', 'Bake'])
     expect(snap.version.ingredients[0].catalog.allergens).toEqual(['wheat'])
     expect(snap.version.ingredients[0].catalog.flags.chametz).toBe(true)
     expect((await call('GET', `/v1/shared/${share.token}`)).status).toBe(200)
     expect(JSON.stringify(snap)).not.toMatch(/sh-a/)
 
-    // Another user saves it.
+    // Another user saves it now.
     const saved = await api('sh-b', 'POST', `/shared/${share.token}/save`, {}, 201)
     const copy = await api('sh-b', 'GET', `/versions/${saved.versionIds[0]}`)
     expect(copy.version.servings).toBe(10)
     expect(copy.version.lineageId).toBe(r.version.lineageId)
     expect(copy.version.id).not.toBe(r.version.id)
     expect(copy.version.ingredients[0].ingredient.flags.chametz.value).toBe(true)
+
+    // The author edits afterwards: the link follows, the saved copy does not.
+    await api('sh-a', 'PUT', `/versions/${r.version.id}`, {
+      servings: 20,
+      steps: ['Totally different'],
+    })
+    const live = await read()
+    expect(live.version.servings).toBe(20)
+    expect(live.version.steps.map((s: any) => s.text)).toEqual(['Totally different'])
+    expect((await api('sh-b', 'GET', `/versions/${copy.version.id}`)).version.servings).toBe(10)
+    // A later save gets the current recipe.
+    const later = await api('sh-c', 'POST', `/shared/${share.token}/save`, {}, 201)
+    expect((await api('sh-c', 'GET', `/versions/${later.versionIds[0]}`)).version.servings).toBe(20)
     // The copy is independent.
     await api('sh-b', 'PUT', `/versions/${copy.version.id}`, { servings: 3 })
     expect((await api('sh-a', 'GET', `/versions/${r.version.id}`)).version.servings).toBe(20)
@@ -60,7 +77,7 @@ describe('share links', () => {
     expect((await call('DELETE', `/api/shares/${share.id}`, undefined, 'sh-b')).status).toBe(404)
     await api('sh-a', 'DELETE', `/shares/${share.id}`)
     expect((await call('GET', `/api/shared/${share.token}`)).status).toBe(410)
-    expect((await call('POST', `/api/shared/${share.token}/save`, {}, 'sh-c')).status).toBe(410)
+    expect((await call('POST', `/api/shared/${share.token}/save`, {}, 'sh-e2')).status).toBe(410)
     expect(await api('sh-a', 'GET', '/shares')).toEqual([])
   })
 

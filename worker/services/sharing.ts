@@ -8,8 +8,9 @@ import { loadVersions, saveRecipe, type IngredientInput, type SaveRecipeInput } 
 import { loadCatalog } from './catalog'
 
 // ---------------------------------------------------------------------------------------------------------------
-// Sharing (BRIEF §10): links are snapshots, never live. Anyone with the link can read the snapshot; a signed-in user
-// can save a recipe to their household as an independent copy that keeps its lineage.
+// Sharing (BRIEF §10): a recipe link is live. Anyone with the link reads the recipe as it is now, so the author's
+// edits show up for everyone following the link. A signed-in user can save a copy to their household; the copy is
+// independent from then on (it keeps its lineage but not the author's later edits). Profile links are snapshots.
 
 interface SnapshotIngredient {
   section?: string | null
@@ -122,45 +123,86 @@ export interface ShareInput {
   targetId: string
 }
 
-export async function createShare(db: Db, actor: Actor, publicUrl: string, input: ShareInput) {
-  let snapshot: unknown
-  let title = ''
-  if (input.kind === 'version') {
-    const v = (await loadVersions(db, actor.householdId, [input.targetId])).get(input.targetId)
-    if (!v) throw notFound('Recipe version')
-    title = v.recipe.title
-    snapshot = { kind: 'version', recipe: { title: v.recipe.title }, version: snapshotVersion(v) }
-  } else if (input.kind === 'dish') {
-    const [recipe] = await db
-      .select()
-      .from(s.recipes)
-      .where(
-        and(
-          eq(s.recipes.id, input.targetId),
-          eq(s.recipes.householdId, actor.householdId),
-          isNull(s.recipes.deletedAt),
-        ),
-      )
-    if (!recipe) throw notFound('Recipe')
-    const rows = await db
-      .select({ id: s.recipeVersions.id, parent: s.recipeVersions.parentVersionId })
-      .from(s.recipeVersions)
-      .where(and(eq(s.recipeVersions.recipeId, recipe.id), isNull(s.recipeVersions.deletedAt)))
-      .orderBy(s.recipeVersions.createdAt)
-    const loaded = await loadVersions(
-      db,
-      actor.householdId,
-      rows.map((r) => r.id),
+/** The recipe content of a version or dish link, built from the recipe as it is now; null if it is gone. */
+async function recipeSnapshot(
+  db: Db,
+  householdId: string,
+  kind: 'version' | 'dish',
+  targetId: string,
+): Promise<{ title: string; snapshot: Record<string, unknown> } | null> {
+  if (kind === 'version') {
+    const v = (await loadVersions(db, householdId, [targetId])).get(targetId)
+    if (!v) return null
+    return {
+      title: v.recipe.title,
+      snapshot: { kind: 'version', recipe: { title: v.recipe.title }, version: snapshotVersion(v) },
+    }
+  }
+  const [recipe] = await db
+    .select()
+    .from(s.recipes)
+    .where(
+      and(
+        eq(s.recipes.id, targetId),
+        eq(s.recipes.householdId, householdId),
+        isNull(s.recipes.deletedAt),
+      ),
     )
-    title = recipe.title
-    snapshot = {
+  if (!recipe) return null
+  const rows = await db
+    .select({ id: s.recipeVersions.id, parent: s.recipeVersions.parentVersionId })
+    .from(s.recipeVersions)
+    .where(and(eq(s.recipeVersions.recipeId, recipe.id), isNull(s.recipeVersions.deletedAt)))
+    .orderBy(s.recipeVersions.createdAt)
+  const loaded = await loadVersions(
+    db,
+    householdId,
+    rows.map((r) => r.id),
+  )
+  return {
+    title: recipe.title,
+    snapshot: {
       kind: 'dish',
       recipe: { title: recipe.title },
       versions: rows.map((r) => ({
         ...snapshotVersion(loaded.get(r.id)!),
         parentIndex: r.parent ? rows.findIndex((x) => x.id === r.parent) : null,
       })),
-    }
+    },
+  }
+}
+
+export async function createShare(db: Db, actor: Actor, publicUrl: string, input: ShareInput) {
+  const urlFor = (token: string) => `${publicUrl.replace(/\/$/, '')}/s/${token}`
+  let snapshot: unknown
+  let title = ''
+  if (input.kind !== 'profile') {
+    const built = await recipeSnapshot(db, actor.householdId, input.kind, input.targetId)
+    if (!built) throw notFound(input.kind === 'version' ? 'Recipe version' : 'Recipe')
+    title = built.title
+    snapshot = built.snapshot
+    // One live link per recipe and person: sharing again hands back the same link.
+    const [existing] = await db
+      .select()
+      .from(s.shareLinks)
+      .where(
+        and(
+          eq(s.shareLinks.createdBy, actor.userId),
+          eq(s.shareLinks.kind, input.kind),
+          eq(s.shareLinks.targetId, input.targetId),
+          isNull(s.shareLinks.revokedAt),
+          isNull(s.shareLinks.deletedAt),
+        ),
+      )
+    if (existing)
+      return {
+        id: existing.id,
+        token: existing.token,
+        kind: input.kind,
+        title,
+        url: urlFor(existing.token),
+        createdAt: existing.createdAt,
+      }
   } else {
     const acc = await requirePerson(db, actor, input.targetId)
     if (acc.relation !== 'own') throw invalid('Only a person in your own household can be shared')
@@ -216,7 +258,7 @@ export async function createShare(db: Db, actor: Actor, publicUrl: string, input
     token,
     kind: input.kind,
     title,
-    url: `${publicUrl.replace(/\/$/, '')}/s/${token}`,
+    url: urlFor(token),
     createdAt: row.createdAt,
   }
 }
@@ -257,11 +299,33 @@ export async function revokeShare(db: Db, actor: Actor, idOrToken: string) {
   return { revoked: true }
 }
 
-/** The public read: no account needed. */
+/**
+ * The public read: no account needed. A recipe link shows the recipe as it is now; if the recipe has since been
+ * deleted, the last copy stored with the link is shown. Profile links are the snapshot taken when shared.
+ */
 export async function getShared(db: Db, token: string) {
   const [row] = await db.select().from(s.shareLinks).where(eq(s.shareLinks.token, token))
   if (!row) throw notFound('Share link')
   if (row.revokedAt) throw new ApiError(410, 'revoked', 'The sender has turned this link off')
+  if (row.kind !== 'profile') {
+    const [owner] = await db
+      .select({ householdId: s.recipes.householdId })
+      .from(s.recipes)
+      .where(
+        row.kind === 'dish'
+          ? eq(s.recipes.id, row.targetId)
+          : eq(
+              s.recipes.id,
+              db
+                .select({ id: s.recipeVersions.recipeId })
+                .from(s.recipeVersions)
+                .where(eq(s.recipeVersions.id, row.targetId)),
+            ),
+      )
+    const live = owner && (await recipeSnapshot(db, owner.householdId, row.kind, row.targetId))
+    if (live)
+      return { ...live.snapshot, sharedAt: (row.snapshot as { sharedAt?: number }).sharedAt }
+  }
   return { kind: row.kind, ...(row.snapshot as object) }
 }
 

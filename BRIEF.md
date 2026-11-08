@@ -87,7 +87,7 @@ Given a set of attending Persons, a date and the host household, the server retu
 - **Recipe**: the dish concept ("Brownies"). It owns many **Versions** (fudgy, cakey, parve, pesach, 2× scaled). A version can record its parent.
 - **Ownership**: a recipe belongs to the user who created it. All members of their household can read and edit it (§3).
 - **Versions are mutable.** Plans reference versions, so editing a version changes every plan using it. Every edit is kept in an **edit history**; concurrent edits are last-write-wins.
-- **Visibility**: private to the household. Sharing is by snapshot link only (§10).
+- **Visibility**: private to the household. Sharing is by unlisted link only (§10).
 - **Lineage**: every version has a `lineage_id` and a content hash. Copies made by sharing or forking keep the lineage, so duplicates can be surfaced when merging recipe sets (merge, keep both, or skip).
 - **No photos.** Recipe text isn't copyrightable but photos are, and we don't want to store them.
 - **Import**: the user tells their AI "import this" and pastes whatever they have — text, a transcription, a URL's content. The import tool is forgiving and the AI structures it.
@@ -168,7 +168,7 @@ Both belong to the household (owned by the owner, used by all members).
 ## 10. Sharing
 - **Link sharing only.** Nothing is discoverable by search.
 - **Version link** (main case) or **dish link** (a recipe with all its versions).
-- Links are **snapshots, never live**. Anyone with the link can view it without an account; signed-in users can **save it to their household** as an independent copy with lineage. The sender can revoke a link.
+- Recipe links are **live**: anyone with the link sees the recipe as the author has it now, without an account, so the author's edits reach everyone following the link. Signed-in users can **save it to their household** as an independent copy with lineage; the copy is fixed as of the save and does not follow later edits. Sharing a recipe again returns the same link. The sender can revoke a link. Profile links are snapshots.
 - **Profile links** share a Person's profile (§3).
 
 ### Language
@@ -219,7 +219,7 @@ D1 is the right call. The data is modest and mostly per household, so there's no
 | Curated ingredient seed set | AI fills the catalog on demand. |
 
 ### After
-1. Sharing: snapshot links, profile links, linking ghosts to real users, duplicate merge.
+1. Sharing: live recipe links, profile links, linking ghosts to real users, duplicate merge.
 2. Scheduling: equipment counts and conflicts, splitting work between people, merged cooking timeline.
 3. Mobile via EAS with a local offline database and prep reminders.
 4. Later: hechsherim, meal trains, in-app potluck coordination, Hebrew UI.

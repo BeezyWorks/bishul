@@ -22,6 +22,7 @@ import { stale, useApiMutation, useHousehold, useRecipe } from '@/lib/api/hooks'
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
 import { LinkSteps } from './LinkSteps'
+import { SharePanel } from './SharePanel'
 import type { Fit, RecipeVersion, SkipImpact } from '@/lib/api/types'
 import { useMeasure, useUnits } from '@/lib/prefs'
 import { groupBySection, headingFor } from '@/lib/sections'
@@ -107,7 +108,7 @@ export function RecipeScreen() {
   const { data: recipe, isLoading } = useRecipe(id)
   const [versionId, setVersionId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
-  const [editing, setEditing] = useState<null | 'edit' | 'variation' | 'link'>(null)
+  const [editing, setEditing] = useState<null | 'edit' | 'variation' | 'link' | 'share'>(null)
   const [units, setUnits] = useUnits()
   if (isLoading || !recipe)
     return (
@@ -128,6 +129,7 @@ export function RecipeScreen() {
       actions={
         <View style={styles.wrapRow}>
           <Button label="Edit" variant="secondary" onPress={() => setEditing('edit')} />
+          <Button label="Share" variant="secondary" onPress={() => setEditing('share')} />
           <Button label="Link ingredients" variant="secondary" onPress={() => setEditing('link')} />
           <Button
             label="New variation"
@@ -138,6 +140,13 @@ export function RecipeScreen() {
         </View>
       }
     >
+      {editing === 'share' ? (
+        <SharePanel
+          key={`share:${recipe.id}`}
+          recipeId={recipe.id}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
       {editing === 'link' ? (
         <LinkSteps
           key={`link:${v.id}`}

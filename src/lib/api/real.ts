@@ -25,7 +25,7 @@ import {
   type ServerPersonView,
 } from './adapt'
 import type { AcceptResult, BishulApi } from './client'
-import { http } from './http'
+import { ApiError, http } from './http'
 import type {
   Course,
   HostedMeal,
@@ -40,6 +40,20 @@ import type {
   Reaction,
   VersionEdit,
 } from './types'
+
+interface ServerSharedVersion {
+  title: string
+  description: string | null
+  servings: number | null
+  totalMinutes: number | null
+  ingredients: {
+    section?: string | null
+    original: string
+    catalog: { allergens: string[] } | null
+  }[]
+  steps: { text: string; section?: string }[]
+  equipment: { item: string }[]
+}
 
 // The UI asks for the household and its contacts at the same moment; one request serves both.
 let peopleInflight: Promise<ServerPeople> | null = null
@@ -140,6 +154,46 @@ export const realApi: BishulApi = {
         lastUsedAt: k.lastUsedAt,
         revoked: false,
       }))
+  },
+  shareRecipe: async (recipeId) => {
+    const r = await http.post<{ id: string; url: string }>('/shares', {
+      kind: 'dish',
+      targetId: recipeId,
+    })
+    return { id: r.id, url: r.url }
+  },
+  stopSharing: async (shareId) => {
+    await http.delete(`/shares/${shareId}`)
+  },
+  getShared: async (token) => {
+    const r = await http.get<{
+      kind: string
+      recipe?: { title: string }
+      version?: ServerSharedVersion
+      versions?: ServerSharedVersion[]
+    }>(`/shared/${encodeURIComponent(token)}`)
+    if (r.kind === 'profile') throw new ApiError(404, 'not_a_recipe', 'This link isn’t a recipe.')
+    const all = r.kind === 'version' ? [r.version!] : (r.versions ?? [])
+    return {
+      title: r.recipe?.title ?? all[0]?.title ?? 'Recipe',
+      versions: all.map((v) => ({
+        title: v.title,
+        description: v.description,
+        servings: v.servings,
+        totalMinutes: v.totalMinutes,
+        ingredients: v.ingredients.map((i) => ({
+          section: i.section,
+          text: i.original,
+          allergens: i.catalog?.allergens ?? [],
+        })),
+        steps: v.steps.map((s) => ({ text: s.text, section: s.section })),
+        equipment: v.equipment.map((e) => e.item),
+      })),
+    }
+  },
+  saveShared: async (token) => {
+    const r = await http.post<{ recipeId: string }>(`/shared/${encodeURIComponent(token)}/save`)
+    return { recipeId: r.recipeId }
   },
   createApiKey: async (scope) => {
     const k = await http.post<{

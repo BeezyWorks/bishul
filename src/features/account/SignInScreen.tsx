@@ -10,7 +10,15 @@ import { requestPasswordReset, signInDev, signInEmail, signInWith, signUpEmail }
 type Mode = 'signIn' | 'signUp' | 'forgot'
 
 /** Signed-out landing: what Bishul is, and the shared BeezyWorks sign-in. */
-export function SignInScreen() {
+export function SignInScreen({
+  returnTo = '/',
+  reason,
+}: {
+  /** Where a Google/Apple sign-in comes back to. */
+  returnTo?: string
+  /** Why we are asking, shown above the pitch. */
+  reason?: string
+}) {
   const { wide } = useLayout()
   const [mode, setMode] = useState<Mode>('signIn')
   const [name, setName] = useState('')
@@ -56,6 +64,7 @@ export function SignInScreen() {
         <Text variant="h2" color={colors.accent}>
           Bishul
         </Text>
+        {reason ? <Text variant="h2">{reason}</Text> : null}
         <Text variant={wide ? 'display' : 'h1'} accessibilityRole="header">
           Plan Shabbat for these guests.
         </Text>
@@ -87,13 +96,13 @@ export function SignInScreen() {
               label="Continue with Google"
               variant="secondary"
               full
-              onPress={() => signInWith('google')}
+              onPress={() => signInWith('google', returnTo)}
             />
             <Button
               label="Continue with Apple"
               variant="secondary"
               full
-              onPress={() => signInWith('apple')}
+              onPress={() => signInWith('apple', returnTo)}
             />
           </View>
         ) : null}

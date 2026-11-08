@@ -650,7 +650,7 @@ export const shareLinks = sqliteTable(
     token: text('token').notNull(),
     kind: text('kind', { enum: ['version', 'dish', 'profile'] }).notNull(),
     targetId: text('target_id').notNull(),
-    /** The content as it was when shared; links are snapshots, never live. */
+    /** Profile links: the content as shared. Recipe links are read live; this is the fallback if the recipe is deleted. */
     snapshot: text('snapshot', { mode: 'json' }).$type<unknown>().notNull(),
     createdBy: text('created_by').notNull(),
     revokedAt: integer('revoked_at'),

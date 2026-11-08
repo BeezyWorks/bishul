@@ -101,6 +101,29 @@ export interface Household {
   people: Person[]
 }
 
+// ---- Sharing (BRIEF §10) ----
+
+export interface RecipeShare {
+  id: Id
+  url: string
+}
+
+export interface SharedVersion {
+  title: string
+  description: string | null
+  servings: number | null
+  totalMinutes: number | null
+  ingredients: { section?: string | null; text: string; allergens: string[] }[]
+  steps: { text: string; section?: string }[]
+  equipment: string[]
+}
+
+/** A recipe as its author has it right now, read from a share link. */
+export interface SharedRecipe {
+  title: string
+  versions: SharedVersion[]
+}
+
 // ---- Recipes (BRIEF §6, §7) ----
 
 export interface IngredientLine {

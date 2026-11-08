@@ -762,7 +762,7 @@ export const TOOLS: Tool[] = [
     name: 'share_recipe',
     title: 'Share a recipe',
     description:
-      'Create a share link for one version (versionId) or a whole dish with all its versions (recipeId). The link is an unlisted snapshot, never live: later edits do not change it. Anyone with it can read it without an account; signed-in people can save a copy. Revoke it with revoke_link. Confirm with the host before creating a link.',
+      'Create a share link for one version (versionId) or a whole dish with all its versions (recipeId). The link is unlisted and live: anyone with it reads the recipe as it is now, so later edits show up; no account needed to read. Signed-in people can save a copy, which is independent of later edits. Sharing the same recipe again returns the same link. Revoke it with revoke_link. Confirm with the host before creating a link.',
     input: z.object({ versionId: S.id.optional(), recipeId: S.id.optional() }),
     run: async (c, a) => {
       if (a.versionId)
