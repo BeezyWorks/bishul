@@ -2,6 +2,7 @@ import {
   createDishChecker,
   effectiveFlags,
   formatQuantity,
+  matchStepsToIngredients,
   parseQuantity,
   scaleLines,
   toCanonical,
@@ -1197,7 +1198,7 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
   const lines = (typeof ingredients === 'string' ? ingredients.split(/\r?\n/) : (ingredients ?? []))
     .map((x) => (typeof x === 'string' ? { text: x } : x))
     .filter((x) => (x.text ?? x.name ?? '').trim())
-  const stepList = (typeof steps === 'string' ? steps.split(/\r?\n/) : (steps ?? []))
+  let stepList = (typeof steps === 'string' ? steps.split(/\r?\n/) : (steps ?? []))
     .map((x) => (typeof x === 'string' ? { text: x.replace(STEP_NUM, '').trim() } : x))
     .filter((x) => x.text)
   const data = Object.fromEntries(
@@ -1219,6 +1220,21 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
       section: cleanSection(l.section),
     }
   })
+  // Steps that came without links (a paste on the website) are linked by name; the host checks them later.
+  if (!stepList.some((st) => 'uses' in st && st.uses?.length)) {
+    const matched = matchStepsToIngredients(
+      preview.map((p, i) => ({
+        name: p.name,
+        original: withMeta[i].text ?? p.line,
+        section: p.section,
+      })),
+      stepList.map((st) => ({
+        text: st.text,
+        section: 'section' in st ? cleanSection(st.section) : null,
+      })),
+    )
+    stepList = stepList.map((st, i) => (matched[i].length ? { ...st, uses: matched[i] } : st))
+  }
   if (input.dryRun)
     return { saved: false, parsed: { title, servings, ingredients: preview, steps: stepList } }
   const res = await saveRecipe(db, actor, {
