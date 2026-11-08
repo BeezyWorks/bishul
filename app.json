@@ -5,16 +5,35 @@
     "version": "0.1.0",
     "scheme": "bishul",
     "userInterfaceStyle": "light",
-    "platforms": ["web"],
+    "platforms": ["ios", "web"],
     "web": {
       "output": "single",
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/brand/favicon.png"
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#2E6A4E"
+        }
+      ],
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "beezyworkstudios"
+    "owner": "beezyworkstudios",
+    "icon": "./assets/brand/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.beezyworks.bishul",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
   }
 }

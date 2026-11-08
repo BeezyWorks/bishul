@@ -24,6 +24,12 @@
         "8091"
       ],
       "port": 8091
+    },
+    {
+      "name": "app-mock",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["EXPO_PUBLIC_USE_MOCK=1", "pnpm", "start", "--port", "8092"],
+      "port": 8092
     }
   ]
 }

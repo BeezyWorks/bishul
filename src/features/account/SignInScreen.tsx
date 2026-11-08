@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ScrollView, StyleSheet, View } from 'react-native'
+import { Platform, ScrollView, StyleSheet, View } from 'react-native'
 
 import { Button, Card, Text, TextField, useLayout } from '@/components'
 import { DEV_AUTH } from '@/lib/config'
@@ -90,7 +90,8 @@ export function SignInScreen({
         <Text variant="small">
           With your BeezyWorks account, the same one as Beitecha and the Siddur.
         </Text>
-        {mode !== 'forgot' ? (
+        {/* Google/Apple hand off through a web redirect; the app signs in with email for now. */}
+        {mode !== 'forgot' && Platform.OS === 'web' ? (
           <View style={styles.providers}>
             <Button
               label="Continue with Google"
