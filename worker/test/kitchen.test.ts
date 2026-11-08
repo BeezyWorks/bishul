@@ -17,9 +17,12 @@ describe('use soon', () => {
       },
       201,
     )
-    const date = await nextFriday(who)
     const pantry0 = await api(who, 'GET', '/pantry')
     const soon = new Date(Date.parse(`${pantry0.today}T00:00:00Z`) + 3 * 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+    // The meal is the day after tomorrow, whatever today is: it must come before the eggs expire.
+    const date = new Date(Date.parse(`${pantry0.today}T00:00:00Z`) + 2 * 86_400_000)
       .toISOString()
       .slice(0, 10)
 

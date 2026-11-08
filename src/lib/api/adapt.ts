@@ -152,6 +152,7 @@ export interface ServerPersonView {
   isChild: boolean
   birthDate: string | null
   birthDateApprox: boolean
+  spicy?: 'yes' | 'no' | null
   age: number | null
   userId: string | null
   householdId: string
@@ -174,6 +175,7 @@ export function adaptPerson(p: ServerPersonView): Person {
     relation: p.isChild ? 'Child' : undefined,
     isChild: p.isChild,
     ...(p.age !== null && { age: p.age }),
+    ...(p.spicy && { spicy: p.spicy }),
     ...(p.birthDate && { birthDate: p.birthDate, birthDateApprox: p.birthDateApprox }),
     isMember: !!p.userId,
     constraints: p.constraints.map((c) => adaptConstraint(c, p.id)),

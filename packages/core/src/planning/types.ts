@@ -64,6 +64,8 @@ export type ConstraintTag =
   | { type: 'rule'; value: PersonRule }
   /** Sourcing standards never exclude a dish; they only add sourcing notes. */
   | { type: 'sourcing'; value: SourcingStandard }
+  /** Spice tolerance ("can't eat spicy"); matched against the dish-level `spicy` flag. */
+  | { type: 'trait'; value: 'spicy' }
 
 export interface Constraint {
   tag: ConstraintTag
@@ -79,12 +81,18 @@ export interface Person {
   name: string
   /** Whole years on the meal's day, when a birthday (or stated age) is known. */
   age?: number
+  /** Whether they can eat spicy food. Unset means not known; never inferred from age. */
+  spicy?: 'yes' | 'no'
   /** Everything that applies to this person, including the host's private-layer additions (see `mergePrivateLayer`). */
   constraints: Constraint[]
 }
 
 // ---------------------------------------------------------------------------
 // Dishes (a version summary)
+
+/** Dish-level flags set by hand: a spicy dish, and one kids will eat (schnitzel nuggets, plain rice). */
+export const DISH_FLAG_SPICY = 'spicy'
+export const DISH_FLAG_KID_FRIENDLY = 'kid_friendly'
 
 export type MeatDairy = 'meat' | 'dairy' | 'parve'
 export type IngredientCategory = 'meat' | 'dairy' | 'parve' | 'fish'

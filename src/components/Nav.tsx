@@ -2,7 +2,6 @@ import { useRouter, usePathname, type Href } from 'expo-router'
 import React from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
-import { NAV } from '@/lib/strings'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
 import { Text } from './Text'
@@ -10,8 +9,16 @@ import { useLayout } from './useLayout'
 
 const isActive = (path: string, href: string) =>
   href === '/'
-    ? path === '/' || path.startsWith('/meal')
+    ? path === '/' || path.startsWith('/meal') || path.startsWith('/hosted')
     : path === href || path.startsWith(`${href}/`)
+
+const TOP = [
+  { href: '/', label: 'Plan' },
+  { href: '/recipes', label: 'Recipes' },
+  { href: '/shopping', label: 'Shopping' },
+  { href: '/people', label: 'People' },
+  { href: '/more', label: 'More' },
+] as const
 
 /** Wide screens: a top bar with every section. */
 export function TopNav() {
@@ -29,7 +36,7 @@ export function TopNav() {
         </Text>
       </Pressable>
       <View style={styles.topLinks}>
-        {NAV.map((n) => {
+        {TOP.map((n) => {
           const on = isActive(path, n.href)
           return (
             <Pressable
@@ -56,19 +63,13 @@ export function TopNav() {
   )
 }
 
-const TABS = [
-  { href: '/', label: 'Plan' },
-  { href: '/calendar', label: 'Calendar' },
-  { href: '/recipes', label: 'Recipes' },
-  { href: '/shopping', label: 'Shopping' },
-  { href: '/more', label: 'More' },
-] as const
+const TABS = TOP
 
-/** Phones: bottom tabs. Prep, People and Use soon live under More. */
+/** Phones: bottom tabs. Prep and Use soon live under More. */
 export function BottomTabs() {
   const path = usePathname()
   const router = useRouter()
-  const more = ['/more', '/prep', '/people', '/use-soon', '/settings']
+  const more = ['/more', '/prep', '/use-soon', '/settings']
   return (
     <View style={styles.tabs} accessibilityRole="tablist">
       {TABS.map((t) => {

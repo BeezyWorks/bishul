@@ -5,6 +5,7 @@ import * as S from './api/schemas'
 import { invalid, type Actor, type Db } from './services/ctx'
 import * as catalog from './services/catalog'
 import * as households from './services/households'
+import * as hosting from './services/hosting'
 import * as kitchen from './services/kitchen'
 import * as people from './services/people'
 import * as planning from './services/planning'
@@ -117,6 +118,104 @@ export const TOOLS: Tool[] = [
     },
   }),
   tool({
+    name: 'get_week',
+    title: 'Get the week',
+    description:
+      'The Plan tab for the Sunday-to-Saturday week containing a date (default today): each day with its Hebrew date, holidays, candle lighting and weekday meals, and the runs of Shabbat and Yom Tov that touch the week, grouped by holy day (Pesach I, Pesach II, Shabbat) with their meals, a one-line summary of each menu, headcounts and problem counts. Meals not created yet are listed as virtual. Public holidays are never shown.',
+    readOnly: true,
+    input: z.object({ date: S.date.optional() }),
+    run: async (c, a) => {
+      const w = await hosting.getWeek(c.db, c.actor, a)
+      return ok(`Week of ${w.from}.`, w)
+    },
+  }),
+  tool({
+    name: 'get_hosted',
+    title: 'Get a hosted run or meal',
+    description:
+      'The hosted page for a run of Shabbat / Yom Tov days (key run-YYYY-MM-DD, from get_week) or a single hosted meal (meal-ID): holy days, then meals, then courses and dishes (with recipe ids), the households coming with each member present or away, headcounts and the problems per meal, naming the flagged dish for an allergy. Always pass on the disclaimer: it is on the host.',
+    readOnly: true,
+    input: z.object({ key: z.string().min(1) }),
+    run: async (c, a) => {
+      const p = await hosting.getHosted(c.db, c.actor, a.key)
+      return ok(`${p.title}: ${p.totals.meals} meals, ${p.totals.toPlan} still to plan.`, p)
+    },
+  }),
+  tool({
+    name: 'manage_meal_guests',
+    title: 'Manage a meal’s guests',
+    description:
+      'Invite or remove whole households on a meal and tick members present or away. Inviting a guest household makes a weekday meal hosted (it is named for its day unless the host renamed it). Removing every guest keeps the meal. Confirm with the host first.',
+    input: z.object({
+      mealId: S.id,
+      addHouseholdIds: z.array(S.id).optional(),
+      removeHouseholdIds: z.array(S.id).optional(),
+      present: z
+        .array(z.object({ personId: S.id, present: z.boolean() }))
+        .optional()
+        .describe('present false marks someone as away'),
+    }),
+    run: async (c, a) => {
+      let view
+      for (const id of a.addHouseholdIds ?? [])
+        view = await hosting.addHouseholdToMeal(c.db, c.actor, a.mealId, id)
+      for (const id of a.removeHouseholdIds ?? [])
+        view = await hosting.removeHouseholdFromMeal(c.db, c.actor, a.mealId, id)
+      for (const p of a.present ?? [])
+        view = await hosting.setMemberPresent(c.db, c.actor, a.mealId, p.personId, p.present)
+      return ok('Guests updated.', view ?? (await hosting.getHostedMeal(c.db, c.actor, a.mealId)))
+    },
+  }),
+  tool({
+    name: 'manage_meal_dishes',
+    title: 'Manage a meal’s dishes',
+    description:
+      'Add dishes to a course (a recipe version, or a dish without a recipe), remove dishes and move a dish to another course. Courses are starter, main, dessert (soups and salads count as starters, sides as mains). Check search_recipes_for_meal first so the dish fits everyone. Confirm with the host first.',
+    input: z.object({
+      mealId: S.id,
+      add: z
+        .array(
+          z.object({
+            course: z.string().min(1),
+            versionId: S.id.optional(),
+            description: z.string().min(1).optional(),
+            kashrut: S.kashrut.optional(),
+            broughtBy: z.string().optional(),
+            servings: z.number().int().positive().optional(),
+          }),
+        )
+        .optional(),
+      removeItemIds: z.array(S.id).optional(),
+      move: z
+        .array(z.object({ itemId: S.id, course: z.string().min(1), beforeItemId: S.id.optional() }))
+        .optional(),
+    }),
+    run: async (c, a) => {
+      let view
+      for (const d of a.add ?? []) view = await hosting.addDish(c.db, c.actor, a.mealId, d)
+      for (const id of a.removeItemIds ?? [])
+        view = await hosting.removeDish(c.db, c.actor, a.mealId, id)
+      for (const m of a.move ?? [])
+        view = await hosting.moveDish(c.db, c.actor, a.mealId, m.itemId, m)
+      return ok('Menu updated.', view ?? (await hosting.getHostedMeal(c.db, c.actor, a.mealId)))
+    },
+  }),
+  tool({
+    name: 'search_recipes_for_meal',
+    title: 'Search recipes for a meal',
+    description:
+      'Recipes matching a search that pass every attendee’s constraints at this meal (fits), and the ones that do not with the reasons (excluded). Deterministic code, not a judgment. Carries the allergy disclaimer: it is on the host.',
+    readOnly: true,
+    input: z.object({
+      mealId: S.id,
+      q: z.string().optional(),
+      course: z.string().optional(),
+      limit: S.int.optional(),
+    }),
+    run: async (c, { mealId, ...rest }) =>
+      ok('Recipes for this meal.', await hosting.searchRecipesForMeal(c.db, c.actor, mealId, rest)),
+  }),
+  tool({
     name: 'get_meal',
     title: 'Get meal',
     description:
@@ -154,16 +253,19 @@ export const TOOLS: Tool[] = [
     name: 'plan_meal',
     title: 'Plan a meal',
     description:
-      'Create a meal on a date with a name and time, optionally its kind (meat, dairy, parve), who is coming and first items. The household is in by default; pass personIds to invite contacts and excludePersonIds for household members who are not coming. Get the date from get_calendar and confirm with the host first. Returns the meal with its dining brief.',
+      'Create a meal on a date, optionally with a name (leave it out and it is named after its day: a holiday, "Tuesday dinner"), slot (breakfast, kiddush, brunch, lunch, seudah_shlishit, dinner, oneg), time, kind (meat, dairy, parve), whether it is hosted, who is coming and first items. The household is in by default; pass householdIds to invite whole contact households, personIds for single contacts and excludePersonIds for household members who are not coming. A guest makes the meal hosted; Shabbat and Yom Tov meals always are. Get the date from get_calendar and confirm with the host first. Returns the meal with its dining brief.',
     input: S.createMealInput,
     run: async (c, a) =>
-      ok(`Created "${a.name}" on ${a.date}.`, await planning.createMeal(c.db, c.actor, a as never)),
+      ok(
+        `Created ${a.name ? `"${a.name}"` : 'the meal'} on ${a.date}.`,
+        await planning.createMeal(c.db, c.actor, a as never),
+      ),
   }),
   tool({
     name: 'update_meal',
     title: 'Update a meal',
     description:
-      'Change a meal: name, date, time (e.g. 18:30; null clears it), kind, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
+      'Change a meal: name, date, slot, time (e.g. 18:30; null clears it), kind, hosted, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
     input: S.updateMealInput.extend({ mealId: S.id }),
     run: async (c, { mealId, ...rest }) =>
       ok('Meal updated.', await planning.updateMeal(c.db, c.actor, mealId, rest as never)),
@@ -369,7 +471,7 @@ export const TOOLS: Tool[] = [
     name: 'save_person',
     title: 'Save a person',
     description:
-      'Create or edit a person: in the household, or in a contact household (contactHouseholdId), or start a new contact household with newContactHousehold ("the Levi family"). Kids are plain persons (isChild). For a kid, give birthDate (YYYY-MM-DD) so they age automatically, or just age if the birthday isn’t known (stored as an estimate, to replace with the real birthday later). Age scales portions down and raises kid-friendly dishes in suggestions. Pass personId to rename; remove: true deletes a person. Everyone in the host’s circle is a contact, visible only to the host’s household.',
+      "Create or edit a person: in the household, or in a contact household (contactHouseholdId), or start a new contact household with newContactHousehold (\"the Levi family\"). Kids are plain persons (isChild). For a kid, give birthDate (YYYY-MM-DD) so they age automatically, or just age if the birthday isn’t known (stored as an estimate, to replace with the real birthday later). Age scales portions down and raises kid-friendly dishes in suggestions. spicy: 'yes' or 'no' for whether they can eat spicy food (null clears it); ask, never assume it from age. A spicy dish is flagged for anyone marked 'no'. Pass personId to rename; remove: true deletes a person. Everyone in the host’s circle is a contact, visible only to the host’s household.",
     input: z.object({
       personId: S.id.optional(),
       name: z.string().min(1).max(100).optional(),
@@ -380,6 +482,7 @@ export const TOOLS: Tool[] = [
         .nullable()
         .optional(),
       age: z.number().int().min(0).max(120).nullable().optional(),
+      spicy: z.enum(['yes', 'no']).nullable().optional(),
       contactHouseholdId: S.id.optional(),
       newContactHousehold: z.string().min(1).max(100).optional(),
       renameHousehold: z.string().optional(),
@@ -400,6 +503,7 @@ export const TOOLS: Tool[] = [
         isChild: a.isChild,
         birthDate: a.birthDate,
         age: a.age,
+        spicy: a.spicy,
         contactHouseholdId: a.contactHouseholdId,
         newContactHousehold: a.newContactHousehold,
         renameHousehold: a.renameHousehold,

@@ -3,22 +3,21 @@ import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import {
-  Badge,
   Button,
   Card,
+  ConstraintText,
   ListRow,
   Loading,
-  Pill,
   Screen,
-  SectionHeader,
+  SearchField,
   Text,
   TextField,
 } from '@/components'
-import { api } from '@/lib/api/client'
-import { stale, useApiMutation, useContacts, useHousehold } from '@/lib/api/hooks'
-import type { Constraint, Person } from '@/lib/api/types'
-import { parseBirthInput } from '@/lib/dates'
+import { useContacts, useCreateContactHousehold, useHousehold } from '@/lib/api/hooks'
+import type { Constraint } from '@/lib/api/types'
 import { colors, space, type Tone } from '@/theme/tokens'
+
+import { combinedConstraints, displayName, householdCounts, matches } from './householdText'
 
 export function constraintTone(c: Constraint): Tone {
   if (c.kind === 'medical') return c.severity === 'strict' ? 'danger' : 'warn'
@@ -26,147 +25,89 @@ export function constraintTone(c: Constraint): Tone {
   return 'muted'
 }
 
-function PersonRow({ p, last }: { p: Person; last: boolean }) {
-  return (
-    <ListRow
-      title={p.name}
-      subtitle={[p.relation, p.age ? `age ${p.age}` : ''].filter(Boolean).join(' · ')}
-      href={`/people/${p.id}`}
-      last={last}
-    >
-      <View style={styles.badges}>
-        {p.link ? <Badge label="Linked profile" tone="accent" /> : null}
-        {p.constraints.map((c) => (
-          <Badge key={c.id} label={c.label} tone={constraintTone(c)} />
-        ))}
-        {p.constraints.length === 0 ? <Badge label="No constraints" tone="muted" /> : null}
-      </View>
-    </ListRow>
-  )
-}
-
-/** Adds a person to the household, to a contact household, or starts a new contact household. */
-function AddPerson() {
-  const router = useRouter()
-  const contacts = useContacts()
-  const [name, setName] = useState('')
-  const [where, setWhere] = useState<string>('new')
-  const [group, setGroup] = useState('')
-  const [child, setChild] = useState(false)
-  const [birth, setBirth] = useState('')
-  const born = birth.trim() ? parseBirthInput(birth) : null
-  const add = useApiMutation(
-    () =>
-      api.addPerson({
-        name: name.trim(),
-        isChild: child,
-        ...born,
-        ...(where === 'new'
-          ? { newContactHousehold: group.trim() || name.trim() }
-          : where === 'mine'
-            ? {}
-            : { contactHouseholdId: where }),
-      }),
-    stale.people,
-  )
-  return (
-    <Card tone="subtle">
-      <SectionHeader
-        title="Add a person"
-        hint="Guests go in a contact household; family goes in yours."
-      />
-      <TextField label="Name" value={name} onChangeText={setName} />
-      <View style={styles.badges}>
-        <Pill
-          label="New contact household"
-          selected={where === 'new'}
-          onPress={() => setWhere('new')}
-        />
-        <Pill label="My household" selected={where === 'mine'} onPress={() => setWhere('mine')} />
-        {(contacts.data ?? []).map((h) => (
-          <Pill
-            key={h.id}
-            label={h.name}
-            selected={where === h.id}
-            onPress={() => setWhere(h.id)}
-          />
-        ))}
-      </View>
-      {where === 'new' ? (
-        <TextField
-          label="Household name (optional)"
-          value={group}
-          onChangeText={setGroup}
-          placeholder="e.g. The Levins"
-        />
-      ) : null}
-      <View style={styles.badges}>
-        <Pill label="Child" selected={child} onPress={() => setChild(!child)} />
-      </View>
-      <TextField
-        label="Birthday or age (optional)"
-        value={birth}
-        onChangeText={setBirth}
-        placeholder="YYYY-MM-DD, or just 5"
-      />
-      {birth.trim() && !born ? (
-        <Text variant="small">Use a date like 2020-03-14, or a whole number for an age.</Text>
-      ) : null}
-      {add.error ? <Text>{(add.error as Error).message}</Text> : null}
-      <Button
-        label="Add person"
-        disabled={!name.trim() || (!!birth.trim() && !born)}
-        loading={add.isPending}
-        onPress={async () => {
-          const p = await add.mutateAsync(undefined)
-          setName('')
-          setGroup('')
-          setBirth('')
-          router.push(`/people/${p.id}` as Href)
-        }}
-      />
-    </Card>
-  )
-}
-
+/** One row per household; open one to see and edit its members. */
 export function PeopleScreen() {
+  const router = useRouter()
   const household = useHousehold()
   const contacts = useContacts()
+  const create = useCreateContactHousehold()
+  const [q, setQ] = useState('')
+  const [naming, setNaming] = useState(false)
+  const [name, setName] = useState('')
+
+  const all = household.data && contacts.data ? [household.data, ...contacts.data] : null
+  const shown = all?.filter((h) => matches(h, q)) ?? []
+
+  const submit = async () => {
+    if (!name.trim()) return
+    const h = await create.mutateAsync(name.trim())
+    setName('')
+    setNaming(false)
+    router.push(`/people/household/${h.id}` as Href)
+  }
+
   return (
     <Screen
       title="People"
-      subtitle="Your household and your contacts. Contacts are private to your household."
+      subtitle="Households you cook for. Contacts are private to your household."
+      actions={naming ? null : <Button label="+ Household" small onPress={() => setNaming(true)} />}
     >
-      {!household.data || !contacts.data ? (
+      {!all ? (
         <Loading />
       ) : (
         <>
-          <Card>
-            <SectionHeader title={`${household.data.name}: your household`} />
-            {household.data.people.map((p, i) => (
-              <PersonRow key={p.id} p={p} last={i === household.data!.people.length - 1} />
-            ))}
-          </Card>
-          {contacts.data.map((h) => (
-            <Card key={h.id}>
-              <SectionHeader
-                title={h.name}
-                hint={h.note ?? 'Contact household (a ghost only you can see)'}
+          {naming ? (
+            <Card tone="subtle">
+              <TextField
+                label="Household name"
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g. The Levins"
+                autoFocus
+                onSubmitEditing={submit}
               />
-              {h.people.map((p, i) => (
-                <PersonRow key={p.id} p={p} last={i === h.people.length - 1} />
-              ))}
+              {create.error ? <Text>{(create.error as Error).message}</Text> : null}
+              <View style={styles.row}>
+                <Button
+                  label="Create"
+                  disabled={!name.trim()}
+                  loading={create.isPending}
+                  onPress={submit}
+                />
+                <Button label="Cancel" variant="ghost" onPress={() => setNaming(false)} />
+              </View>
             </Card>
-          ))}
-          {contacts.data.length === 0 ? (
-            <Text color={colors.muted}>
-              No contacts yet. Add the people you host and what they can’t eat.
-            </Text>
           ) : null}
-          <AddPerson />
-          <Text variant="small">
-            Contacts are ghost households you create. They are never shared or discoverable.
-          </Text>
+          <SearchField value={q} onChangeText={setQ} placeholder="Search households or people" />
+          <Card>
+            {shown.map((h, i) => {
+              const combined = combinedConstraints(h.people)
+              return (
+                <ListRow
+                  key={h.id}
+                  title={displayName(h)}
+                  subtitle={householdCounts(h) || 'No one yet'}
+                  href={`/people/household/${h.id}`}
+                  last={i === shown.length - 1}
+                >
+                  <Text variant="small">
+                    {combined.length ? (
+                      <ConstraintText constraints={combined} />
+                    ) : (
+                      <Text variant="small" color={colors.muted}>
+                        No constraints
+                      </Text>
+                    )}
+                  </Text>
+                </ListRow>
+              )
+            })}
+            {shown.length === 0 ? (
+              <Text color={colors.muted}>
+                {q ? 'No household or person matches.' : 'Nothing here yet.'}
+              </Text>
+            ) : null}
+          </Card>
         </>
       )}
     </Screen>
@@ -174,5 +115,5 @@ export function PeopleScreen() {
 }
 
 const styles = StyleSheet.create({
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs + 2 },
+  row: { flexDirection: 'row', gap: space.sm },
 })

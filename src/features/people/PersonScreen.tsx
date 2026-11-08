@@ -77,6 +77,10 @@ export function PersonScreen() {
     (input: { birthDate: string | null } | { age: number }) => api.setPersonBirth(id, input),
     stale.people,
   )
+  const setSpicy = useApiMutation(
+    (v: 'yes' | 'no' | null) => api.setPersonSpicy(id, v),
+    stale.people,
+  )
   const setRules = useApiMutation((r: string[]) => api.setPersonRules(id, r), stale.people)
   if (isLoading || !data)
     return (
@@ -137,6 +141,22 @@ export function PersonScreen() {
             />
           ) : null}
         </View>
+      </Card>
+
+      <Card tone="subtle">
+        <SectionHeader
+          title="Spicy food"
+          hint="Whether they can eat spicy food. Left as not sure unless you say, kids included. Spicy dishes are flagged for anyone who can’t."
+        />
+        <Segmented
+          options={[
+            { value: 'yes', label: 'Can eat spicy' },
+            { value: 'no', label: 'Can’t' },
+            { value: 'unknown', label: 'Not sure' },
+          ]}
+          value={p.spicy ?? 'unknown'}
+          onChange={(v) => setSpicy.mutate(v === 'unknown' ? null : v)}
+        />
       </Card>
 
       {p.link ? (

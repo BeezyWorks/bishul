@@ -15,6 +15,7 @@ import { DISCLAIMER } from '@/lib/strings'
 import { formatAmount } from '@/lib/units'
 
 import type { BishulApi } from './client'
+import { bindHouseholds, mockPlan } from './mock-plan'
 import {
   buildHouseholds,
   buildMeals,
@@ -66,6 +67,7 @@ import type {
 // ---- State ----
 
 const households: Household[] = buildHouseholds()
+bindHouseholds(() => households)
 const recipes: Recipe[] = buildRecipes()
 let meals: Meal[] = buildMeals()
 let pantry: PantryRow[] = buildPantry()
@@ -819,6 +821,27 @@ function defaultTime(name: string, date: ISODate): string {
 // ---- API ----
 
 export const mockApi: BishulApi = {
+  // Plan tab (simplified in-memory model: mock-plan.ts)
+  getWeek: (date) => delay(mockPlan.getWeek(date)),
+  getPlan: (range) => delay(mockPlan.getPlan(range)),
+  getHosted: (key) => delay(mockPlan.getHosted(key)),
+  getHostedMeal: (id) => delay(mockPlan.getHostedMeal(id)),
+  ensureRunMeal: (input) => delay(mockPlan.ensureRunMeal(input)),
+  createPlanMeal: (input) => delay(mockPlan.createPlanMeal(input)),
+  updatePlanMeal: (id, patch) => delay(mockPlan.updatePlanMeal(id, patch)),
+  addMealHousehold: (id, hid) => delay(mockPlan.addMealHousehold(id, hid)),
+  removeMealHousehold: (id, hid) => delay(mockPlan.removeMealHousehold(id, hid)),
+  setMealPerson: (id, pid, present) => delay(mockPlan.setMealPerson(id, pid, present)),
+  addMealDish: (id, dish) => delay(mockPlan.addMealDish(id, dish)),
+  removeMealDish: (id, itemId) => delay(mockPlan.removeMealDish(id, itemId)),
+  moveMealDish: (id, itemId, to) => delay(mockPlan.moveMealDish(id, itemId, to)),
+  searchRecipesForMeal: (id) => delay(mockPlan.searchRecipesForMeal(id)),
+  createContactHousehold: async (name) => {
+    const h: Household = { id: `h-new-${households.length}`, name, isOwn: false, people: [] }
+    households.push(h)
+    return delay(h)
+  },
+
   getUpcoming: () =>
     delay<Occasion[]>([
       {
@@ -945,6 +968,7 @@ export const mockApi: BishulApi = {
   },
   deleteMeal: async (id) => {
     meals = meals.filter((m) => m.id !== id)
+    mockPlan.deleteMeal(id)
     return delay(undefined)
   },
 
@@ -1148,6 +1172,7 @@ export const mockApi: BishulApi = {
   createVariation: async () => demoOnly(),
   addPerson: async () => demoOnly(),
   setPersonBirth: async () => demoOnly(),
+  setPersonSpicy: async () => demoOnly(),
   addConstraint: async () => demoOnly(),
   removeConstraint: async () => demoOnly(),
   setPersonRules: async () => demoOnly(),

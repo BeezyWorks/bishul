@@ -449,3 +449,18 @@ describe('allergens without catalog data', () => {
     expect(brief.hardExclusions).toHaveLength(1)
   })
 })
+
+describe('spicy food', () => {
+  const curry = {
+    ...dish('curry', 'Chicken curry', 'meat', [ing('chicken', { category: 'meat' })]),
+    flags: ['spicy'],
+  }
+  it('flags a spicy dish only for people known not to eat spicy', () => {
+    const no = { ...person('a', 'Avi'), spicy: 'no' as const }
+    const yes = { ...person('b', 'Bina'), spicy: 'yes' as const }
+    const unknown = person('c', 'Cali')
+    const brief = buildDiningBrief(base({ attendees: [no, yes, unknown], selected: [curry] }))
+    expect(brief.eatAround.map((e) => e.personName)).toEqual(['Avi'])
+    expect(brief.hardExclusions).toHaveLength(0)
+  })
+})

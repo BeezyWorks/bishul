@@ -366,6 +366,15 @@ describe('rankCandidates: kids at the table', () => {
       adults.ranked.find((r) => r.dish.id === 'nuggets')!.reasons.some((r) => r.code === 'kids'),
     ).toBe(false)
   })
+  it('raises a dish flagged kid friendly when a kid is coming', () => {
+    const rice = {
+      ...dish('rice', 'Plain rice', 'parve', [ing('rice')], { course: 'side' }),
+      flags: ['kid_friendly'],
+    }
+    const r = rankCandidates(meal({ attendees: [george, kid] }), [kugel, rice], ctx())
+    expect(ids(r)[0]).toBe('rice')
+    expect(r.ranked[0].reasons.some((x) => x.code === 'kids')).toBe(true)
+  })
   it('a teenager is not a kid', () => {
     const teen = { ...person('teen', 'Teen'), age: 14 }
     const r = rankCandidates(meal({ attendees: [teen] }), [nuggets], ctx())

@@ -1,12 +1,29 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "api", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev:api"], "port": 8787 },
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:api"],
+      "port": 8787
+    },
     {
       "name": "app",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["start", "--port", "8090"],
       "port": 8090
+    },
+    {
+      "name": "app-local-api",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "EXPO_PUBLIC_API_URL=http://localhost:8787",
+        "pnpm",
+        "start",
+        "--port",
+        "8091"
+      ],
+      "port": 8091
     }
   ]
 }

@@ -50,6 +50,20 @@
       "when": 1793903222509,
       "tag": "0006_cute_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794142316343,
+      "tag": "0007_short_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794146046436,
+      "tag": "0008_worried_wasp",
+      "breakpoints": true
     }
   ]
 }

@@ -200,7 +200,9 @@ export const versionFields = {
   flags: z
     .record(z.string(), z.boolean())
     .optional()
-    .describe('Hand-set flags: gebrokts, kitniyot, chametz…'),
+    .describe(
+      'Hand-set flags: gebrokts, kitniyot, chametz, spicy, kid_friendly (a dish kids will eat, like schnitzel nuggets or plain rice)…',
+    ),
   equipment: z
     .array(z.object({ item: z.string(), designation: designation.nullable().optional() }))
     .optional(),
@@ -268,9 +270,34 @@ export const mealItem = z.object({
   course: z.string().optional(),
 })
 
+export const daySlot = z.enum([
+  'breakfast',
+  'kiddush',
+  'brunch',
+  'lunch',
+  'seudah_shlishit',
+  'dinner',
+  'oneg',
+])
+
 export const createMealInput = z.object({
   date,
-  name: z.string().min(1).max(100),
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe('Leave out to name it after its day: a holiday, "Tuesday dinner", or "Dinner"'),
+  slot: daySlot
+    .optional()
+    .describe('Where the meal sits in the day. Default: from its time, else dinner'),
+  hosted: z
+    .boolean()
+    .optional()
+    .describe('A hosted meal has a full page; inviting a guest makes it hosted'),
+  householdIds: ids
+    .optional()
+    .describe('Guest households (contacts) to invite: all their members come'),
   time: time.nullable().optional(),
   kind: kashrut.nullable().optional(),
   personIds: ids
@@ -283,6 +310,8 @@ export const createMealInput = z.object({
 export const updateMealInput = z.object({
   name: z.string().min(1).max(100).optional(),
   date: date.optional(),
+  slot: daySlot.optional(),
+  hosted: z.boolean().optional(),
   time: time.nullable().optional(),
   kind: kashrut.nullable().optional(),
   personIds: z.array(id).optional().describe('Replace the whole guest list'),

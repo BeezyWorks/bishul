@@ -31,7 +31,6 @@ export function dishName(title: string, version?: string | null): string {
 
 export const NAV = [
   { href: '/', label: 'Plan' },
-  { href: '/calendar', label: 'Calendar' },
   { href: '/recipes', label: 'Recipes' },
   { href: '/shopping', label: 'Shopping' },
   { href: '/prep', label: 'Prep' },

@@ -7,6 +7,7 @@ import { USE_MOCK } from '@/lib/config'
 
 import { realApi } from './real'
 import type {
+  AddDishInput,
   ApiKey,
   CalendarDay,
   Collection,
@@ -16,6 +17,8 @@ import type {
   DisplayPrefs,
   Household,
   HouseholdInfo,
+  HostedMeal,
+  HostedPage,
   HouseholdLocation,
   Id,
   ImportPreview,
@@ -24,10 +27,14 @@ import type {
   Kind,
   Meal,
   MealDetail,
+  MealPatch,
+  MealRecipeSearch,
   MenuItemInput,
+  NewMealInput,
   Occasion,
   PantryList,
   Person,
+  PlanView,
   PrepDay,
   Recipe,
   RecipeFilters,
@@ -75,6 +82,45 @@ export interface BishulApi {
   acceptMeals(mealIds: Id[]): Promise<AcceptResult>
   reopenMeals(mealIds: Id[]): Promise<void>
 
+  // Plan tab: weeks, runs and hosted meals
+  /** The Sunday-to-Saturday week containing `date` (default: today in the household's time zone). */
+  getWeek(date?: ISODate): Promise<PlanView>
+  /** The same shape for any range up to 62 days (the month view). */
+  getPlan(range: { from: ISODate; to: ISODate }): Promise<PlanView>
+  /** A run (`run-2027-04-22`) or a single hosted meal (`meal-<id>`; a run's meal gives its run). */
+  getHosted(key: string): Promise<HostedPage>
+  getHostedMeal(mealId: Id): Promise<HostedMeal>
+  /** Creates the default meal of a holy day (Seder I...) if it does not exist yet; idempotent. */
+  ensureRunMeal(input: {
+    runKey: string
+    holyDate: ISODate
+    part: 'night' | 'day'
+  }): Promise<{ mealId: Id; created: boolean; hostedKey: string }>
+  /** New meal in a slot; the household is in by default. Returns the meal as a hosted row. */
+  createPlanMeal(input: NewMealInput): Promise<HostedMeal>
+  /** Rename, retime, move to another slot or day, or mark hosted. A typed name is kept from then on. */
+  updatePlanMeal(mealId: Id, patch: MealPatch): Promise<HostedMeal>
+  /** Invite a household: all its members come. A guest makes the meal hosted. */
+  addMealHousehold(mealId: Id, householdId: Id): Promise<HostedMeal>
+  removeMealHousehold(mealId: Id, householdId: Id): Promise<HostedMeal>
+  /** Tick (coming) or untick (away) one person. */
+  setMealPerson(mealId: Id, personId: Id, present: boolean): Promise<HostedMeal>
+  addMealDish(mealId: Id, dish: AddDishInput): Promise<HostedMeal>
+  removeMealDish(mealId: Id, itemId: Id): Promise<HostedMeal>
+  /** To a course, before another dish of it (`beforeItemId`) or at the end. */
+  moveMealDish(
+    mealId: Id,
+    itemId: Id,
+    to: { course: string; beforeItemId?: Id },
+  ): Promise<HostedMeal>
+  /** Recipes that pass every attendee's constraints at this meal, and the ones that don't with why. */
+  searchRecipesForMeal(
+    mealId: Id,
+    query: { q?: string; course?: string; limit?: number },
+  ): Promise<MealRecipeSearch>
+  /** A new, empty contact household ("The Roths"); add its members with `addPerson`. */
+  createContactHousehold(name: string): Promise<Household>
+
   // Recipes
   searchRecipes(query: string, filters: RecipeFilters): Promise<RecipeSummary[]>
   getRecipe(recipeId: Id): Promise<Recipe>
@@ -105,6 +151,8 @@ export interface BishulApi {
   }): Promise<Person>
   /** Set a birthday (exact) or an age (estimated); null clears it. */
   setPersonBirth(personId: Id, input: { birthDate: string | null } | { age: number }): Promise<void>
+  /** Whether they can eat spicy food; null goes back to not known. */
+  setPersonSpicy(personId: Id, spicy: 'yes' | 'no' | null): Promise<void>
   addConstraint(personId: Id, constraint: ConstraintInput): Promise<void>
   removeConstraint(personId: Id, constraintId: Id): Promise<void>
   setPersonRules(personId: Id, rules: string[]): Promise<void>

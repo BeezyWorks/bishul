@@ -11,7 +11,6 @@ export function MoreScreen() {
           subtitle="What to do when, for accepted meals"
           href="/prep"
         />
-        <ListRow title="People" subtitle="Your household and contacts" href="/people" />
         <ListRow title="Use soon" subtitle="What to use up before it goes bad" href="/use-soon" />
         <ListRow
           title="Settings"

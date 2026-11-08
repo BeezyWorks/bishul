@@ -42,6 +42,16 @@ const base = () => ({
 const flagSource = ['seed', 'ai', 'user'] as const
 export type FlagSource = (typeof flagSource)[number]
 const dishCategory = ['meat', 'dairy', 'parve'] as const
+/** Mirrors `DAY_SLOTS` in `@bishul/core` (the schema stays free of runtime imports from it). */
+const daySlots = [
+  'breakfast',
+  'kiddush',
+  'brunch',
+  'lunch',
+  'seudah_shlishit',
+  'dinner',
+  'oneg',
+] as const
 
 // ---------------------------------------------------------------------------------------------------------------
 // Households and people (BRIEF §3)
@@ -107,6 +117,8 @@ export const persons = sqliteTable(
     birthDate: text('birth_date'),
     /** True when `birth_date` was estimated from a stated age ("he's 5"), not a real birthday. */
     birthDateApprox: integer('birth_date_approx', { mode: 'boolean' }).notNull().default(false),
+    /** Can they eat spicy food? Null = not known; never assumed from age. */
+    spicy: text('spicy', { enum: ['yes', 'no'] }),
   },
   (t) => [index('persons_household_idx').on(t.householdId), index('persons_user_idx').on(t.userId)],
 )
@@ -433,7 +445,17 @@ export const meals = sqliteTable(
     name: text('name').notNull(),
     /** Minutes after midnight, household time. */
     time: integer('time'),
+    /** Meat / dairy / parve (the meal's own kashrut kind), not where it sits in the day: see `slot`. */
     kind: text('kind', { enum: dishCategory }),
+    /** Where the meal sits in the day (breakfast ... dinner, oneg). Orders meals within a day. */
+    slot: text('slot', { enum: daySlots }).notNull().default('dinner'),
+    /**
+     * A meal with guests, courses, or both: it has a full page. Set when a non-household guest is invited or the
+     * meal is created as hosted. Shabbat and Yom Tov meals are always hosted whether or not this is set.
+     */
+    hosted: integer('hosted', { mode: 'boolean' }).notNull().default(false),
+    /** The name was typed by the user: moving the meal to another day does not rename it. */
+    nameEdited: integer('name_edited', { mode: 'boolean' }).notNull().default(false),
     status: text('status', { enum: ['draft', 'accepted'] })
       .notNull()
       .default('draft'),
@@ -442,6 +464,26 @@ export const meals = sqliteTable(
     settledAt: integer('settled_at'),
   },
   (t) => [index('meals_household_date_idx').on(t.householdId, t.date)],
+)
+
+/**
+ * Which households are on a meal's guest list. Who is actually coming stays in `meal_attendees` (a person with a row
+ * is coming); a household here with none of its members attending is invited but everyone is away. The meal's own
+ * household is always on the list and needs no row. Meals that predate this table list the households of their
+ * attendees.
+ */
+export const mealHouseholds = sqliteTable(
+  'meal_households',
+  {
+    ...base(),
+    mealId: text('meal_id')
+      .notNull()
+      .references(() => meals.id),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => households.id),
+  },
+  (t) => [uniqueIndex('meal_households_uq').on(t.mealId, t.householdId)],
 )
 
 export const mealAttendees = sqliteTable(

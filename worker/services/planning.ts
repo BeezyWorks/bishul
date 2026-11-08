@@ -1,14 +1,22 @@
 import { todayIn } from '@beitecha/engine'
 import {
+  SLOT_LABELS,
   allocatePantry,
+  autoMealName,
   buildDiningBrief,
   buildNeeds,
   buildShoppingList,
   calendarDays,
   portionsFor,
   rankCandidates,
+  hostedRuns,
+  holyDateOfMeal,
+  holyDatesOf,
+  isDaySlot,
+  slotFromTime,
   suggestMenu,
   type CalendarDay,
+  type DaySlot,
   type CourseSlot,
   type DiningBrief,
   type DiningBriefInput,
@@ -37,6 +45,7 @@ import {
   type Db,
 } from './ctx'
 import { householdLocation } from './households'
+import { setPresent, syncHosted } from './mealGuests'
 import { broughtToDish, toDishVersion, versionKashrut, type LoadedVersion } from './mappers'
 import {
   loadEffectivePeople,
@@ -344,6 +353,9 @@ async function mealView(db: Db, actor: Actor, ctx: MealContext) {
     time: meal.time,
     timeText: clock(meal.time),
     kind: meal.kind,
+    slot: meal.slot,
+    hosted: meal.hosted,
+    nameEdited: meal.nameEdited,
     status: meal.status,
     acceptedAt: meal.acceptedAt,
     settled: !!meal.settledAt,
@@ -566,7 +578,14 @@ export interface MealItemInput {
 
 export interface CreateMealInput {
   date: string
-  name: string
+  /** Optional: a meal that is not named is called "Dinner", or for a hosted meal after its day ("Tuesday dinner"). */
+  name?: string
+  /** Where the meal sits in the day. Default: from its time, else dinner. */
+  slot?: DaySlot
+  /** A hosted meal has a full page. Inviting a guest makes a meal hosted too; Shabbat and Yom Tov meals always are. */
+  hosted?: boolean
+  /** Whole guest households to invite (all their members come). */
+  householdIds?: string[]
   /** `18:30` or minutes since midnight. */
   time?: string | number | null
   kind?: MealKind | null
@@ -637,42 +656,94 @@ async function setAttendees(db: Db, actor: Actor, mealId: string, personIds: str
   const ok = await loadAccessiblePersons(db, actor, personIds)
   for (const id of personIds) if (!ok.has(id)) throw notFound('Person')
   const existing = await attendeeRows(db, mealId)
-  const have = new Map(existing.map((e) => [e.personId, e]))
   const want = new Set(personIds)
-  const stmts: unknown[] = []
-  for (const e of existing)
-    if (!want.has(e.personId))
-      stmts.push(
-        db
-          .update(s.mealAttendees)
-          .set({ deletedAt: Date.now() })
-          .where(eq(s.mealAttendees.id, e.id)),
-      )
-  for (const id of want)
-    if (!have.has(id)) stmts.push(db.insert(s.mealAttendees).values({ mealId, personId: id }))
-  await batch(db, stmts)
+  await setPresent(
+    db,
+    mealId,
+    existing.map((e) => e.personId).filter((id) => !want.has(id)),
+    false,
+  )
+  await setPresent(db, mealId, [...want], true)
+}
+
+/** The name a meal without a typed name gets. */
+async function defaultName(
+  db: Db,
+  actor: Actor,
+  date: string,
+  slot: DaySlot,
+  hosted: boolean,
+  inRun: { name: string } | null,
+): Promise<string> {
+  if (inRun) return inRun.name
+  if (!hosted) return SLOT_LABELS[slot]
+  const loc = await householdLocation(db, actor.householdId)
+  return autoMealName(calendarDays(date, date, loc)[0], slot)
 }
 
 export async function createMeal(db: Db, actor: Actor, input: CreateMealInput) {
   if (!isDate(input.date)) throw invalid('date must be YYYY-MM-DD')
-  if (!input.name.trim()) throw invalid('A meal needs a name')
+  if (input.name !== undefined && !input.name.trim()) throw invalid('A meal needs a name')
+  if (input.slot !== undefined && !isDaySlot(input.slot)) throw invalid('Unknown slot')
   const time = parseTime(input.time)
+  const slot = input.slot ?? slotFromTime(time)
+  const loc = await householdLocation(db, actor.householdId)
+  // Shabbat and Yom Tov meals are always hosted; a default meal of the holy day takes its name (Seder I, ...).
+  const runs = hostedRuns(input.date, input.date, loc)
+  const holyDate = holyDateOfMeal({ date: input.date, slot }, holyDatesOf(runs))
+  const holy = holyDate ? runs.flatMap((r) => r.holyDays).find((d) => d.date === holyDate)! : null
+  const part = holy ? (slot === 'dinner' || slot === 'oneg' ? 'night' : 'day') : null
+  const def = holy?.defaultMeals.find((m) => m.part === part && m.slot === slot)
+  const hostIds = await householdPersonIds(db, actor.householdId)
+  const exclude = new Set(input.excludePersonIds ?? [])
+  const guestHouseholds = unique(input.householdIds ?? [])
+  const guestMembers = guestHouseholds.length
+    ? (
+        await inChunks(guestHouseholds, (part2) =>
+          db
+            .select()
+            .from(s.persons)
+            .where(and(inArray(s.persons.householdId, part2), isNull(s.persons.deletedAt))),
+        )
+      ).map((p) => p.id)
+    : []
+  const extra = unique([...(input.personIds ?? []), ...guestMembers])
+  const hasGuests = extra.some((id) => !hostIds.includes(id)) || guestHouseholds.length > 0
+  const hosted = !!holy || !!input.hosted || hasGuests
+  const typed = input.name?.trim()
+  const name =
+    typed ??
+    (await defaultName(
+      db,
+      actor,
+      input.date,
+      slot,
+      hosted,
+      def ? { name: def.name } : holy ? { name: SLOT_LABELS[slot] } : null,
+    ))
   const [meal] = await db
     .insert(s.meals)
     .values({
       householdId: actor.householdId,
       date: input.date,
-      name: input.name.trim(),
+      name,
+      nameEdited: !!typed,
+      slot,
+      hosted,
       time,
       kind: input.kind ?? null,
     })
     .returning()
-  const hostIds = await householdPersonIds(db, actor.householdId)
-  const exclude = new Set(input.excludePersonIds ?? [])
-  const who = input.personIds
-    ? unique([...hostIds.filter((h) => !exclude.has(h)), ...input.personIds])
-    : hostIds.filter((h) => !exclude.has(h))
+  const who = unique([...hostIds.filter((h) => !exclude.has(h)), ...extra])
   await setAttendees(db, actor, meal.id, who)
+  for (const householdId of guestHouseholds) {
+    const [h] = await db
+      .select()
+      .from(s.households)
+      .where(and(eq(s.households.id, householdId), isNull(s.households.deletedAt)))
+    if (!h || h.ghostOfHouseholdId !== actor.householdId) throw notFound('Household')
+    await db.insert(s.mealHouseholds).values({ mealId: meal.id, householdId })
+  }
   if (input.items?.length) await addItems(db, actor, meal.id, input.items)
   return getMeal(db, actor, meal.id)
 }
@@ -680,6 +751,10 @@ export async function createMeal(db: Db, actor: Actor, input: CreateMealInput) {
 export interface UpdateMealInput {
   name?: string
   date?: string
+  /** Where the meal sits in the day. */
+  slot?: DaySlot
+  /** Make the meal hosted (never un-hosts a Shabbat or Yom Tov meal). */
+  hosted?: boolean
   time?: string | number | null
   kind?: MealKind | null
   /** Replace the guest list. */
@@ -723,10 +798,31 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
   if (input.name !== undefined) {
     if (!input.name.trim()) throw invalid('A meal needs a name')
     patch.name = input.name.trim()
+    patch.nameEdited = true
   }
   if (input.date) {
     if (!isDate(input.date)) throw invalid('date must be YYYY-MM-DD')
     patch.date = input.date
+  }
+  if (input.slot !== undefined) {
+    if (!isDaySlot(input.slot)) throw invalid('Unknown slot')
+    patch.slot = input.slot
+  }
+  if (input.hosted !== undefined) patch.hosted = input.hosted
+  // While the name is still the automatic one, a new day or slot renames it.
+  if (
+    input.name === undefined &&
+    !meal.nameEdited &&
+    (patch.date !== undefined || patch.slot !== undefined || patch.hosted !== undefined)
+  ) {
+    const date = patch.date ?? meal.date
+    const slot = (patch.slot ?? meal.slot) as DaySlot
+    const hosted = patch.hosted ?? meal.hosted
+    const loc = await householdLocation(db, actor.householdId)
+    const runs = hostedRuns(date, date, loc)
+    const inRun = holyDateOfMeal({ date, slot }, holyDatesOf(runs)) !== null
+    if (!inRun)
+      patch.name = hosted ? autoMealName(calendarDays(date, date, loc)[0], slot) : SLOT_LABELS[slot]
   }
   if (input.time !== undefined) patch.time = parseTime(input.time)
   if (input.kind !== undefined) patch.kind = input.kind
@@ -749,6 +845,7 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
       unique([...cur, ...(input.addPersonIds ?? [])]).filter((p) => !drop.has(p)),
     )
   }
+  if (input.personIds || input.addPersonIds) await syncHosted(db, actor, mealId)
   if (input.removeItemIds?.length)
     await db
       .update(s.mealItems)

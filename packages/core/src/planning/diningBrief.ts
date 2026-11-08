@@ -390,6 +390,8 @@ function tagLabel(tag: ConstraintTag): string {
       return tag.value.replace(/_/g, ' ')
     case 'sourcing':
       return STANDARD_LABEL[tag.value]
+    case 'trait':
+      return 'no spicy food'
   }
 }
 
@@ -550,6 +552,22 @@ function dishLevelChecks(ctx: Ctx, dish: DishVersion, kind: MealKind | null) {
           ingredients: ai,
           text: `${personName} (${tag.value} allergy): ${dish.title} passes, but the allergen data for ${listJoin(ai)} was filled in by AI. Check the labels.`,
         })
+    }
+  }
+  // Spicy dishes: only for people who are known not to eat spicy. Unknown tolerance is never assumed.
+  if ((dish.flags ?? []).includes('spicy')) {
+    for (const p of ctx.input.attendees) {
+      if (p.spicy !== 'no') continue
+      eatAround.push({
+        dishId: dish.id,
+        dishTitle: dish.title,
+        personId: p.id,
+        personName: p.name,
+        tag: { type: 'trait', value: 'spicy' },
+        ingredients: [],
+        verdict: 'unknown',
+        text: `${p.name} doesn't eat spicy food, and ${dish.title} is marked spicy`,
+      })
     }
   }
   return { exclusions, eatAround, ruleViolations, aiWarnings, dishIssues }

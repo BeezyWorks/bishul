@@ -1,125 +1,105 @@
-import { useLocalSearchParams } from 'expo-router'
-import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
+import React, { useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { Badge, Button, Card, Loading, Pill, Screen, Text, TextField } from '@/components'
+import { Loading, Pill, Screen, Text } from '@/components'
 import { api } from '@/lib/api/client'
-import { stale, useApiMutation, useMeal } from '@/lib/api/hooks'
-import type { Meal } from '@/lib/api/types'
-import { longDate } from '@/lib/dates'
-import { colors, space } from '@/theme/tokens'
+import { useHostedMeal } from '@/lib/api/hooks'
+import { hostedHref, planHref } from '@/lib/plan'
+import { space } from '@/theme/tokens'
 
-import { DishesStep } from './DishesStep'
-import { ReviewStep } from './ReviewStep'
-import { WhoStep } from './WhoStep'
+import { CheckStep } from './CheckStep'
+import { GuestsStep } from './GuestsStep'
+import { MenuStep } from './MenuStep'
 
-const STEPS = ['Who’s coming', 'Dishes', 'Review'] as const
+const STEPS = [
+  { key: 'guests', label: 'Who’s coming' },
+  { key: 'menu', label: 'Menu' },
+  { key: 'check', label: 'Check' },
+] as const
+type StepKey = (typeof STEPS)[number]['key']
 
+const asStep = (s: string | undefined): StepKey | null =>
+  STEPS.some((x) => x.key === s) ? (s as StepKey) : null
+
+/** The wizard plans ONE meal: who's coming, its menu, then the check. Finishing lands on the hosted page. */
 export function MealScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
-  const { data, isLoading, error } = useMeal(id)
-  const [step, setStep] = useState(0)
-  const [editing, setEditing] = useState(false)
+  const { id, step: stepParam } = useLocalSearchParams<{ id: string; step?: string }>()
+  const router = useRouter()
+  const meal = useHostedMeal(id)
+  const runKey = meal.data?.runKey ?? null
+  const run = useQuery({
+    queryKey: ['hosted', runKey],
+    queryFn: () => api.getHosted(runKey!),
+    enabled: !!runKey,
+  })
+  const [step, setStep] = useState<StepKey>(asStep(stepParam) ?? 'guests')
+  // A meal that already has dishes goes to its page, unless a step was asked for. Decided once, on first load.
+  const redirected = useRef(false)
 
-  if (error)
+  if (meal.error)
     return (
-      <Screen title="Meal not found" back={{ label: 'Plan', href: '/' }}>
+      <Screen title="Meal not found" back={{ label: 'Plan', href: planHref() }}>
         <Text>We could not find that meal.</Text>
       </Screen>
     )
-  if (isLoading || !data)
+  if (meal.isLoading || !meal.data)
     return (
       <Screen>
         <Loading />
       </Screen>
     )
 
-  const { meal } = data
+  const m = meal.data
+  if (!redirected.current) {
+    redirected.current = true
+    if (m.planned && !asStep(stepParam)) {
+      router.replace(hostedHref(m.hostedKey) as Href)
+      return (
+        <Screen>
+          <Loading />
+        </Screen>
+      )
+    }
+  }
+
+  const holyDay = run.data?.days.find((d) => d.date === m.holyDate)?.label
+  const crumb = m.runKey && run.data ? [run.data.title, holyDay].filter(Boolean).join(' › ') : ''
+  const index = STEPS.findIndex((s) => s.key === step)
+  const finish = () => router.replace(hostedHref(m.hostedKey) as Href)
+
   return (
     <Screen
-      back={{ label: 'Plan', href: '/' }}
-      eyebrow={[longDate(meal.date), data.occasionLabel].filter(Boolean).join(' · ')}
-      title={meal.name}
-      subtitle={meal.time ? `At ${meal.time}` : undefined}
-      actions={
-        <View style={styles.actions}>
-          <Button
-            label="Edit name and time"
-            variant="secondary"
-            small
-            onPress={() => setEditing(true)}
-          />
-          <Badge
-            label={meal.status === 'accepted' ? 'Accepted' : 'Draft'}
-            tone={meal.status === 'accepted' ? 'accent' : 'muted'}
-          />
-        </View>
-      }
+      back={{ label: 'Plan', href: planHref() }}
+      eyebrow={crumb || undefined}
+      title={`Plan ${m.name}`}
     >
-      {editing ? <EditMeal meal={meal} onDone={() => setEditing(false)} /> : null}
       <View style={styles.steps} accessibilityRole="tablist">
         {STEPS.map((s, i) => (
-          <Pill key={s} label={`${i + 1}. ${s}`} selected={i === step} onPress={() => setStep(i)} />
+          <Pill
+            key={s.key}
+            label={`${i + 1} · ${s.label}`}
+            selected={s.key === step}
+            onPress={() => setStep(s.key)}
+          />
         ))}
       </View>
-      {step === 0 ? <WhoStep detail={data} /> : null}
-      {step === 1 ? <DishesStep detail={data} /> : null}
-      {step === 2 ? <ReviewStep detail={data} /> : null}
-      <View style={styles.nav}>
-        {step > 0 ? (
-          <Button label="Back" variant="secondary" onPress={() => setStep(step - 1)} />
-        ) : (
-          <View />
-        )}
-        {step < 2 ? (
-          <Button label={`Next: ${STEPS[step + 1]}`} onPress={() => setStep(step + 1)} />
-        ) : null}
-      </View>
+      {step === 'guests' ? (
+        <GuestsStep meal={m} onNext={() => setStep('menu')} />
+      ) : step === 'menu' ? (
+        <MenuStep
+          meal={m}
+          onBack={() => setStep(STEPS[index - 1].key)}
+          onNext={() => setStep('check')}
+        />
+      ) : (
+        <CheckStep meal={m} onBack={() => setStep('menu')} onFinish={finish} />
+      )}
     </Screen>
   )
 }
 
-function EditMeal({ meal, onDone }: { meal: Meal; onDone: () => void }) {
-  const [name, setName] = useState(meal.name)
-  const [time, setTime] = useState(meal.time)
-  const save = useApiMutation(
-    (c: { name: string; time: string }) => api.updateMealDetails(meal.id, c),
-    stale.accept,
-  )
-  const submit = async () => {
-    if (!name.trim()) return
-    await save.mutateAsync({ name, time })
-    onDone()
-  }
-  return (
-    <Card>
-      <View style={styles.editRow}>
-        <TextField label="Meal name" value={name} onChangeText={setName} onSubmitEditing={submit} />
-        <View style={styles.timeField}>
-          <TextField
-            label="Time (24-hour)"
-            value={time}
-            onChangeText={setTime}
-            placeholder="18:30"
-            onSubmitEditing={submit}
-          />
-        </View>
-        <Button label="Save" disabled={!name.trim()} loading={save.isPending} onPress={submit} />
-        <Button label="Cancel" variant="ghost" onPress={onDone} />
-      </View>
-      {save.error ? (
-        <Text color={colors.danger} accessibilityRole="alert">
-          {(save.error as Error).message}
-        </Text>
-      ) : null}
-    </Card>
-  )
-}
-
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  editRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: space.sm },
-  timeField: { width: 130, flexGrow: 0 },
   steps: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  nav: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md },
 })

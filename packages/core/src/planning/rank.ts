@@ -293,7 +293,11 @@ export function rankCandidates(
     }
 
     // Kids at the table: dishes tagged as kid favourites rise.
-    const kidFit = kids.length ? dish.occasionFit?.[w.kidsDimension] : undefined
+    const kidFit =
+      kids.length === 0
+        ? undefined
+        : (dish.occasionFit?.[w.kidsDimension] ??
+          (dish.flags?.includes('kid_friendly') ? ('good' as const) : undefined))
     if (kidFit) {
       const who = kids.length === 1 ? kids[0].name : 'the kids'
       add({

@@ -28,10 +28,14 @@ import type { AcceptResult, BishulApi } from './client'
 import { http } from './http'
 import type {
   Course,
+  HostedMeal,
+  HostedPage,
   HouseholdInfo,
   Id,
   Kind,
   MealDetail,
+  MealRecipeSearch,
+  PlanView,
   PrepDay,
   Reaction,
   VersionEdit,
@@ -74,6 +78,7 @@ function versionBody(e: VersionEdit) {
     ...(e.cost !== undefined && { cost: costOut(e.cost) }),
     ...(e.serving !== undefined && { servingStyle: e.serving.replace(' ', '_') }),
     ...(e.holdsOnBlech !== undefined && { holdsOnBlech: e.holdsOnBlech }),
+    ...(e.flags !== undefined && { flags: e.flags }),
     ...(e.description !== undefined && { description: e.description }),
     ...(e.ingredients && {
       ingredients: e.ingredients
@@ -389,6 +394,41 @@ export const realApi: BishulApi = {
   },
 
   // ---- People ----
+  // ---- Plan tab ----
+  getWeek: (date) => http.get<PlanView>('/week', { date }),
+  getPlan: ({ from, to }) => http.get<PlanView>('/plan', { from, to }),
+  getHosted: (key) => http.get<HostedPage>(`/hosted/${key}`),
+  getHostedMeal: (id) => http.get<HostedMeal>(`/meals/${id}/hosted`),
+  ensureRunMeal: (input) =>
+    http.post<{ mealId: Id; created: boolean; hostedKey: string }>('/hosted/ensure-meal', input),
+  createPlanMeal: async (input) => {
+    const { time, ...rest } = input
+    const created = await http.post<{ meal: { id: Id } }>('/meals', {
+      ...rest,
+      ...(time?.trim() && { time: time.trim() }),
+    })
+    return http.get<HostedMeal>(`/meals/${created.meal.id}/hosted`)
+  },
+  updatePlanMeal: async (id, { time, ...rest }) => {
+    await http.patch(`/meals/${id}`, {
+      ...rest,
+      ...(time !== undefined && { time: time.trim() || null }),
+    })
+    return http.get<HostedMeal>(`/meals/${id}/hosted`)
+  },
+  addMealHousehold: (id, householdId) =>
+    http.post<HostedMeal>(`/meals/${id}/households`, { householdId }),
+  removeMealHousehold: (id, householdId) =>
+    http.delete<HostedMeal>(`/meals/${id}/households/${householdId}`),
+  setMealPerson: (id, personId, present) =>
+    http.put<HostedMeal>(`/meals/${id}/people/${personId}`, { present }),
+  addMealDish: (id, dish) => http.post<HostedMeal>(`/meals/${id}/dishes`, dish),
+  removeMealDish: (id, itemId) => http.delete<HostedMeal>(`/meals/${id}/dishes/${itemId}`),
+  moveMealDish: (id, itemId, to) => http.post<HostedMeal>(`/meals/${id}/dishes/${itemId}/move`, to),
+  searchRecipesForMeal: (id, query) => http.get<MealRecipeSearch>(`/meals/${id}/recipes`, query),
+  createContactHousehold: async (name) =>
+    adaptContact(await http.post<ServerPeople['contacts'][number]>('/contacts', { name })),
+
   getHousehold: async () => adaptHousehold((await people()).household),
   getContacts: async () => (await people()).contacts.map(adaptContact),
 
@@ -417,6 +457,10 @@ export const realApi: BishulApi = {
 
   setPersonBirth: async (personId, input) => {
     await http.patch(`/people/${personId}`, input)
+  },
+
+  setPersonSpicy: async (personId, spicy) => {
+    await http.patch(`/people/${personId}`, { spicy })
   },
 
   addConstraint: async (personId, c) => {

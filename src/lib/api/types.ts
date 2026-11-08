@@ -73,6 +73,8 @@ export interface Person {
   birthDate?: ISODate
   /** The birthday was estimated from a stated age; ask for the real one when convenient. */
   birthDateApprox?: boolean
+  /** Can they eat spicy food? Unset means not known; never assumed from age. */
+  spicy?: 'yes' | 'no'
   constraints: Constraint[]
   /** Linked ghost: the real user's profile, live. */
   link?: { profileName: string; mode: 'merge' | 'overwrite' }
@@ -532,6 +534,8 @@ export interface VersionEdit {
   cost?: Cost
   serving?: RecipeVersion['serving']
   holdsOnBlech?: boolean
+  /** Hand-set dish flags (`spicy`, `kid_friendly`). Send the full set; it replaces the old one. */
+  flags?: Record<string, boolean>
   description?: string
   ingredients?: { text: string; section?: string }[]
   steps?: {
@@ -568,3 +572,310 @@ export const PERIODS: { id: string; label: string }[] = [
   { id: 'aseret_yemei_teshuva', label: 'Aseret Yemei Teshuva' },
   { id: 'nine_days', label: 'The Nine Days' },
 ]
+
+// ---- Plan tab: weeks, runs and hosted meals (docs/plan-redesign-contract.md) ----
+// These mirror what the worker returns for GET /week, /plan and /hosted/:key. No adapting: the server shapes them.
+
+/** Where a meal sits in the day. Orders meals within a day. */
+export type DaySlot =
+  'breakfast' | 'kiddush' | 'brunch' | 'lunch' | 'seudah_shlishit' | 'dinner' | 'oneg'
+
+export interface Headcount {
+  adults: number
+  children: number
+  total: number
+}
+
+/** A constraint as short text. Strict allergies are `strictAllergy` (danger color). */
+export interface ConstraintLabel {
+  text: string
+  strictAllergy: boolean
+  strict: boolean
+}
+
+export interface DayHoliday {
+  name: string
+  kind: 'jewish' | 'civil'
+}
+
+export interface MealProblemCounts {
+  allergies: number
+  gaps: number
+  other: number
+  total: number
+}
+
+/** A meal as a tile: enough for a week cell, a run tile or a folded row. */
+export interface MealCard {
+  /** Null for a default meal of a holy day that does not exist yet (`virtual`): create it with `create`. */
+  id: Id | null
+  virtual: boolean
+  create: { date: ISODate; slot: DaySlot; name: string } | null
+  date: ISODate
+  slot: DaySlot
+  slotLabel: string
+  name: string
+  nameEdited: boolean
+  /** Minutes after midnight. */
+  time: number | null
+  /** 24-hour `HH:MM`. */
+  timeText: string | null
+  status: 'draft' | 'accepted'
+  kind: Kind | null
+  /** Has a full page: flagged, in a run, or has a guest from another household. */
+  hosted: boolean
+  /** `run-2027-04-22` when the meal belongs to a run of Shabbat / Yom Tov days. */
+  runKey: string | null
+  /** Open `/hosted/${hostedKey}`. */
+  hostedKey: string
+  /** The holy day (its date) and part of it: `night` is the evening that starts it. */
+  holyDate: ISODate | null
+  part: 'night' | 'day' | null
+  /** Dish titles of the main course (else the first course with dishes) in menu order. Empty: "Not planned". */
+  summary: string[]
+  itemCount: number
+  planned: boolean
+  headcount: Headcount
+  /** `2 adults, 1 child` */
+  headcountText: string
+  /** `Jochanan away` */
+  awayText: string
+  guestHouseholds: number
+  hasGuests: boolean
+  problems: MealProblemCounts
+}
+
+export interface WeekDay {
+  date: ISODate
+  /** 0 = Sunday. */
+  weekday: number
+  isToday: boolean
+  hebrew: string
+  parasha: string | null
+  holidays: DayHoliday[]
+  isShabbat: boolean
+  isYomTov: boolean
+  isCholHamoed: boolean
+  isErevShabbat: boolean
+  isErevYomTov: boolean
+  /** Minutes and text (`4:21`) of the candle lighting that starts tomorrow's holy day. */
+  candleLighting: { minutes: number; text: string } | null
+  havdalah: { minutes: number; text: string } | null
+  /** Set when this day is a holy day of a run: the run's tile is shown, not meal cells. */
+  holyDay: { runKey: string; label: string } | null
+  /** Tonight's holy-day meal: replaces this day's dinner slot with a "Plan Seder I →" link. */
+  eve: {
+    runKey: string
+    holyDate: ISODate
+    mealName: string
+    holyDayLabel: string
+    /** The meal if it exists already (then link to its page), else null (use `ensureRunMeal`). */
+    meal: MealCard | null
+  } | null
+  /** Weekday meals of this date, in order. Meals that belong to a run are in the run, not here. */
+  meals: MealCard[]
+}
+
+export interface RunHolyDay {
+  date: ISODate
+  /** The civil day before: the evening that starts this holy day. */
+  eveDate: ISODate
+  /** `Pesach I`, `Pesach II`, `Shabbat`, `Shvi'i shel Pesach`... */
+  label: string
+  isShabbat: boolean
+  isYomTov: boolean
+  isCholHamoed: boolean
+  /** Evening meal first. Default meals that are not created yet are `virtual`. */
+  meals: MealCard[]
+}
+
+export interface RunSummary {
+  /** `run-2027-04-22` */
+  key: string
+  /** `Pesach · first days`, `Shabbat Toldot` */
+  title: string
+  from: ISODate
+  to: ISODate
+  /** The civil date of the first night. */
+  startsOn: ISODate
+  holyDays: RunHolyDay[]
+  mealCount: number
+  toPlan: number
+  problems: { allergies: number; gaps: number; total: number }
+}
+
+export interface PlanView {
+  today: ISODate
+  from: ISODate
+  to: ISODate
+  location: { timeZone: string; israel: boolean }
+  parasha: string | null
+  days: WeekDay[]
+  runs: RunSummary[]
+}
+
+export interface GuestMember {
+  personId: Id
+  name: string
+  isChild: boolean
+  /** Ticked = coming. */
+  present: boolean
+  constraints: ConstraintLabel[]
+}
+
+export interface GuestHousehold {
+  householdId: Id
+  name: string
+  /** Your own household: always on the list, not removable. */
+  isHost: boolean
+  members: GuestMember[]
+  counts: Headcount
+  countsText: string
+  awayText: string
+  /** Everyone's constraints combined, strict allergies first. */
+  constraints: ConstraintLabel[]
+  removable: boolean
+}
+
+export interface MealProblem {
+  kind: 'allergy' | 'exclusion' | 'rule' | 'meal' | 'gap'
+  severity: 'error' | 'warning'
+  text: string
+  dishId?: Id
+  dishTitle?: string
+  /** Menu items to highlight and offer "Replace dish" on. */
+  itemIds: Id[]
+  personId?: Id
+  personName?: string
+  course?: string
+}
+
+export interface MealProblems {
+  problems: MealProblem[]
+  aiNotes: { dishId: Id; dishTitle: string; itemIds: Id[]; text: string }[]
+  unchecked: { dishId: Id; title: string; by: string; itemIds: Id[] }[]
+  counts: MealProblemCounts
+}
+
+export interface HostedMenuItem {
+  itemId: Id
+  position: number
+  course: string | null
+  title: string
+  recipeId: Id | null
+  versionId: Id | null
+  versionTitle: string | null
+  kashrut: Kind | null
+  /** Typed in, with no recipe (or brought by a guest). */
+  noRecipe: boolean
+  broughtBy: string | null
+  problems: MealProblem[]
+}
+
+export interface HostedCourse {
+  /** `starter`, `main`, `dessert`, or custom. The defaults are always present, empty or not. */
+  course: string
+  label: string
+  items: HostedMenuItem[]
+}
+
+export interface HostedMeal extends MealCard {
+  menu: HostedCourse[]
+  households: GuestHousehold[]
+  problemDetails: MealProblems
+  /** Food notes for the printed menu ("peanut-free meal"): never names. */
+  foodNotes: string[]
+  disclaimer: string
+}
+
+export interface HostedHolyDay {
+  date: ISODate
+  /** Empty for a single weekday meal. */
+  label: string
+  isShabbat: boolean
+  isYomTov: boolean
+  meals: HostedMeal[]
+}
+
+export type HostedFix = MealProblem & { mealId: Id | null; mealName: string; dayLabel: string }
+
+export interface HostedPage {
+  key: string
+  type: 'run' | 'meal'
+  title: string
+  from: ISODate
+  to: ISODate
+  startsOn: ISODate
+  today: ISODate
+  location: { timeZone: string; israel: boolean }
+  paper: 'letter' | 'a4'
+  days: HostedHolyDay[]
+  totals: { meals: number; toPlan: number; withGuests: number; withProblems: number }
+  fixes: HostedFix[]
+  disclaimer: string
+}
+
+export interface NewMealInput {
+  date: ISODate
+  /** Leave out to name it after its day. */
+  name?: string
+  slot?: DaySlot
+  /** 24-hour "18:30". */
+  time?: string
+  hosted?: boolean
+  /** Guest households to invite (all their members come). */
+  householdIds?: Id[]
+}
+
+export interface MealPatch {
+  name?: string
+  /** 24-hour "18:30"; empty string clears it. */
+  time?: string
+  slot?: DaySlot
+  date?: ISODate
+  hosted?: boolean
+}
+
+export interface AddDishInput {
+  /** `starter`, `main`, `dessert` or a custom course. */
+  course: string
+  /** A recipe version… */
+  versionId?: Id
+  /** …or a dish without a recipe. */
+  description?: string
+  kashrut?: Kind
+  broughtBy?: string
+  servings?: number
+}
+
+export interface MealRecipeHit {
+  recipeId: Id
+  versionId: Id
+  title: string
+  versionTitle: string
+  course: string | null
+  kashrut: Kind
+  /** `pareve · fits everyone` */
+  note: string
+  /** Why it does not fit; empty when it does. */
+  why: string[]
+  failsFor: { personId: Id; personName: string }[]
+  eatAround: string[]
+  aiWarnings: string[]
+}
+
+export interface MealRecipeSearch {
+  mealId: Id
+  attendees: { personId: Id; name: string }[]
+  fits: MealRecipeHit[]
+  excluded: MealRecipeHit[]
+  total: number
+  disclaimer: string
+}
+
+/** A household as the guest search sees it (build the list with `useGuestPool()`). */
+export interface PickableHousehold {
+  id: Id
+  name: string
+  members: { id: Id; name: string; isChild: boolean; constraints: ConstraintLabel[] }[]
+}

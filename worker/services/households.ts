@@ -124,6 +124,7 @@ export async function getHousehold(db: Db, actor: Actor) {
       name: p.name,
       isChild: p.isChild,
       birthDate: p.birthDate,
+      spicy: p.spicy,
       age: p.birthDate ? ageOn(p.birthDate, todayIn((loc ?? DEFAULT_LOCATION).timeZone)) : null,
       userId: p.userId,
     })),

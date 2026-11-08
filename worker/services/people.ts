@@ -145,7 +145,13 @@ export async function loadEffectivePeople(
     const age = acc.person.birthDate ? ageOn(acc.person.birthDate, day) : null
     result.push({
       person: mergePrivateLayer(
-        { id, name: acc.person.name, ...(age !== null && { age }), constraints: base },
+        {
+          id,
+          name: acc.person.name,
+          ...(age !== null && { age }),
+          ...(acc.person.spicy && { spicy: acc.person.spicy }),
+          constraints: base,
+        },
         additions,
       ),
       access: acc,
@@ -291,6 +297,7 @@ export async function loadPersonViews(db: Db, actor: Actor, personIds: string[])
       birthDate: acc.person.birthDate,
       birthDateApprox: acc.person.birthDateApprox,
       age: acc.person.birthDate ? ageOn(acc.person.birthDate, today) : null,
+      spicy: acc.person.spicy,
       userId: acc.person.userId,
       householdId: acc.household.id,
       householdName: acc.household.name,
@@ -419,6 +426,8 @@ export interface SavePersonInput {
   birthDate?: string | null
   /** A stated age ("he's 5") when the birthday isn't known: stored as an estimated birth date. Ignored if birthDate is given. */
   age?: number | null
+  /** Whether they can eat spicy food; null clears it back to "not known". */
+  spicy?: 'yes' | 'no' | null
   /** Put a new person in this contact household (one you created). Omit for your own household. */
   contactHouseholdId?: string
   /** Create a new contact household with this name (a ghost) and put the person in it. */
@@ -456,6 +465,7 @@ export async function savePerson(db: Db, actor: Actor, input: SavePersonInput) {
     if (input.name) patch.name = input.name
     if (input.isChild !== undefined) patch.isChild = input.isChild
     if (birth) Object.assign(patch, birth)
+    if (input.spicy !== undefined) patch.spicy = input.spicy
     if (Object.keys(patch).length)
       await db.update(s.persons).set(patch).where(eq(s.persons.id, input.id))
     if (input.renameHousehold && acc.relation === 'ghost')
@@ -495,6 +505,7 @@ export async function savePerson(db: Db, actor: Actor, input: SavePersonInput) {
       isChild:
         input.isChild ?? (birth?.birthDate ? (ageOn(birth.birthDate, today) ?? 99) < 18 : false),
       ...birth,
+      ...(input.spicy && { spicy: input.spicy }),
     })
     .returning({ id: s.persons.id })
   return (await getPerson(db, actor, p.id)).person
@@ -506,6 +517,20 @@ export async function deletePerson(db: Db, actor: Actor, personId: string) {
     throw forbidden('A signed-in member cannot be deleted; use leave household.')
   await db.update(s.persons).set({ deletedAt: Date.now() }).where(eq(s.persons.id, personId))
   return { deleted: true }
+}
+
+/** A new contact household with no people yet ("the Roths"): add its members with savePerson. */
+export async function createContactHousehold(db: Db, actor: Actor, name: string) {
+  const [g] = await db
+    .insert(s.households)
+    .values({
+      ownerUserId: actor.userId,
+      name: name.trim(),
+      isGhost: true,
+      ghostOfHouseholdId: actor.householdId,
+    })
+    .returning({ id: s.households.id, name: s.households.name })
+  return { id: g.id, name: g.name, people: [] as unknown[] }
 }
 
 export async function deleteContactHousehold(db: Db, actor: Actor, householdId: string) {
