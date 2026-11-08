@@ -428,6 +428,8 @@ function VersionView({
         ))}
       </Card>
 
+      {v.nutrition ? <NutritionCard n={v.nutrition} servings={v.servings} /> : null}
+
       <Card>
         <SectionHeader title="Edit history" hint="Versions are mutable; every change is kept." />
         {v.history.map((h) => (
@@ -437,6 +439,49 @@ function VersionView({
         ))}
       </Card>
     </View>
+  )
+}
+
+function NutritionCard({
+  n,
+  servings,
+}: {
+  n: NonNullable<RecipeVersion['nutrition']>
+  servings: number
+}) {
+  const rows: [string, number | undefined, string][] = [
+    ['Calories', n.calories, ''],
+    ['Protein', n.proteinG, ' g'],
+    ['Carbs', n.carbsG, ' g'],
+    ['Fat', n.fatG, ' g'],
+    ['Fiber', n.fiberG, ' g'],
+    ['Sugar', n.sugarG, ' g'],
+    ['Sodium', n.sodiumMg, ' mg'],
+  ]
+  const shown = rows.filter(([, val]) => val != null)
+  if (!shown.length) return null
+  return (
+    <Card>
+      <SectionHeader
+        title="Nutrition"
+        hint={`${n.perServing === false ? 'For the whole recipe' : 'Per serving'}${
+          n.source === 'ai' ? ' · estimated by AI, treat as approximate' : ''
+        } · makes ${servings}`}
+      />
+      <View style={styles.wrapRow}>
+        {shown.map(([label, val, unit]) => (
+          <View key={label} style={{ minWidth: 88 }}>
+            <Text variant="bodyStrong">
+              {Math.round(val as number)}
+              {unit}
+            </Text>
+            <Text variant="small" color={colors.muted}>
+              {label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </Card>
   )
 }
 

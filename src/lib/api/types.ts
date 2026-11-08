@@ -186,6 +186,18 @@ export interface PrePrep {
   passive: boolean
 }
 
+export interface NutritionInfo {
+  perServing?: boolean
+  calories?: number
+  proteinG?: number
+  carbsG?: number
+  fatG?: number
+  fiberG?: number
+  sugarG?: number
+  sodiumMg?: number
+  source?: 'ai' | 'user'
+}
+
 export interface RecipeVersion {
   id: Id
   recipeId: Id
@@ -204,6 +216,7 @@ export interface RecipeVersion {
   equipment: { name: string; designation: Kind | 'pesach' }[]
   flags: string[]
   cost: Cost
+  nutrition?: NutritionInfo
   occasionFit: OccasionFit[]
   source?: { label: string; url: string }
   pesachFriendly: boolean

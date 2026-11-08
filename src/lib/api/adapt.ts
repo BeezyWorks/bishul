@@ -26,6 +26,7 @@ import {
   type MealDetail,
   type MealItem,
   type MealPerson,
+  type NutritionInfo,
   type MealReview,
   type Occasion,
   type OccasionDay,
@@ -698,6 +699,7 @@ interface ServerVersion {
   holdsOnBlech: boolean | null
   easyToDeliver: boolean | null
   cost: number | null
+  nutrition?: NutritionInfo | null
   prePrep: { step: string; lead_minutes: number }[]
   steps: {
     text: string
@@ -791,6 +793,7 @@ export function adaptVersion(
       .filter(([, f]) => f?.value)
       .map(([k]) => k),
     cost: costIn(v.cost),
+    nutrition: v.nutrition ?? undefined,
     occasionFit: v.dimensions.map((d) => ({
       dimension: d.name,
       fit: FIT_FROM[d.fit] ?? 'fine',
