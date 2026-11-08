@@ -33,7 +33,10 @@ export function RunTile({
       accessibilityRole="link"
       accessibilityLabel={`${run.title}, ${plural(run.mealCount, 'meal', 'meals')}${run.toPlan ? `, ${run.toPlan} to plan` : ''}. Open`}
       onPress={() => router.push(hostedHref(run.key) as Href)}
-      style={({ hovered }: { hovered?: boolean }) => [styles.tile, hovered && styles.hover]}
+      style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [
+        styles.tile,
+        hovered && styles.hover,
+      ]}
     >
       <View style={styles.head}>
         <Text numberOfLines={2} style={styles.title}>
