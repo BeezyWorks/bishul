@@ -135,7 +135,9 @@ export function EditVersion({
         // Keep each step's timer when its text is unchanged.
         steps: st.map((x) => {
           const was = version.steps.find((o) => o.text === x.text)
-          return was?.timerSec ? { ...x, timerMin: was.timerSec / 60 } : x
+          return was?.timerSec
+            ? { ...x, timerMin: was.timerSec / 60, timerLabel: was.timerLabel }
+            : x
         }),
       }),
       ...nutritionEdit(),

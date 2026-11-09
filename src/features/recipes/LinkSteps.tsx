@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { Button, Card, Pill, SectionHeader, Text, TextField } from '@/components'
+import { Button, Card, Pill, SectionHeader, Text } from '@/components'
 import { useSaveVersion } from '@/lib/api/hooks'
 import type { Id, RecipeVersion, VersionEdit } from '@/lib/api/types'
 import { SHARES, portionLabel } from '@/lib/units'
 import { colors, space } from '@/theme/tokens'
+
+import { TimerEditor, snapMinutes, type StepTimerValue } from './TimerEditor'
 
 /** step id -> ingredient id -> share of it (1 = all) */
 type Links = Record<Id, Record<Id, number>>
@@ -35,10 +37,12 @@ export function LinkSteps({
     ),
   )
 
-  /** step id -> timer minutes as typed ('' = none) */
-  const [timers, setTimers] = useState<Record<Id, string>>(() =>
+  const [timers, setTimers] = useState<Record<Id, StepTimerValue>>(() =>
     Object.fromEntries(
-      version.steps.map((s) => [s.id, s.timerSec ? String(round(s.timerSec / 60)) : '']),
+      version.steps.map((s) => [
+        s.id,
+        { min: s.timerSec ? snapMinutes(s.timerSec / 60) : 0, label: s.timerLabel ?? '' },
+      ]),
     ),
   )
 
@@ -62,7 +66,10 @@ export function LinkSteps({
       steps: version.steps.map((s) => ({
         text: s.text,
         section: s.section,
-        ...(Number(timers[s.id]) > 0 && { timerMin: Number(timers[s.id]) }),
+        ...(timers[s.id].min > 0 && {
+          timerMin: timers[s.id].min,
+          ...(timers[s.id].label.trim() && { timerLabel: timers[s.id].label.trim() }),
+        }),
         uses: Object.entries(links[s.id] ?? {})
           .filter(([id]) => index.has(id))
           .map(([id, p]) => ({ line: index.get(id)!, ...(p < 1 && { portion: p }) }))
@@ -87,12 +94,9 @@ export function LinkSteps({
           <Text variant="bodyStrong">
             {n + 1}. <Text>{s.text}</Text>
           </Text>
-          <TextField
-            label="Timer (minutes)"
-            value={timers[s.id] ?? ''}
-            onChangeText={(t) => setTimers((cur) => ({ ...cur, [s.id]: t.replace(/[^0-9.]/g, '') }))}
-            keyboardType="decimal-pad"
-            placeholder="No timer"
+          <TimerEditor
+            value={timers[s.id]}
+            onChange={(v) => setTimers((cur) => ({ ...cur, [s.id]: v }))}
           />
           <View style={styles.row}>
             {version.ingredients.map((l) => (

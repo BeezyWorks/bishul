@@ -359,6 +359,7 @@ export type StepInput =
   | {
       text: string
       timerMinutes?: number
+      timerLabel?: string
       section?: string | null
       /** Ingredients the step uses: names from the ingredient list, or 0-based positions in it. */
       uses?: UseInput[]
@@ -448,6 +449,7 @@ function versionPatch(
       return {
         text: x.text.trim(),
         ...(x.timerMinutes && { timer_minutes: x.timerMinutes }),
+        ...(x.timerMinutes && x.timerLabel?.trim() && { timer_label: x.timerLabel.trim() }),
         ...(section && { section }),
         ...(x.uses && { uses: x.uses as never }),
       }

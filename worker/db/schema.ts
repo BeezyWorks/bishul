@@ -256,6 +256,8 @@ export type RecipeStep = {
   text: string
   timer_minutes?: number
   section?: string
+  /** What the timer is for ("Rest the dough"); cooking mode falls back to "Step N". */
+  timer_label?: string
   /** The ingredient lines this step uses. */
   uses?: StepUse[]
 }

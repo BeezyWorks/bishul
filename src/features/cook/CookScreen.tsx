@@ -203,7 +203,7 @@ export function CookScreen() {
                 timerActions.start({
                   versionId: version.id,
                   stepIndex: i,
-                  label: `Step ${i + 1}`,
+                  label: step.timerLabel || `Step ${i + 1}`,
                   totalSec: step.timerSec!,
                   recipeTitle: recipe.title,
                   scale,

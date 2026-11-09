@@ -135,7 +135,17 @@ export const stepInput = z.union([
   z.string(),
   z.object({
     text: z.string(),
-    timerMinutes: z.number().optional(),
+    timerMinutes: z
+      .number()
+      .positive()
+      .max(1440)
+      .optional()
+      .describe('Cooking-mode timer for this step, in minutes (half minutes are fine: 0.5).'),
+    timerLabel: z
+      .string()
+      .max(60)
+      .optional()
+      .describe('Optional short name for the timer ("Rest the dough"); defaults to the step number.'),
     section: sectionName.nullable().optional(),
     uses: z
       .array(

@@ -109,6 +109,7 @@ function versionBody(e: VersionEdit) {
           text: s.text.trim(),
           section: s.section ?? null,
           ...(s.timerMin && { timerMinutes: s.timerMin }),
+          ...(s.timerMin && s.timerLabel && { timerLabel: s.timerLabel }),
           ...(s.uses && {
             uses: s.uses.map((u) => ({ ingredient: u.line, portion: u.portion })),
           }),

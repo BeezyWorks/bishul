@@ -155,6 +155,8 @@ export interface RecipeStep {
   id: Id
   text: string
   timerSec?: number
+  /** What the timer is for; absent means "Step N". */
+  timerLabel?: string
   ingredientIds: Id[]
   /** Share (0-1) of an ingredient this step uses when its amount is divided between steps; absent means all. */
   portions?: Record<Id, number>
@@ -603,6 +605,7 @@ export interface VersionEdit {
     section?: string
     /** Cooking-mode timer in minutes. Always send it when rewriting steps, or the timer is lost. */
     timerMin?: number
+    timerLabel?: string
     /** Ingredient lines (0-based positions in the ingredient list). Omit to keep the step's current links. */
     uses?: { line: number; portion?: number }[]
   }[]

@@ -47,7 +47,7 @@ interface SnapshotVersion {
   cost: number | null
   nutrition: s.Nutrition | null
   prePrep: { step: string; leadMinutes: number }[]
-  steps: { text: string; timerMinutes?: number; section?: string; uses?: s.StepUse[] }[]
+  steps: { text: string; timerMinutes?: number; timerLabel?: string; section?: string; uses?: s.StepUse[] }[]
   flags: Record<string, boolean>
   equipment: { item: string; designation: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions: { name: string; fit: string }[]
@@ -83,6 +83,7 @@ function snapshotVersion(
     steps: (x.steps ?? []).map((st) => ({
       text: st.text,
       ...(st.timer_minutes && { timerMinutes: st.timer_minutes }),
+      ...(st.timer_label && { timerLabel: st.timer_label }),
       ...(st.section && { section: st.section }),
       ...(st.uses?.length && { uses: st.uses }),
     })),

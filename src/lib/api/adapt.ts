@@ -706,6 +706,7 @@ interface ServerVersion {
   steps: {
     text: string
     timer_minutes?: number
+    timer_label?: string
     section?: string
     uses?: { line: number; portion?: number }[]
   }[]
@@ -812,6 +813,7 @@ export function adaptVersion(
       id: `${v.id}:${i}`,
       text: s.text,
       timerSec: s.timer_minutes ? Math.round(s.timer_minutes * 60) : undefined,
+      timerLabel: s.timer_minutes && s.timer_label ? s.timer_label : undefined,
       ingredientIds: (s.uses ?? []).flatMap((u) =>
         ingredients[u.line] ? [ingredients[u.line].id] : [],
       ),
