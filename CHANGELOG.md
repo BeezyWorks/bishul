@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/BeezyWorks/bishul/compare/v2.2.0...v2.2.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **app:** set the App Store Connect app id and team for TestFlight submits ([3362e7f](https://github.com/BeezyWorks/bishul/commit/3362e7f5012b8a8308cde2acef7af5dc50f3a12a))
+
 # [2.2.0](https://github.com/BeezyWorks/bishul/compare/v2.1.0...v2.2.0) (2026-11-09)
 
 
