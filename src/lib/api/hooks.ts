@@ -15,7 +15,9 @@ import type {
   MealPatch,
   NewMealInput,
   PickableHousehold,
+  Recipe,
   RecipeFilters,
+  VersionEdit,
 } from './types'
 
 export const useUpcoming = () =>
@@ -220,6 +222,44 @@ export function useApiMutation<A, R>(fn: (arg: A) => Promise<R>, keys: QueryKey[
   })
 }
 
+/**
+ * A mutation that shows its result straight away: `apply` edits the cached `key` before the request goes
+ * out, and a failure puts back what the server has. When the server answers with the new data (`fromResult`),
+ * that goes into the cache instead of a refetch. The other `keys` refresh in the background, once the last of
+ * a quick run of changes (several boxes ticked in a row) has landed, so a refetch never undoes a pending tap.
+ */
+export function useOptimisticMutation<A, R, T>(opts: {
+  fn: (arg: A) => Promise<R>
+  key: QueryKey
+  apply: (old: T, arg: A) => T
+  fromResult?: (r: R) => T
+  keys?: QueryKey[]
+}) {
+  const qc = useQueryClient()
+  const { key, apply, fromResult, keys = [] } = opts
+  const mutationKey = ['optimistic', ...key]
+  const last = () => qc.isMutating({ mutationKey }) <= 1
+  return useMutation({
+    mutationKey,
+    mutationFn: opts.fn,
+    onMutate: async (arg: A) => {
+      await qc.cancelQueries({ queryKey: key })
+      qc.setQueryData<T>(key, (old) => (old === undefined ? old : apply(old, arg)))
+    },
+    onSuccess: (r) => {
+      if (fromResult && last()) qc.setQueryData<T>(key, fromResult(r))
+    },
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: key })
+    },
+    onSettled: (_r, err) => {
+      if (!last()) return
+      const refresh = fromResult && !err ? keys : [key, ...keys]
+      void invalidate(qc, refresh)
+    },
+  })
+}
+
 // ---- Plan tab mutations. Each returns the changed meal as a hosted row, where the server sends one. ----
 
 /** Create a meal in a slot (name optional, hosted optional, guest households optional). */
@@ -280,3 +320,35 @@ export const useMoveMealDish = () =>
 /** A new empty contact household, for the last row of the household search. */
 export const useCreateContactHousehold = () =>
   useApiMutation((name: string) => api.createContactHousehold(name), stale.people)
+
+/**
+ * A version edit as the recipe page will show it once saved. Ingredients and steps are left for the server
+ * (it structures them), so only the plain fields change here; the refetch after the save fills in the rest.
+ */
+export function applyVersionEdit(old: Recipe, versionId: Id, edit: VersionEdit): Recipe {
+  const { recipeTitle, course, flags, nutrition, ingredients: _i, steps: _s, ...plain } = edit
+  return {
+    ...old,
+    ...(recipeTitle !== undefined && { title: recipeTitle }),
+    ...(course !== undefined && { course }),
+    versions: old.versions.map((v) =>
+      v.id !== versionId
+        ? v
+        : {
+            ...v,
+            ...plain,
+            ...(flags && { flags: Object.keys(flags).filter((f) => flags[f]) }),
+            ...(nutrition !== undefined && { nutrition: nutrition ?? undefined }),
+          },
+    ),
+  }
+}
+
+/** Saves an edit to a version of `recipeId`; the recipe page shows it at once. */
+export const useSaveVersion = (recipeId: Id) =>
+  useOptimisticMutation({
+    fn: (a: { versionId: Id; edit: VersionEdit }) => api.saveVersion(a.versionId, a.edit),
+    key: ['recipe', recipeId],
+    apply: (old: Recipe, a) => applyVersionEdit(old, a.versionId, a.edit),
+    keys: stale.recipes.filter(([k]) => k !== 'recipe'),
+  })

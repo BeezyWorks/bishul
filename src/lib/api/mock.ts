@@ -1085,19 +1085,19 @@ export const mockApi: TavshilApi = {
   setShoppingChecked: async (id, checked) => {
     if (checked) shop.checked.add(id)
     else shop.checked.delete(id)
-    return delay(undefined)
+    return delay(shoppingLines())
   },
   setShoppingOrder: async (ids) => {
     shop.order = ids
-    return delay(undefined)
+    return delay(shoppingLines())
   },
   removeShoppingLine: async (id) => {
     shop.custom = shop.custom.filter((l) => l.id !== id)
-    return delay(undefined)
+    return delay(shoppingLines())
   },
   addShoppingLine: async (name) => {
     shop.custom.push({ id: nextId('sl-custom'), name, need: '', checked: false, custom: true })
-    return delay(undefined)
+    return delay(shoppingLines())
   },
 
   getPrepSchedule: async () => {

@@ -17,11 +17,19 @@ import {
   TextField,
 } from '@/components'
 import { api } from '@/lib/api/client'
-import { stale, useApiMutation, usePerson, useRecipe, useRecipes } from '@/lib/api/hooks'
+import {
+  stale,
+  useApiMutation,
+  useOptimisticMutation,
+  usePerson,
+  useRecipe,
+  useRecipes,
+} from '@/lib/api/hooks'
 import {
   PERIODS,
   PERSON_RULES,
   type Constraint,
+  type Household,
   type ConstraintInput,
   type ConstraintTagInput,
   type Person,
@@ -77,11 +85,23 @@ export function PersonScreen() {
     (input: { birthDate: string | null } | { age: number }) => api.setPersonBirth(id, input),
     stale.people,
   )
-  const setSpicy = useApiMutation(
-    (v: 'yes' | 'no' | null) => api.setPersonSpicy(id, v),
-    stale.people,
-  )
-  const setRules = useApiMutation((r: string[]) => api.setPersonRules(id, r), stale.people)
+  type PersonData = { person: Person; household: Household }
+  const editPerson = (old: PersonData, patch: Partial<Person>): PersonData => ({
+    ...old,
+    person: { ...old.person, ...patch },
+  })
+  const setSpicy = useOptimisticMutation({
+    fn: (v: 'yes' | 'no' | null) => api.setPersonSpicy(id, v),
+    key: ['person', id],
+    apply: (old: PersonData, v) => editPerson(old, { spicy: v ?? undefined }),
+    keys: stale.people,
+  })
+  const setRules = useOptimisticMutation({
+    fn: (r: string[]) => api.setPersonRules(id, r),
+    key: ['person', id],
+    apply: (old: PersonData, rules) => editPerson(old, { rules }),
+    keys: stale.people,
+  })
   if (isLoading || !data)
     return (
       <Screen>

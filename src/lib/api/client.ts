@@ -180,11 +180,11 @@ export interface TavshilApi {
 
   // Shopping, prep, pantry
   getShoppingList(): Promise<ShoppingLine[]>
-  setShoppingChecked(lineId: Id, checked: boolean): Promise<void>
+  setShoppingChecked(lineId: Id, checked: boolean): Promise<ShoppingLine[]>
   /** The full order of the lines as shown. */
-  setShoppingOrder(lineIds: Id[]): Promise<void>
-  addShoppingLine(name: string): Promise<void>
-  removeShoppingLine(lineId: Id): Promise<void>
+  setShoppingOrder(lineIds: Id[]): Promise<ShoppingLine[]>
+  addShoppingLine(name: string): Promise<ShoppingLine[]>
+  removeShoppingLine(lineId: Id): Promise<ShoppingLine[]>
   getPrepSchedule(): Promise<PrepDay[]>
   getPantry(): Promise<PantryList>
   /** The use-soon list: `expires` is required unless the item is chametz. */

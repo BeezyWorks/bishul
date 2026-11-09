@@ -2,9 +2,8 @@ import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { Button, Card, Pill, SectionHeader, Text, TextField } from '@/components'
-import { api } from '@/lib/api/client'
-import { stale, useApiMutation } from '@/lib/api/hooks'
-import type { Id, RecipeVersion } from '@/lib/api/types'
+import { useSaveVersion } from '@/lib/api/hooks'
+import type { Id, RecipeVersion, VersionEdit } from '@/lib/api/types'
 import { SHARES, portionLabel } from '@/lib/units'
 import { colors, space } from '@/theme/tokens'
 
@@ -56,9 +55,10 @@ export function LinkSteps({
       return { ...cur, [stepId]: step }
     })
 
-  const save = useApiMutation(async () => {
+  const save = useSaveVersion(version.recipeId)
+  const edit = (): VersionEdit => {
     const index = new Map(version.ingredients.map((l, i) => [l.id, i]))
-    await api.saveVersion(version.id, {
+    return {
       steps: version.steps.map((s) => ({
         text: s.text,
         section: s.section,
@@ -68,8 +68,8 @@ export function LinkSteps({
           .map(([id, p]) => ({ line: index.get(id)!, ...(p < 1 && { portion: p }) }))
           .sort((a, b) => a.line - b.line),
       })),
-    })
-  }, stale.recipes)
+    }
+  }
 
   return (
     <Card tone="subtle">
@@ -151,7 +151,7 @@ export function LinkSteps({
           label="Save links"
           loading={save.isPending}
           onPress={async () => {
-            await save.mutateAsync(undefined)
+            await save.mutateAsync({ versionId: version.id, edit: edit() })
             onDone()
           }}
         />

@@ -117,6 +117,12 @@ function versionBody(e: VersionEdit) {
   }
 }
 
+/** Every shopping edit answers with the whole updated list, so the screen needs no second fetch. */
+const patchShopping = async (body: object) =>
+  adaptShopping(
+    (await http.patch<{ lines: Parameters<typeof adaptShopping>[0] }>('/shopping', body)).lines,
+  )
+
 const TAG_TYPE_OUT = {
   allergen: 'allergen',
   ingredient: 'ingredient',
@@ -560,21 +566,10 @@ export const realApi: TavshilApi = {
       (await http.get<{ lines: Parameters<typeof adaptShopping>[0] }>('/shopping')).lines,
     ),
 
-  setShoppingChecked: async (key, checked) => {
-    await http.patch('/shopping', { check: [{ key, checked }] })
-  },
-
-  setShoppingOrder: async (order) => {
-    await http.patch('/shopping', { order })
-  },
-
-  addShoppingLine: async (name) => {
-    await http.patch('/shopping', { addManual: [name] })
-  },
-
-  removeShoppingLine: async (key) => {
-    await http.patch('/shopping', { removeKeys: [key] })
-  },
+  setShoppingChecked: (key, checked) => patchShopping({ check: [{ key, checked }] }),
+  setShoppingOrder: (order) => patchShopping({ order }),
+  addShoppingLine: (name) => patchShopping({ addManual: [name] }),
+  removeShoppingLine: (key) => patchShopping({ removeKeys: [key] }),
 
   getPrepSchedule: async (): Promise<PrepDay[]> => {
     const { today } = await http.get<HouseholdInfo>('/household')

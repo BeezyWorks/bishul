@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native'
 
 import { Button, Card, Pill, SectionHeader, Segmented, Text, TextField } from '@/components'
 import { api } from '@/lib/api/client'
-import { stale, useApiMutation, useTags } from '@/lib/api/hooks'
+import { stale, useApiMutation, useSaveVersion, useTags } from '@/lib/api/hooks'
 import {
   COURSES,
   type Course,
@@ -11,6 +11,7 @@ import {
   type NutritionInfo,
   type Recipe,
   type RecipeVersion,
+  type VersionEdit,
 } from '@/lib/api/types'
 import { fromEditorText, sameLines, toEditorText } from '@/lib/sections'
 import { COURSE_LABEL } from '@/lib/strings'
@@ -114,10 +115,10 @@ export function EditVersion({
     return { nutrition: { ...next, perServing: !wholeRecipe, source: 'user' } }
   }
 
-  const save = useApiMutation(async () => {
+  const buildEdit = () => {
     const ing = fromEditorText(ingredients)
     const st = fromEditorText(steps)
-    const edit = {
+    const edit: VersionEdit = {
       ...(!variation && recipeTitle.trim() !== recipe.title && { recipeTitle: recipeTitle.trim() }),
       ...(course !== recipe.course && { course }),
       ...(kind !== version.kind && { kind }),
@@ -139,13 +140,31 @@ export function EditVersion({
       }),
       ...nutritionEdit(),
     }
-    if (variation) return api.createVariation(version.id, label.trim(), edit)
-    await api.saveVersion(version.id, {
-      ...edit,
-      ...(label.trim() && label.trim() !== version.label && { label: label.trim() }),
-    })
-    return version.id
-  }, stale.recipes)
+    return edit
+  }
+  const create = useApiMutation(
+    (edit: VersionEdit) => api.createVariation(version.id, label.trim(), edit),
+    stale.recipes,
+  )
+  // Waits only for the write: the page already shows the edit, and the refetch runs behind it.
+  const update = useSaveVersion(recipe.id)
+  const save = variation ? create : update
+  const submit = async () => {
+    const edit = buildEdit()
+    try {
+      if (variation) return onDone(await create.mutateAsync(edit))
+      await update.mutateAsync({
+        versionId: version.id,
+        edit: {
+          ...edit,
+          ...(label.trim() && label.trim() !== version.label && { label: label.trim() }),
+        },
+      })
+      onDone(version.id)
+    } catch {
+      // The error shows above the buttons; the form stays open so nothing typed is lost.
+    }
+  }
 
   const ready = (variation ? !!label.trim() : !!recipeTitle.trim()) && (num(servings) ?? 0) > 0
   return (
@@ -285,7 +304,7 @@ export function EditVersion({
           label={variation ? 'Save variation' : 'Save changes'}
           disabled={!ready}
           loading={save.isPending}
-          onPress={async () => onDone(await save.mutateAsync(undefined))}
+          onPress={submit}
         />
         <Button label="Cancel" variant="ghost" onPress={onCancel} />
       </View>

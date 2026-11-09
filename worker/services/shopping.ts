@@ -15,7 +15,7 @@ import { loadCatalog, nameKey } from './catalog'
 import { clock, invalid, notFound, type Actor, type Db } from './ctx'
 import { householdLocation } from './households'
 import { displayCategory } from './mappers'
-import { buildContext, settlePassedMeals } from './planning'
+import { buildContexts, settlePassedMeals } from './planning'
 import { corePantry, mealsInRange, nextChametzCutoff, planMeals } from './plans'
 import { getPrefs } from './prefs'
 
@@ -32,22 +32,34 @@ export async function getShoppingList(
   actor: Actor,
   input: { from?: string; to?: string } = {},
 ) {
-  await settlePassedMeals(db, actor.householdId)
   const loc = await householdLocation(db, actor.householdId)
+  await settlePassedMeals(db, actor.householdId, { loc })
   const today = todayIn(loc.timeZone)
   const from = input.from ?? today
   const to = input.to ?? addDaysStr(from, 30)
   const meals = await mealsInRange(db, actor.householdId, from, to, 'accepted')
-  const plan = await planMeals(db, actor.householdId, meals)
-  const pantry = await corePantry(db, actor.householdId)
-  const prefs = (await getPrefs(db, actor)).display
+  // Independent reads, in parallel: each one is a round trip to D1.
+  const [plan, pantry, prefsAll, { contexts }, stored, catalog] = await Promise.all([
+    planMeals(db, actor.householdId, meals),
+    corePantry(db, actor.householdId),
+    getPrefs(db, actor),
+    buildContexts(db, actor, meals, { loc }),
+    db
+      .select()
+      .from(s.shoppingList)
+      .where(
+        and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)),
+      )
+      .orderBy(asc(s.shoppingList.position)),
+    loadCatalog(db, actor.householdId),
+  ])
+  const prefs = prefsAll.display
   const cutoff = nextChametzCutoff(loc, today)
   const computed = buildShoppingList(plan.planned, { pantry, chametzCutoff: cutoff, prefs })
 
   // Sourcing notes ("buy chalav Yisrael butter"), from each meal's dining brief.
   const sourcing = new Map<string, Set<string>>()
-  for (const meal of meals) {
-    const ctx = await buildContext(db, actor, meal)
+  for (const ctx of contexts.values()) {
     for (const n of buildDiningBrief(ctx.input).sourcingNotes)
       for (const ing of n.ingredients) {
         const k = nameKey(ing)
@@ -56,15 +68,9 @@ export async function getShoppingList(
       }
   }
 
-  const stored = await db
-    .select()
-    .from(s.shoppingList)
-    .where(and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)))
-    .orderBy(asc(s.shoppingList.position))
   const rowOf = new Map(stored.filter((r) => r.ingredientId).map((r) => [r.ingredientId!, r]))
   const fmt = (q: Quantity, name: string, density: number | null) =>
     formatQuantity(q, prefs, { category: displayCategory(name), density }).text
-  const catalog = await loadCatalog(db, actor.householdId)
 
   const lines = computed.map((l) => {
     const row = rowOf.get(l.ingredientId)
@@ -148,11 +154,15 @@ export interface ShoppingUpdate {
 }
 
 export async function updateShoppingList(db: Db, actor: Actor, input: ShoppingUpdate) {
-  const stored = await db
-    .select()
-    .from(s.shoppingList)
-    .where(and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)))
-  const catalog = await loadCatalog(db, actor.householdId)
+  const [stored, catalog] = await Promise.all([
+    db
+      .select()
+      .from(s.shoppingList)
+      .where(
+        and(eq(s.shoppingList.householdId, actor.householdId), isNull(s.shoppingList.deletedAt)),
+      ),
+    loadCatalog(db, actor.householdId),
+  ])
   let nextPos = stored.reduce((n, r) => Math.max(n, r.position + 1), 0)
   const byKey = new Map<string, (typeof stored)[number]>()
   for (const r of stored) byKey.set(r.ingredientId ? `ing:${r.ingredientId}` : `manual:${r.id}`, r)

@@ -2,8 +2,7 @@ import React, { useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { Button, Pill, Text, TextField } from '@/components'
-import { api } from '@/lib/api/client'
-import { stale, useApiMutation } from '@/lib/api/hooks'
+import { useSaveVersion } from '@/lib/api/hooks'
 import type { Cost, Difficulty, RecipeVersion, VersionEdit } from '@/lib/api/types'
 import { formatMinutes } from '@/lib/units'
 import { colors, radius, space } from '@/theme/tokens'
@@ -20,14 +19,11 @@ const SERVINGS: RecipeVersion['serving'][] = ['hot', 'room temperature', 'cold']
  */
 export function EditableTiles({ v, scale }: { v: RecipeVersion; scale: number }) {
   const [open, setOpen] = useState<Field | null>(null)
-  const save = useApiMutation((edit: VersionEdit) => api.saveVersion(v.id, edit), stale.recipes)
-  const commit = async (edit: VersionEdit, close = true) => {
-    try {
-      await save.mutateAsync(edit)
-      if (close) setOpen(null)
-    } catch {
-      // The error shows under the tiles; the editor stays open so nothing typed is lost.
-    }
+  const save = useSaveVersion(v.recipeId)
+  // The tile shows the new value at once; if the save fails it goes back and the error shows below.
+  const commit = (edit: VersionEdit, close = true) => {
+    save.mutate({ versionId: v.id, edit })
+    if (close) setOpen(null)
   }
   const close = () => setOpen(null)
 
@@ -54,7 +50,6 @@ export function EditableTiles({ v, scale }: { v: RecipeVersion; scale: number })
             label="Servings the recipe makes"
             value={v.servings}
             step={1}
-            busy={save.isPending}
             onSave={(servings) => commit({ servings })}
             onCancel={close}
           />,
@@ -67,7 +62,6 @@ export function EditableTiles({ v, scale }: { v: RecipeVersion; scale: number })
             label="Hands-on minutes"
             value={v.activeMin}
             step={5}
-            busy={save.isPending}
             onSave={(activeMin) => commit({ activeMin })}
             onCancel={close}
           />,
@@ -80,7 +74,6 @@ export function EditableTiles({ v, scale }: { v: RecipeVersion; scale: number })
             label="Total minutes"
             value={v.totalMin}
             step={5}
-            busy={save.isPending}
             onSave={(totalMin) => commit({ totalMin })}
             onCancel={close}
           />,
@@ -186,14 +179,12 @@ function NumberEditor({
   label,
   value,
   step,
-  busy,
   onSave,
   onCancel,
 }: {
   label: string
   value: number
   step: number
-  busy: boolean
   onSave: (n: number) => void
   onCancel: () => void
 }) {
@@ -236,7 +227,7 @@ function NumberEditor({
         />
       </View>
       <View style={styles.row}>
-        <Button label="Save" small disabled={!valid} loading={busy} onPress={submit} />
+        <Button label="Save" small disabled={!valid} onPress={submit} />
         <Button label="Cancel" small variant="ghost" onPress={onCancel} />
       </View>
     </View>

@@ -13,20 +13,44 @@ import {
   TextField,
 } from '@/components'
 import { api } from '@/lib/api/client'
-import { stale, useApiMutation, useShopping } from '@/lib/api/hooks'
+import { useOptimisticMutation, useShopping } from '@/lib/api/hooks'
 import type { ShoppingLine } from '@/lib/api/types'
 import { colors, space } from '@/theme/tokens'
 
 export function ShoppingScreen() {
   const { data, isLoading } = useShopping()
   const [name, setName] = useState('')
-  const check = useApiMutation(
-    (a: { id: string; checked: boolean }) => api.setShoppingChecked(a.id, a.checked),
-    stale.shopping,
-  )
-  const order = useApiMutation((ids: string[]) => api.setShoppingOrder(ids), stale.shopping)
-  const add = useApiMutation((n: string) => api.addShoppingLine(n), stale.shopping)
-  const del = useApiMutation((id: string) => api.removeShoppingLine(id), stale.shopping)
+  const check = useOptimisticMutation({
+    fn: (a: { id: string; checked: boolean }) => api.setShoppingChecked(a.id, a.checked),
+    key: ['shopping'],
+    apply: (old: ShoppingLine[], a) =>
+      old.map((l) => (l.id === a.id ? { ...l, checked: a.checked } : l)),
+    fromResult: (lines) => lines,
+  })
+  const order = useOptimisticMutation({
+    fn: (ids: string[]) => api.setShoppingOrder(ids),
+    key: ['shopping'],
+    apply: (old: ShoppingLine[], ids) => {
+      const at = new Map(ids.map((id, i) => [id, i]))
+      return [...old].sort((a, b) => (at.get(a.id) ?? 1e9) - (at.get(b.id) ?? 1e9))
+    },
+    fromResult: (lines) => lines,
+  })
+  const add = useOptimisticMutation({
+    fn: (n: string) => api.addShoppingLine(n),
+    key: ['shopping'],
+    apply: (old: ShoppingLine[], n) => [
+      ...old,
+      { id: `pending:${n}`, name: n, need: '', checked: false, custom: true },
+    ],
+    fromResult: (lines) => lines,
+  })
+  const del = useOptimisticMutation({
+    fn: (id: string) => api.removeShoppingLine(id),
+    key: ['shopping'],
+    apply: (old: ShoppingLine[], id) => old.filter((l) => l.id !== id),
+    fromResult: (lines) => lines,
+  })
   const moveTo = (id: string, to: number) => {
     const ids = (data ?? []).map((l) => l.id)
     const i = ids.indexOf(id)
@@ -36,7 +60,7 @@ export function ShoppingScreen() {
   }
   const submit = async () => {
     if (!name.trim()) return
-    await add.mutateAsync(name.trim())
+    add.mutate(name.trim())
     setName('')
   }
   const left = (data ?? []).filter((l) => !l.checked).length
