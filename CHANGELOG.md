@@ -1,3 +1,24 @@
+# [2.5.0](https://github.com/BeezyWorks/tavshil/compare/v2.4.0...v2.5.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **app:** set the App Store Connect app id for Tavshil ([321c243](https://github.com/BeezyWorks/tavshil/commit/321c243c90c1adde7baadcae3f71d2767782ffe6))
+* rename deploy script to deploy:prod (pnpm deploy is a built-in) ([17d3344](https://github.com/BeezyWorks/tavshil/commit/17d334479406b54b1b36b4f4ba8c07a77521c4d2))
+
+
+### Features
+
+* **app:** simplify the meal editor, instant recipe list, Hebrew-only day label ([be80aae](https://github.com/BeezyWorks/tavshil/commit/be80aae7d45a77d761be423927dc7a21abc1a1f4))
+* spicy and kid friendly are tags; add a tag from the recipe page ([c9d99d9](https://github.com/BeezyWorks/tavshil/commit/c9d99d99f3bbb0abafa2a54ebda2f97733938cca))
+* timer editing in the link editor, tell the MCP to set step timers ([0501ebf](https://github.com/BeezyWorks/tavshil/commit/0501ebf0194f75e37c6ac7ca3c0f72f62b3fbd20))
+* timer label and half-minute stepper in the link editor ([2a18be1](https://github.com/BeezyWorks/tavshil/commit/2a18be1d832416019e750455db8db7a7560e9f06))
+
+
+### Performance Improvements
+
+* optimistic updates and a faster shopping list ([10dd75e](https://github.com/BeezyWorks/tavshil/commit/10dd75eb37cbc38411275a6d241cf1f97a9ae875))
+
 # [2.4.0](https://github.com/BeezyWorks/bishul/compare/v2.3.0...v2.4.0) (2026-11-09)
 
 
