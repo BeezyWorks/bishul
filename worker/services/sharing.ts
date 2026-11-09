@@ -30,7 +30,7 @@ interface SnapshotIngredient {
   } | null
 }
 
-interface SnapshotVersion {
+export interface SnapshotVersion {
   title: string
   description: string | null
   sourceLinks: { url: string; label?: string }[]
@@ -47,7 +47,13 @@ interface SnapshotVersion {
   cost: number | null
   nutrition: s.Nutrition | null
   prePrep: { step: string; leadMinutes: number }[]
-  steps: { text: string; timerMinutes?: number; timerLabel?: string; section?: string; uses?: s.StepUse[] }[]
+  steps: {
+    text: string
+    timerMinutes?: number
+    timerLabel?: string
+    section?: string
+    uses?: s.StepUse[]
+  }[]
   flags: Record<string, boolean>
   equipment: { item: string; designation: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions: { name: string; fit: string }[]
@@ -59,7 +65,7 @@ interface SnapshotVersion {
   parentIndex: number | null
 }
 
-function snapshotVersion(
+export function snapshotVersion(
   v: Awaited<ReturnType<typeof loadVersions>> extends Map<string, infer V> ? V : never,
 ): SnapshotVersion {
   const x = v.version
@@ -128,7 +134,7 @@ export interface ShareInput {
 }
 
 /** The recipe content of a version or dish link, built from the recipe as it is now; null if it is gone. */
-async function recipeSnapshot(
+export async function recipeSnapshot(
   db: Db,
   householdId: string,
   kind: 'version' | 'dish',
@@ -333,7 +339,7 @@ export async function getShared(db: Db, token: string) {
   return { kind: row.kind, ...(row.snapshot as object) }
 }
 
-function toInput(v: SnapshotVersion): SaveRecipeInput {
+export function toInput(v: SnapshotVersion): SaveRecipeInput {
   const ingredients: IngredientInput[] = v.ingredients.map((i) => ({
     text: i.original,
     section: i.section,
@@ -395,15 +401,28 @@ export async function saveShared(db: Db, actor: Actor, token: string) {
   if (shared.kind === 'profile')
     throw invalid('This is a profile link. Use link_contact on a contact to link it.')
   const versions = shared.kind === 'version' ? [shared.version!] : shared.versions!
+  return importSnapshots(db, actor, shared.recipe!.title, versions)
+}
+
+/** Creates a recipe in the actor's household from snapshot versions, keeping each version's lineage and parent. */
+export async function importSnapshots(
+  db: Db,
+  actor: Actor,
+  recipeTitle: string,
+  versions: SnapshotVersion[],
+  sourcePublicRecipeId?: string,
+) {
   const created: string[] = []
   let recipeId: string | undefined
   for (let i = 0; i < versions.length; i++) {
     const v = versions[i]
     const res = await saveRecipe(db, actor, {
       ...toInput(v),
-      ...(recipeId ? { recipeId } : { recipeTitle: shared.recipe!.title }),
+      ...(recipeId ? { recipeId } : { recipeTitle }),
     })
     recipeId = res.version.recipeId
+    if (i === 0 && sourcePublicRecipeId)
+      await db.update(s.recipes).set({ sourcePublicRecipeId }).where(eq(s.recipes.id, recipeId))
     await db
       .update(s.recipeVersions)
       .set({

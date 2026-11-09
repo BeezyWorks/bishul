@@ -145,7 +145,9 @@ export const stepInput = z.union([
       .string()
       .max(60)
       .optional()
-      .describe('Optional short name for the timer ("Rest the dough"); defaults to the step number.'),
+      .describe(
+        'Optional short name for the timer ("Rest the dough"); defaults to the step number.',
+      ),
     section: sectionName.nullable().optional(),
     uses: z
       .array(
@@ -242,7 +244,7 @@ export const versionFields = {
     .max(12)
     .optional()
     .describe(
-      "Free-form keywords people can search and filter by: cuisine, flavor, source, anything (e.g. spicy, italian, from Savta, one pot). Call list_tags first and reuse a matching tag where one fits; new ones are fine. Not for occasion (use dimensions), course, form or meat/dairy/parve, which have their own fields. Tags never affect allergy or kashrut checks, but two tags mean something to the planner: \"spicy\" (flagged for guests who can't eat spicy food) and \"kid friendly\" (a dish kids will eat, like schnitzel nuggets or plain rice; favoured when kids are coming). Replaces the version's tags; at most 12, each at most 30 characters.",
+      'Free-form keywords people can search and filter by: cuisine, flavor, source, anything (e.g. spicy, italian, from Savta, one pot). Call list_tags first and reuse a matching tag where one fits; new ones are fine. Not for occasion (use dimensions), course, form or meat/dairy/parve, which have their own fields. Tags never affect allergy or kashrut checks, but two tags mean something to the planner: "spicy" (flagged for guests who can\'t eat spicy food) and "kid friendly" (a dish kids will eat, like schnitzel nuggets or plain rice; favoured when kids are coming). Replaces the version\'s tags; at most 12, each at most 30 characters.',
     ),
   ingredients: z.array(ingredientInput).optional(),
 }
@@ -417,3 +419,19 @@ export const coursePlan = z
   .array(z.object({ course: z.string(), count: z.number().int().positive().optional() }))
   .optional()
   .describe('Courses to fill, in serving order. Default: a main, two sides, a salad, a dessert.')
+
+export const publicSearchInput = z.object({
+  q: searchInput.shape.q,
+  course: z.string().optional(),
+  kashrut: kashrut.optional(),
+  difficulty: difficulty.optional(),
+  maxCost: int.optional(),
+  maxMinutes: int.optional(),
+  tags: searchInput.shape.tags,
+  sort: z
+    .enum(['relevance', 'popular', 'top_rated', 'newest', 'a_z', 'quickest'])
+    .optional()
+    .describe('Default: relevance with text, popular (saves and ratings) without'),
+  limit: int.optional(),
+  offset: int.optional(),
+})

@@ -56,6 +56,7 @@ import {
 } from './mappers'
 import { loadEffectivePeople, householdPersonIds, recordReaction, requirePerson } from './people'
 import { getPrefs } from './prefs'
+import { originalOf, syncPublic } from './publicRecipes'
 import { foldDishFlags, isLegacyDishFlag, normalizeTags, tagKey } from './tags'
 import { wordVariants } from './translit'
 
@@ -332,6 +333,8 @@ export async function getRecipe(db: Db, actor: Actor, recipeId: string) {
     id: recipe.id,
     title: recipe.title,
     ownerUserId: recipe.ownerUserId,
+    /** Set when this is a copy saved from a public recipe: the link back to the original. */
+    original: await originalOf(db, recipe.id),
     versions: vrows.map((v) => versionView(loaded.get(v.id)!, prefs.display)),
   }
 }
@@ -854,7 +857,10 @@ export async function saveRecipe(
 
   if (input.versionId) {
     const cur = await requireVersion(db, actor, input.versionId)
-    input = foldDishFlags(input, cur.tags.map((t) => t.tag))
+    input = foldDishFlags(
+      input,
+      cur.tags.map((t) => t.tag),
+    )
     if (input.servings === null) throw invalid(NEEDS_SERVINGS)
     if (input.nutrition !== undefined)
       patch.nutrition = storedNutrition(input.nutrition, input.servings ?? cur.version.servings)
@@ -950,6 +956,7 @@ export async function saveRecipe(
       ...(linesChanged && { ingredients: { before: linesBefore, after: linesAfter } }),
       ...extra,
     })
+    await syncPublic(db, cur.recipe.id)
     const fresh = await requireVersion(db, actor, cur.version.id)
     return {
       created: false,
@@ -1007,6 +1014,7 @@ export async function saveRecipe(
   })
   await replaceChildren(db, actor, versionId, input, built)
   await writeEdit(db, actor, versionId, 'Created', { created: true })
+  await syncPublic(db, recipeId)
   const fresh = await requireVersion(db, actor, versionId)
   return {
     created: true,
@@ -1030,6 +1038,7 @@ export async function deleteVersion(db: Db, actor: Actor, versionId: string) {
     stmts.push(db.update(s.recipes).set({ deletedAt: now }).where(eq(s.recipes.id, v.recipe.id)))
   await db.batch(stmts as never)
   await writeEdit(db, actor, versionId, 'Deleted', { deleted: true })
+  await syncPublic(db, v.recipe.id)
   return { deleted: true }
 }
 
@@ -1049,7 +1058,10 @@ export async function saveVariation(
   input: SaveVariationInput,
 ): Promise<SaveRecipeResult> {
   const src = await requireVersion(db, actor, input.fromVersionId)
-  input = foldDishFlags(input, src.tags.map((t) => t.tag))
+  input = foldDishFlags(
+    input,
+    src.tags.map((t) => t.tag),
+  )
   const sourceKind: s.FlagSource = actor.via === 'web' ? 'user' : 'ai'
   const catalog = await loadCatalog(db, actor.householdId)
   const patch = versionPatch(input, sourceKind)
@@ -1128,6 +1140,7 @@ export async function saveVariation(
   }
   await replaceChildren(db, actor, versionId, children, built)
   await writeEdit(db, actor, versionId, `Variation of "${base.title}"`, { forkedFrom: base.id })
+  await syncPublic(db, src.recipe.id)
   const fresh = await requireVersion(db, actor, versionId)
   return {
     created: true,
@@ -1856,9 +1869,11 @@ export async function setRecipeFit(
   dimension: string,
   fit: string | null,
 ) {
-  await requireVersion(db, actor, versionId)
+  const v = await requireVersion(db, actor, versionId)
   if (fit !== null) fitFromInput(fit)
-  return setVersionFit(db, actor, versionId, dimension, fit, { createIfMissing: true })
+  const res = await setVersionFit(db, actor, versionId, dimension, fit, { createIfMissing: true })
+  await syncPublic(db, v.recipe.id)
+  return res
 }
 
 // ---------------------------------------------------------------------------------------------------------------

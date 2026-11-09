@@ -229,10 +229,13 @@ export const recipes = sqliteTable(
       .notNull()
       .references(() => households.id),
     title: text('title').notNull(),
+    /** Set on a copy saved from a public recipe: the link back to the original. Plain text, no foreign key. */
+    sourcePublicRecipeId: text('source_public_recipe_id'),
   },
   (t) => [
     index('recipes_household_idx').on(t.householdId),
     index('recipes_owner_idx').on(t.ownerUserId),
+    index('recipes_source_public_idx').on(t.sourcePublicRecipeId),
   ],
 )
 
@@ -341,6 +344,59 @@ export const versionTags = sqliteTable(
     index('version_tags_version_idx').on(t.versionId),
     index('version_tags_key_idx').on(t.key),
   ],
+)
+
+/**
+ * The public copy of a recipe (BRIEF §10). One row per published recipe (a dish with all its versions), holding a
+ * snapshot of the content as the author has it, rebuilt by `syncPublic` on every write to the private recipe, so the
+ * author does one edit and the service does both writes. Unpublishing soft-deletes the row (ratings are kept and come
+ * back if it is published again). The list columns are copied from the lead version so browsing and filtering run in
+ * SQL. `author_name` is null when `anonymous`; the owner's id is never returned to anyone else.
+ */
+export type PublicSnapshot = { versions: unknown[] }
+export const publicRecipes = sqliteTable(
+  'public_recipes',
+  {
+    ...base(),
+    recipeId: text('recipe_id')
+      .notNull()
+      .references(() => recipes.id),
+    ownerUserId: text('owner_user_id').notNull(),
+    anonymous: integer('anonymous', { mode: 'boolean' }).notNull().default(false),
+    authorName: text('author_name'),
+    title: text('title').notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<PublicSnapshot>().notNull(),
+    course: text('course'),
+    category: text('category', { enum: dishCategory }),
+    difficulty: text('difficulty', { enum: ['easy', 'average', 'a_pain'] }),
+    cost: integer('cost'),
+    totalMinutes: integer('total_minutes'),
+    /** Folded tag keys, written `|spicy|one pot|` so a tag is matched with LIKE '%|key|%'. */
+    tagKeys: text('tag_keys').notNull().default('|'),
+    ratingCount: integer('rating_count').notNull().default(0),
+    ratingSum: integer('rating_sum').notNull().default(0),
+    saveCount: integer('save_count').notNull().default(0),
+    publishedAt: integer('published_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('public_recipes_recipe_uq').on(t.recipeId),
+    index('public_recipes_owner_idx').on(t.ownerUserId),
+    index('public_recipes_published_idx').on(t.publishedAt),
+  ],
+)
+
+/** One star rating (1-5) per user per public recipe; the totals are mirrored onto `public_recipes`. */
+export const publicRecipeRatings = sqliteTable(
+  'public_recipe_ratings',
+  {
+    ...base(),
+    publicRecipeId: text('public_recipe_id')
+      .notNull()
+      .references(() => publicRecipes.id),
+    userId: text('user_id').notNull(),
+    stars: integer('stars').notNull(),
+  },
+  (t) => [uniqueIndex('public_recipe_ratings_uq').on(t.publicRecipeId, t.userId)],
 )
 
 /** Occasion-fit dimensions: built-in (household null) or custom per household. */

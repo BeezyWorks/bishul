@@ -9,6 +9,7 @@ import * as hosting from '../services/hosting'
 import * as kitchen from '../services/kitchen'
 import * as people from '../services/people'
 import * as planning from '../services/planning'
+import * as publicRecipes from '../services/publicRecipes'
 import * as prefs from '../services/prefs'
 import * as recipes from '../services/recipes'
 import * as sharing from '../services/sharing'
@@ -1242,6 +1243,91 @@ export const operations: Operation[] = [
       'Save a shared recipe to your household as an independent copy of how it is now (keeps its lineage; later edits by the author do not reach the copy)',
     input: z.object({ token: z.string() }),
     run: (c, i) => sharing.saveShared(c.db, c.actor, i.token),
+  }),
+
+  // ---- Public recipes ----
+  op({
+    id: 'publishRecipe',
+    method: 'put',
+    path: '/recipes/:id/public',
+    tag: 'Public recipes',
+    scope: 'write',
+    summary:
+      'Make your recipe public (or change how it is shown). A separate public copy is created and kept in step with the recipe automatically; anyone can find, rate and save it. Set anonymous to hide your name.',
+    input: z.object({ id: S.id, anonymous: z.boolean().optional() }),
+    run: (c, i) =>
+      publicRecipes.publishRecipe(c.db, c.actor, {
+        recipeId: i.id,
+        anonymous: i.anonymous,
+        authorName: c.user.name ?? null,
+      }),
+  }),
+  op({
+    id: 'unpublishRecipe',
+    method: 'delete',
+    path: '/recipes/:id/public',
+    tag: 'Public recipes',
+    scope: 'write',
+    summary: 'Take your recipe off the public list. Copies other people saved stay with them.',
+    input: idParam,
+    run: (c, i) => publicRecipes.unpublishRecipe(c.db, c.actor, i.id),
+  }),
+  op({
+    id: 'listMyPublicRecipes',
+    method: 'get',
+    path: '/public-recipes/mine',
+    tag: 'Public recipes',
+    scope: 'read',
+    summary: 'Your recipes that are public, with their ratings and saves',
+    input: none,
+    run: (c) => publicRecipes.listMyPublic(c.db, c.actor),
+  }),
+  op({
+    id: 'searchPublicRecipes',
+    method: 'get',
+    path: '/public-recipes',
+    tag: 'Public recipes',
+    scope: 'read',
+    public: true,
+    summary:
+      'Search public recipes (no sign-in needed). Text search works like your own; sort by popular, top_rated, newest, a_z or quickest',
+    input: S.publicSearchInput,
+    run: (c, i) => publicRecipes.searchPublic(c.db, i),
+  }),
+  op({
+    id: 'getPublicRecipe',
+    method: 'get',
+    path: '/public-recipes/:id',
+    tag: 'Public recipes',
+    scope: 'read',
+    public: true,
+    summary:
+      'Read a public recipe with all its versions, its rating and its author (unless anonymous)',
+    input: idParam,
+    run: (c, i) => publicRecipes.getPublicRecipe(c.db, i.id),
+  }),
+  op({
+    id: 'savePublicRecipe',
+    method: 'post',
+    path: '/public-recipes/:id/save',
+    tag: 'Public recipes',
+    scope: 'write',
+    status: 201,
+    summary:
+      'Save a public recipe to your household as an independent copy that links back to the public original. Saving it again returns the copy you have.',
+    input: idParam,
+    run: (c, i) => publicRecipes.savePublicRecipe(c.db, c.actor, i.id),
+  }),
+  op({
+    id: 'ratePublicRecipe',
+    method: 'put',
+    path: '/public-recipes/:id/rating',
+    tag: 'Public recipes',
+    scope: 'write',
+    summary:
+      'Rate a public recipe 1-5 stars (replaces your rating; null removes it). Not your own recipe.',
+    input: z.object({ id: S.id, stars: z.number().int().min(1).max(5).nullable() }),
+    run: (c, i) => publicRecipes.ratePublicRecipe(c.db, c.actor, i.id, i.stars),
   }),
 
   // ---- API keys (session only) ----

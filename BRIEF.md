@@ -167,10 +167,18 @@ Both belong to the household (owned by the owner, used by all members).
 - **Cooking mode**: step-by-step with large type; scaled quantities with the unit toggle; inline timers; screen wake lock; ingredient checklist. Later: a merged timeline for a whole meal.
 
 ## 10. Sharing
-- **Link sharing only.** Nothing is discoverable by search.
+- **Links are unlisted.** A link is never discoverable by search; public recipes (below) are the opt-in way to be found.
 - **Version link** (main case) or **dish link** (a recipe with all its versions).
 - Recipe links are **live**: anyone with the link sees the recipe as the author has it now, without an account, so the author's edits reach everyone following the link. Signed-in users can **save it to their household** as an independent copy with lineage; the copy is fixed as of the save and does not follow later edits. Sharing a recipe again returns the same link. The sender can revoke a link. Profile links are snapshots.
 - **Profile links** share a Person's profile (§3).
+
+### Public recipes
+- An author (only the user who wrote it) can make a recipe **public**: a separate public copy of the dish with all its versions, in `public_recipes`. Anyone can search it (no account), read it, and signed-in users can rate it and save it.
+- **One edit, two writes, done by the service.** The private recipe stays the source of truth. The public row is a projection rebuilt by `syncPublic` at the end of every private write (save, variation, delete, fit), so the author never edits twice. If a sync fails the public copy is stale until the next edit or a republish. Deleting the recipe or its last version unpublishes it; unpublishing keeps ratings and any copies others saved.
+- **Search** is the same FTS5 text search with transliteration aliases, plus the household-independent filters (course, kashrut, difficulty, cost, time, tags) on the lead version, and sorts: popular (saves + ratings), top rated (Bayesian average), newest, A-Z, quickest. Safe-for, Pesach, dimension and nutrition filters are not offered on public search; results carry a "not checked, AI-filled data" disclaimer.
+- **Ratings**: 1-5 stars, one per user, replaceable or removable, not on your own recipe; only the count and average are public.
+- **Save a copy**: an independent copy with the original's lineage and a link back (`recipes.source_public_recipe_id`, shown as `original` on the copy, with `available: false` once unpublished). Saving twice returns the copy you have.
+- **Anonymous**: the author can hide their name per recipe; the owner's id is never returned either way. The shown name is stored at publish time.
 
 ### Language
 - English only for now, using **Israeli-style transliteration** (Shabbat, kitniyot, chalav Yisrael).
