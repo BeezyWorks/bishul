@@ -1,3 +1,15 @@
+# [2.6.0](https://github.com/BeezyWorks/tavshil/compare/v2.5.0...v2.6.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **app:** hide recipe list until typing in the day editor; shrink add-tag button ([bdc2266](https://github.com/BeezyWorks/tavshil/commit/bdc2266b86e083f5c3610548a7391f8f57972499))
+
+
+### Features
+
+* **app:** iOS Live Activity for cook timers ([4063d87](https://github.com/BeezyWorks/tavshil/commit/4063d873911fe8b48c874eb8993dea75252f6d04))
+
 # [2.5.0](https://github.com/BeezyWorks/tavshil/compare/v2.4.0...v2.5.0) (2026-11-09)
 
 
