@@ -254,10 +254,11 @@ export type PrePrepStep = { step: string; lead_minutes: number }
 /** `section` is the part of the recipe this belongs to ("Cake"); nesting is written "Mousse > Meringue". */
 export type RecipeStep = {
   text: string
+  /** Minutes; half minutes are fine (0.5). */
   timer_minutes?: number
-  section?: string
   /** What the timer is for ("Rest the dough"); cooking mode falls back to "Step N". */
   timer_label?: string
+  section?: string
   /** The ingredient lines this step uses. */
   uses?: StepUse[]
 }
