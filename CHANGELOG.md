@@ -1,3 +1,15 @@
+# [2.3.0](https://github.com/BeezyWorks/bishul/compare/v2.2.1...v2.3.0) (2026-11-09)
+
+
+### Features
+
+* rename the app to Tavshil ([8bfa39c](https://github.com/BeezyWorks/bishul/commit/8bfa39cade3a84676f2278804f1257acdc17a1f3))
+
+
+### Performance Improvements
+
+* **worker:** share session checks across isolates through the colo cache ([8c08fe6](https://github.com/BeezyWorks/bishul/commit/8c08fe607048917244ff03d13bfe96df9c08cacb))
+
 ## [2.2.1](https://github.com/BeezyWorks/bishul/compare/v2.2.0...v2.2.1) (2026-11-09)
 
 
