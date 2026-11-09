@@ -375,3 +375,91 @@ describe('MCP tools', () => {
     expect(s.data.fits.map((h: any) => h.title)).toEqual(['Potato kugel'])
   })
 })
+
+describe('plan and hosted views with several meals (parity)', () => {
+  /** Replaces generated ids with stable placeholders, in order of first appearance, and drops `today`. */
+  const normalize = (value: unknown) => {
+    const seen = new Map<string, string>()
+    const text = JSON.stringify(value, (k, v) => (k === 'today' ? undefined : v))
+    return JSON.parse(
+      text.replace(
+        /\b[0-9A-Za-z]{8}-[0-9a-f]{4}-[0-9a-f-]{20,}\b|\b[0-9A-HJKMNP-TV-Z]{26}\b/g,
+        (m) => {
+          if (!seen.has(m)) seen.set(m, `<id${seen.size + 1}>`)
+          return seen.get(m)!
+        },
+      ),
+    )
+  }
+
+  it('gives the same plan and run page for several meals, guests and dishes', async () => {
+    const who = 'parity-1'
+    await api(who, 'PATCH', '/household', { location: NY })
+    const brisket = await recipe(who, 'Brisket', 'main', 'meat', ['2 lb brisket'], {
+      brisket: { category: 'meat' },
+    })
+    const kugel = await recipe(who, 'Potato kugel', 'side', 'parve', ['6 potatoes'])
+    const macaroons = await recipe(
+      who,
+      'Almond macaroons',
+      'dessert',
+      'parve',
+      ['2 cups almonds'],
+      {
+        almonds: { category: 'parve', allergens: ['tree nuts'] },
+      },
+    )
+    const kohens = await household(who, 'The Kohens', [{ name: 'Sarah' }, { name: 'Ari' }])
+    const roths = await household(who, 'The Roths', [
+      { name: 'Avi' },
+      { name: 'Miriam' },
+      { name: 'Tova', child: true },
+    ])
+    await api(who, 'PUT', `/people/${kohens.people[1]}/constraints`, {
+      add: [{ tagType: 'allergen', tag: 'tree nuts', severity: 'strict' }],
+    })
+    await api(who, 'PUT', `/people/${roths.people[1]}/constraints`, {
+      add: [{ tagType: 'diet', tag: 'vegetarian', severity: 'strict' }],
+    })
+
+    const seder = await api(who, 'POST', '/hosted/ensure-meal', {
+      runKey: 'run-2027-04-22',
+      holyDate: '2027-04-22',
+      part: 'night',
+    })
+    const weekday = (await api(who, 'POST', '/meals', { date: '2027-04-20' }, 201)).meal.id
+    const lunch = await api(who, 'POST', '/hosted/ensure-meal', {
+      runKey: 'run-2027-04-22',
+      holyDate: '2027-04-22',
+      part: 'day',
+    })
+    const meals = [seder.mealId, weekday, lunch.mealId]
+    await api(who, 'POST', `/meals/${meals[0]}/households`, { householdId: kohens.id })
+    await api(who, 'POST', `/meals/${meals[0]}/households`, { householdId: roths.id })
+    await api(who, 'POST', `/meals/${meals[1]}/households`, { householdId: roths.id })
+    await api(who, 'POST', `/meals/${meals[2]}/households`, { householdId: kohens.id })
+    await api(who, 'PUT', `/meals/${meals[1]}/people/${roths.people[2]}`, { present: false })
+    await api(who, 'POST', `/meals/${meals[0]}/dishes`, { course: 'main', versionId: brisket }, 201)
+    await api(
+      who,
+      'POST',
+      `/meals/${meals[0]}/dishes`,
+      { course: 'dessert', versionId: macaroons },
+      201,
+    )
+    await api(who, 'POST', `/meals/${meals[1]}/dishes`, { course: 'side', versionId: kugel }, 201)
+    await api(
+      who,
+      'POST',
+      `/meals/${meals[2]}/dishes`,
+      { course: 'main', description: 'Fish' },
+      201,
+    )
+
+    const plan = await api(who, 'GET', '/plan?from=2027-04-18&to=2027-04-26')
+    const run = await api(who, 'GET', '/hosted/run-2027-04-22')
+    const single = await api(who, 'GET', `/hosted/meal-${meals[1]}`)
+    const week = await api(who, 'GET', '/week?date=2027-04-22')
+    expect(normalize({ plan, run, single, week })).toMatchSnapshot()
+  })
+})

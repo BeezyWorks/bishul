@@ -49,6 +49,7 @@ import { setPresent, syncHosted } from './mealGuests'
 import { broughtToDish, toDishVersion, versionKashrut, type LoadedVersion } from './mappers'
 import {
   loadEffectivePeople,
+  loadEffectivePeopleOnDates,
   householdPersonIds,
   loadAccessiblePersons,
   loadPersonViews,
@@ -74,8 +75,12 @@ const MAX_RANGE_DAYS = 400
 // Settling: once a meal's date has passed, its serving history is written and its pantry stock used (computed
 // lazily on read, once per meal).
 
-export async function settlePassedMeals(db: Db, householdId: string): Promise<void> {
-  const loc = await householdLocation(db, householdId)
+export async function settlePassedMeals(
+  db: Db,
+  householdId: string,
+  known?: { loc?: HouseholdLocation },
+): Promise<void> {
+  const loc = known?.loc ?? (await householdLocation(db, householdId))
   const today = todayIn(loc.timeZone)
   const rows = await db
     .select()
@@ -227,26 +232,87 @@ async function attendeeRows(db: Db, mealId: string) {
     .where(and(eq(s.mealAttendees.mealId, mealId), isNull(s.mealAttendees.deletedAt)))
 }
 
-export async function buildContext(db: Db, actor: Actor, meal: MealRow): Promise<MealContext> {
-  const loc = await householdLocation(db, actor.householdId)
+async function attendeeRowsOf(db: Db, mealIds: string[]) {
+  const rows = await inChunks(mealIds, (part) =>
+    db
+      .select()
+      .from(s.mealAttendees)
+      .where(and(inArray(s.mealAttendees.mealId, part), isNull(s.mealAttendees.deletedAt))),
+  )
+  const out = new Map<string, (typeof rows)[number][]>()
+  for (const id of mealIds) out.set(id, [])
+  for (const r of rows) out.get(r.mealId)?.push(r)
+  return out
+}
+
+export interface MealContexts {
+  contexts: Map<string, MealContext>
+  loc: HouseholdLocation
+  /** Effective people by date then person id, for everyone the contexts needed. */
+  effective: Map<string, Map<string, EffectivePerson>>
+  /** The person ids `effective` was loaded for (so a caller can load only what is missing). */
+  loaded: Set<string>
+}
+
+/**
+ * The contexts of many meals with a fixed number of queries (not one set per meal): location, items, attendees,
+ * versions and effective people are each loaded once for all of them. Effective people are built per distinct
+ * date, since the date only changes ages.
+ */
+export async function buildContexts(
+  db: Db,
+  actor: Actor,
+  meals: MealRow[],
+  known?: { loc?: HouseholdLocation },
+): Promise<MealContexts> {
+  const mealIds = meals.map((m) => m.id)
+  const [loc, itemsByMeal, attByMeal, hostIds] = await Promise.all([
+    known?.loc ?? householdLocation(db, actor.householdId),
+    itemsOfMeals(db, mealIds),
+    attendeeRowsOf(db, mealIds),
+    householdPersonIds(db, actor.householdId),
+  ])
   const today = todayIn(loc.timeZone)
-  const items = (await itemsOfMeals(db, [meal.id])).get(meal.id)!
-  const versions = await loadVersions(
-    db,
-    actor.householdId,
-    items.map((i) => i.versionId).filter((x): x is string => !!x),
+  const allItems = [...itemsByMeal.values()].flat()
+  const personIds = unique([...[...attByMeal.values()].flat().map((a) => a.personId), ...hostIds])
+  const dates = unique(meals.map((m) => m.date))
+  const [versions, effectiveLists] = await Promise.all([
+    loadVersions(
+      db,
+      actor.householdId,
+      unique(allItems.map((i) => i.versionId).filter((x): x is string => !!x)),
+    ),
+    loadEffectivePeopleOnDates(db, actor, personIds, dates),
+  ])
+  const effective = new Map(
+    [...effectiveLists].map(([day, list]) => [day, new Map(list.map((p) => [p.person.id, p]))]),
   )
-  const att = await attendeeRows(db, meal.id)
-  const hostIds = await householdPersonIds(db, actor.householdId)
-  const everyone = await loadEffectivePeople(
-    db,
-    actor,
-    unique([...att.map((a) => a.personId), ...hostIds]),
-    meal.date,
-  )
-  const byId = new Map(everyone.map((p) => [p.person.id, p]))
-  const attendees = att.map((a) => byId.get(a.personId)).filter((x): x is EffectivePerson => !!x)
-  const host = hostIds.map((id) => byId.get(id)).filter((x): x is EffectivePerson => !!x)
+  const contexts = new Map<string, MealContext>()
+  for (const meal of meals) {
+    const items = itemsByMeal.get(meal.id)!
+    const att = attByMeal.get(meal.id)!
+    const byId = effective.get(meal.date)!
+    const attendees = att.map((a) => byId.get(a.personId)).filter((x): x is EffectivePerson => !!x)
+    const host = hostIds.map((id) => byId.get(id)).filter((x): x is EffectivePerson => !!x)
+    contexts.set(meal.id, assembleContext({ loc, today, meal, items, versions, attendees, host }))
+  }
+  return { contexts, loc, effective, loaded: new Set(personIds) }
+}
+
+export async function buildContext(db: Db, actor: Actor, meal: MealRow): Promise<MealContext> {
+  return (await buildContexts(db, actor, [meal])).contexts.get(meal.id)!
+}
+
+function assembleContext(p: {
+  loc: HouseholdLocation
+  today: string
+  meal: MealRow
+  items: MealItemRow[]
+  versions: Map<string, LoadedVersion>
+  attendees: EffectivePerson[]
+  host: EffectivePerson[]
+}): MealContext {
+  const { loc, today, meal, items, versions, attendees, host } = p
   const selected = items.flatMap((i): DishVersion[] => {
     if (i.versionId) {
       const v = versions.get(i.versionId)

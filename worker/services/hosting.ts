@@ -61,9 +61,15 @@ import {
 } from './ctx'
 import { householdLocation } from './households'
 import { toDishVersion, versionKashrut, type LoadedVersion } from './mappers'
-import { buildContext, requireMeal, settlePassedMeals, type MealContext } from './planning'
+import {
+  buildContext,
+  buildContexts,
+  requireMeal,
+  settlePassedMeals,
+  type MealContext,
+} from './planning'
 import { setPresent, syncHosted, reopenIfAccepted } from './mealGuests'
-import { loadEffectivePeople, requirePerson } from './people'
+import { loadEffectivePeopleOnDates, requirePerson, type EffectivePerson } from './people'
 import { itemsOfMeals, mealsInRange, type MealItemRow, type MealRow } from './plans'
 import { loadAllVersions, loadVersions, searchRecipes } from './recipes'
 
@@ -300,18 +306,24 @@ async function householdMemberRows(db: Db, householdIds: string[]) {
   )
 }
 
-/** Which households are on the guest list of a meal, host first (see the `meal_households` table). */
-async function listedHouseholdIds(
-  db: Db,
+/** The guest-list rows of several meals (see the `meal_households` table), oldest first. */
+async function mealHouseholdRowsOf(db: Db, mealIds: string[]) {
+  const rows = await inChunks(mealIds, (part) =>
+    db
+      .select()
+      .from(s.mealHouseholds)
+      .where(and(inArray(s.mealHouseholds.mealId, part), isNull(s.mealHouseholds.deletedAt)))
+      .orderBy(asc(s.mealHouseholds.createdAt)),
+  )
+  return rows.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))
+}
+
+/** Which households are on the guest list of a meal, host first. */
+function listedHouseholdIds(
   actor: Actor,
-  mealId: string,
+  rows: { householdId: string }[],
   attendeePersons: { householdId: string }[],
-): Promise<string[]> {
-  const rows = await db
-    .select()
-    .from(s.mealHouseholds)
-    .where(and(eq(s.mealHouseholds.mealId, mealId), isNull(s.mealHouseholds.deletedAt)))
-    .orderBy(asc(s.mealHouseholds.createdAt))
+): string[] {
   return unique([
     actor.householdId,
     ...rows.map((r) => r.householdId),
@@ -320,25 +332,80 @@ async function listedHouseholdIds(
 }
 
 async function loadFacts(db: Db, actor: Actor, meal: MealRow): Promise<MealFacts> {
-  const ctx = await buildContext(db, actor, meal)
-  const attendeeIds = new Set(ctx.attendees.map((a) => a.person.id))
-  const attPersons = ctx.attendees.map((a) => ({ householdId: a.access.household.id }))
-  const hids = await listedHouseholdIds(db, actor, meal.id, attPersons)
+  return (await loadFactsMany(db, actor, [meal])).get(meal.id)!
+}
+
+/**
+ * The facts of many meals with a fixed number of queries: everything is loaded once for all of them (see
+ * `buildContexts`), then each meal's facts are worked out in memory.
+ */
+async function loadFactsMany(
+  db: Db,
+  actor: Actor,
+  meals: MealRow[],
+  known?: { loc?: HouseholdLocation },
+): Promise<Map<string, MealFacts>> {
+  const out = new Map<string, MealFacts>()
+  if (!meals.length) return out
+  const [built, listRows] = await Promise.all([
+    buildContexts(db, actor, meals, known),
+    mealHouseholdRowsOf(
+      db,
+      meals.map((m) => m.id),
+    ),
+  ])
+  const rowsByMeal = new Map<string, { householdId: string }[]>()
+  for (const r of listRows) {
+    const list = rowsByMeal.get(r.mealId) ?? []
+    list.push(r)
+    rowsByMeal.set(r.mealId, list)
+  }
+  const hidsOf = new Map(
+    meals.map((meal) => {
+      const ctx = built.contexts.get(meal.id)!
+      const attPersons = ctx.attendees.map((a) => ({ householdId: a.access.household.id }))
+      return [
+        meal.id,
+        listedHouseholdIds(actor, rowsByMeal.get(meal.id) ?? [], attPersons),
+      ] as const
+    }),
+  )
+  const allHids = unique([...hidsOf.values()].flat())
   const [hhRows, memberRows] = await Promise.all([
-    hostRows(db, hids),
-    householdMemberRows(db, hids),
+    hostRows(db, allHids),
+    householdMemberRows(db, allHids),
   ])
   const names = new Map(hhRows.map((h) => [h.id, h.name]))
-  const effective = new Map(
-    (
-      await loadEffectivePeople(
-        db,
-        actor,
-        memberRows.map((m) => m.id),
-        meal.date,
-      )
-    ).map((e) => [e.person.id, e]),
-  )
+  const missing = memberRows.map((m) => m.id).filter((id) => !built.loaded.has(id))
+  if (missing.length) {
+    const more = await loadEffectivePeopleOnDates(
+      db,
+      actor,
+      missing,
+      unique(meals.map((m) => m.date)),
+    )
+    for (const [day, list] of more)
+      for (const e of list) built.effective.get(day)!.set(e.person.id, e)
+  }
+  for (const meal of meals) {
+    const ctx = built.contexts.get(meal.id)!
+    const hids = hidsOf.get(meal.id)!
+    const effective = built.effective.get(meal.date)!
+    out.set(meal.id, factsOf(actor, meal, ctx, hids, names, memberRows, effective))
+  }
+  return out
+}
+
+function factsOf(
+  actor: Actor,
+  meal: MealRow,
+  ctx: MealContext,
+  hids: string[],
+  names: Map<string, string>,
+  memberRows: Awaited<ReturnType<typeof householdMemberRows>>,
+  effective: Map<string, EffectivePerson>,
+): MealFacts {
+  const attendeeIds = new Set(ctx.attendees.map((a) => a.person.id))
   const households: GuestHousehold[] = hids
     .filter((id) => names.has(id))
     .map((id) => {
@@ -561,22 +628,27 @@ export async function getPlan(
   const n = (Date.parse(input.to) - Date.parse(input.from)) / 86_400_000 + 1
   if (n < 1) throw invalid('to is before from')
   if (n > MAX_PLAN_DAYS) throw invalid(`Ask for at most ${MAX_PLAN_DAYS} days at a time`)
-  await settlePassedMeals(db, actor.householdId)
-  const loc = await householdLocation(db, actor.householdId)
+  const [loc, hostCount] = await Promise.all([
+    householdLocation(db, actor.householdId),
+    hostHeadcountOf(db, actor),
+  ])
+  await settlePassedMeals(db, actor.householdId, { loc })
   const today = todayIn(loc.timeZone)
   const runs = hostedRuns(input.from, input.to, loc)
   const lo = runs.reduce((m, r) => (r.startsOn < m ? r.startsOn : m), input.from)
   const hi = runs.reduce((m, r) => (r.to > m ? r.to : m), input.to)
-  const rows = await mealsInRange(db, actor.householdId, lo, hi)
-  const removed = await removedSlots(db, actor, lo, hi)
+  const [rows, removed] = await Promise.all([
+    mealsInRange(db, actor.householdId, lo, hi),
+    removedSlots(db, actor, lo, hi),
+  ])
   const holyDates = holyDatesOf(runs)
-  const hostCount = await hostHeadcountOf(db, actor)
 
   const cards = new Map<string, MealCard>()
+  const allFacts = await loadFactsMany(db, actor, rows, { loc })
   for (const meal of rows) {
     const slot = meal.slot as DaySlot
     const place = placeMeal({ date: meal.date, slot }, runs)
-    const facts = await loadFacts(db, actor, meal)
+    const facts = allFacts.get(meal.id)!
     cards.set(
       meal.id,
       cardOf(
@@ -782,16 +854,30 @@ export async function getHosted(db: Db, actor: Actor, key: string): Promise<Host
   const removed = await removedSlots(db, actor, run.startsOn, run.to)
   const hostCount = await hostHeadcountOf(db, actor)
   const days: HostedHolyDay[] = []
-  for (const hd of run.holyDays) {
-    const mine = rows.filter((m) => {
+  const placed = run.holyDays.map((hd) => ({
+    hd,
+    mine: rows.filter((m) => {
       const p = placeMeal({ date: m.date, slot: m.slot as DaySlot }, [run])
       return p.holy?.date === hd.date
-    })
+    }),
+  }))
+  const factsById = await loadFactsMany(
+    db,
+    actor,
+    placed.flatMap((p) => p.mine),
+    { loc },
+  )
+  // A superset of the placeholder days is fine: it is the same few dates.
+  const virtualDates = placed.flatMap(({ hd }) =>
+    hd.defaultMeals.filter((d) => !removed.has(`${d.date}|${d.slot}`)).map((d) => d.date),
+  )
+  const hostByDate = await hostHouseholds(db, actor, virtualDates)
+  for (const { hd, mine } of placed) {
     const views: HostedMealView[] = []
     for (const m of mine) {
       const place = placeMeal({ date: m.date, slot: m.slot as DaySlot }, [run])
       views.push(
-        viewOf(await loadFacts(db, actor, m), {
+        viewOf(factsById.get(m.id)!, {
           runKey: run.key,
           holyDate: hd.date,
           part: place.part,
@@ -801,7 +887,7 @@ export async function getHosted(db: Db, actor: Actor, key: string): Promise<Host
     for (const d of hd.defaultMeals) {
       if (views.some((v) => v.part === d.part && v.slot === d.slot)) continue
       if (removed.has(`${d.date}|${d.slot}`)) continue
-      views.push(virtualView(run, hd, d, hostCount, await hostHousehold(db, actor, d.date)))
+      views.push(virtualView(run, hd, d, hostCount, hostByDate.get(d.date)!))
     }
     days.push({
       date: hd.date,
@@ -824,38 +910,48 @@ export async function getHosted(db: Db, actor: Actor, key: string): Promise<Host
   })
 }
 
-async function hostHousehold(db: Db, actor: Actor, date: string): Promise<GuestHousehold> {
-  const [h] = await hostRows(db, [actor.householdId])
-  const members = await householdMemberRows(db, [actor.householdId])
-  const eff = new Map(
-    (
-      await loadEffectivePeople(
-        db,
-        actor,
-        members.map((m) => m.id),
-        date,
-      )
-    ).map((e) => [e.person.id, e]),
+/** The host household as a guest row for each date (placeholder meals), with a fixed number of queries. */
+async function hostHouseholds(
+  db: Db,
+  actor: Actor,
+  dates: string[],
+): Promise<Map<string, GuestHousehold>> {
+  const out = new Map<string, GuestHousehold>()
+  const days = unique(dates)
+  if (!days.length) return out
+  const [[h], members] = await Promise.all([
+    hostRows(db, [actor.householdId]),
+    householdMemberRows(db, [actor.householdId]),
+  ])
+  const byDate = await loadEffectivePeopleOnDates(
+    db,
+    actor,
+    members.map((m) => m.id),
+    days,
   )
-  const mem: GuestMember[] = members.map((m) => ({
-    personId: m.id,
-    name: m.name,
-    isChild: m.isChild,
-    present: true,
-    constraints: constraintLabels(eff.get(m.id)?.person.constraints ?? []),
-  }))
-  const counts = headcount(mem)
-  return {
-    householdId: actor.householdId,
-    name: h?.name ?? 'Us',
-    isHost: true,
-    members: mem,
-    counts,
-    countsText: countsText(counts),
-    awayText: '',
-    constraints: mergeLabels(mem.flatMap((m) => m.constraints)),
-    removable: false,
+  for (const date of days) {
+    const eff = new Map(byDate.get(date)!.map((e) => [e.person.id, e]))
+    const mem: GuestMember[] = members.map((m) => ({
+      personId: m.id,
+      name: m.name,
+      isChild: m.isChild,
+      present: true,
+      constraints: constraintLabels(eff.get(m.id)?.person.constraints ?? []),
+    }))
+    const counts = headcount(mem)
+    out.set(date, {
+      householdId: actor.householdId,
+      name: h?.name ?? 'Us',
+      isHost: true,
+      members: mem,
+      counts,
+      countsText: countsText(counts),
+      awayText: '',
+      constraints: mergeLabels(mem.flatMap((m) => m.constraints)),
+      removable: false,
+    })
   }
+  return out
 }
 
 function virtualView(

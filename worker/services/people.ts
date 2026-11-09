@@ -98,6 +98,19 @@ export async function loadEffectivePeople(
   asOf?: string,
 ): Promise<EffectivePerson[]> {
   const day = asOf ?? (await householdToday(db, actor.householdId))
+  return (await loadEffectivePeopleOnDates(db, actor, personIds, [day])).get(day)!
+}
+
+/**
+ * The same as `loadEffectivePeople` for several days at once: the date only changes ages, so the rows are loaded
+ * once and the people are built per distinct date.
+ */
+export async function loadEffectivePeopleOnDates(
+  db: Db,
+  actor: Actor,
+  personIds: string[],
+  days: string[],
+): Promise<Map<string, EffectivePerson[]>> {
   const access = await loadAccessiblePersons(db, actor, personIds)
   const ids = [...access.keys()]
   const links = await inChunks(ids, (part) =>
@@ -121,44 +134,47 @@ export async function loadEffectivePeople(
       .from(s.personRules)
       .where(and(inArray(s.personRules.personId, part), isNull(s.personRules.deletedAt))),
   )
-  const result: EffectivePerson[] = []
-  for (const id of personIds) {
-    const acc = access.get(id)
-    if (!acc) continue
-    const link = linkOf.get(id) ?? null
-    const baseId = link?.realPersonId ?? id
-    const base = [
-      ...cons.filter((c) => c.personId === baseId && !c.layerHouseholdId).map(constraintToCore),
-      ...rules
-        .filter((r) => r.personId === baseId && !r.layerHouseholdId)
-        .map((r) => ruleToCore(r.rule, 'self')),
-    ]
-    const additions: Constraint[] = [
-      ...cons
-        .filter((c) => c.personId === id && c.layerHouseholdId === actor.householdId)
-        .map(constraintToCore),
-      ...rules
-        .filter((r) => r.personId === id && r.layerHouseholdId === actor.householdId)
-        .map((r) => ruleToCore(r.rule)),
-    ]
-    // Own people with no layer: their rows are already in `base`.
-    const age = acc.person.birthDate ? ageOn(acc.person.birthDate, day) : null
-    result.push({
-      person: mergePrivateLayer(
-        {
-          id,
-          name: acc.person.name,
-          ...(age !== null && { age }),
-          ...(acc.person.spicy && { spicy: acc.person.spicy }),
-          constraints: base,
-        },
-        additions,
-      ),
-      access: acc,
-      link,
-    })
+  const build = (day: string): EffectivePerson[] => {
+    const result: EffectivePerson[] = []
+    for (const id of personIds) {
+      const acc = access.get(id)
+      if (!acc) continue
+      const link = linkOf.get(id) ?? null
+      const baseId = link?.realPersonId ?? id
+      const base = [
+        ...cons.filter((c) => c.personId === baseId && !c.layerHouseholdId).map(constraintToCore),
+        ...rules
+          .filter((r) => r.personId === baseId && !r.layerHouseholdId)
+          .map((r) => ruleToCore(r.rule, 'self')),
+      ]
+      const additions: Constraint[] = [
+        ...cons
+          .filter((c) => c.personId === id && c.layerHouseholdId === actor.householdId)
+          .map(constraintToCore),
+        ...rules
+          .filter((r) => r.personId === id && r.layerHouseholdId === actor.householdId)
+          .map((r) => ruleToCore(r.rule)),
+      ]
+      // Own people with no layer: their rows are already in `base`.
+      const age = acc.person.birthDate ? ageOn(acc.person.birthDate, day) : null
+      result.push({
+        person: mergePrivateLayer(
+          {
+            id,
+            name: acc.person.name,
+            ...(age !== null && { age }),
+            ...(acc.person.spicy && { spicy: acc.person.spicy }),
+            constraints: base,
+          },
+          additions,
+        ),
+        access: acc,
+        link,
+      })
+    }
+    return result
   }
-  return result
+  return new Map([...new Set(days)].map((day) => [day, build(day)]))
 }
 
 export async function householdPersonIds(db: Db, householdId: string): Promise<string[]> {
