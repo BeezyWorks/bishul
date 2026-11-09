@@ -7,11 +7,52 @@ export interface User {
   email: string
 }
 
-/** How long a good session check is reused. A revoked session can stay valid this long at most. */
+/** How long a good session check is reused in this isolate's memory. */
 const SESSION_TTL_MS = 30_000
+/**
+ * How long a good session check is shared across isolates in the colo's cache (the accounts check takes seconds).
+ * A revoked session can stay valid this long at most.
+ */
+const SHARED_TTL_S = 300
+const SHARED_ORIGIN = 'https://session-cache.tavshil.internal'
 const SESSION_CACHE_MAX = 500
 const sessions = new Map<string, { user: User; expires: number }>()
 const checking = new Map<string, Promise<User | null>>()
+
+/** Test helper: forget this isolate's memory cache (as a fresh isolate would). */
+export function forgetSessionsInMemory() {
+  sessions.clear()
+}
+
+/** The colo cache, keyed by a hash of the token so the token itself is never stored. */
+async function sharedKey(authorization: string): Promise<Request> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(authorization))
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return new Request(`${SHARED_ORIGIN}/${hex}`)
+}
+
+function sharedCache(): Cache | null {
+  return typeof caches === 'undefined' ? null : (caches as unknown as { default: Cache }).default
+}
+
+async function checkSession(authorization: string, env: Env): Promise<User | null> {
+  const cache = sharedCache()
+  const key = cache ? await sharedKey(authorization) : null
+  if (cache && key) {
+    const hit = await cache.match(key).catch(() => undefined)
+    const user = hit ? ((await hit.json().catch(() => null)) as User | null) : null
+    if (user?.id) return user
+  }
+  const user = await fetchSession(authorization, env)
+  if (cache && key) {
+    if (user) {
+      // The key is an internal URL that no client can request, so the cache stays server-side.
+      const res = Response.json(user, { headers: { 'cache-control': `max-age=${SHARED_TTL_S}` } })
+      await cache.put(key, res).catch(() => {})
+    } else await cache.delete(key).catch(() => false)
+  }
+  return user
+}
 
 async function fetchSession(authorization: string, env: Env): Promise<User | null> {
   const url = `${env.AUTH_URL}/api/auth/get-session`
@@ -25,7 +66,8 @@ async function fetchSession(authorization: string, env: Env): Promise<User | nul
 /**
  * The signed-in BeezyWorks account, from the request's bearer token, checked against
  * the accounts service. Null when there's no token or it's no longer valid. The accounts
- * check is slow, so a good answer is reused briefly and parallel requests share one check.
+ * check is slow, so a good answer is reused (in memory, then in the colo cache for a few minutes) and parallel
+ * requests share one check.
  */
 export async function currentUser(request: Request, env: Env): Promise<User | null> {
   const authorization = request.headers.get('authorization')
@@ -38,7 +80,7 @@ export async function currentUser(request: Request, env: Env): Promise<User | nu
   if (hit && hit.expires > Date.now()) return hit.user
   let pending = checking.get(authorization)
   if (!pending) {
-    pending = fetchSession(authorization, env)
+    pending = checkSession(authorization, env)
       .then((user) => {
         if (user) {
           if (sessions.size >= SESSION_CACHE_MAX) sessions.clear()
