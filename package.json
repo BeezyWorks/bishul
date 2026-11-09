@@ -8,7 +8,7 @@
     "start": "expo start --web",
     "build:web": "expo export --platform web",
     "dev:api": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy",
     "db:generate": "pnpm --filter @tavshil/worker db:generate",
     "db:migrate:local": "wrangler d1 migrations apply tavshil --local",
     "db:migrate:remote": "wrangler d1 migrations apply tavshil --remote",

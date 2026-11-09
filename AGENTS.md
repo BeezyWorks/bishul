@@ -41,6 +41,6 @@ the web UI covers browsing, editing, the menu, the shopping list and cooking mod
   spellings (Shabbos, kitniyos) through aliases. Strings are kept in one place so other languages can be added.
 - Prettier: no semicolons, single quotes, width 100. `pnpm format`.
 - Commit straight to `main` or via PR. Conventional commits (`feat(worker): ...`, `fix(core): ...`); semantic-release
-  runs from CI on `main`. There is no deploy job; deploy by hand with `pnpm deploy`.
+  runs from CI on `main`. There is no deploy job; deploy by hand with `pnpm deploy:prod` (plain `pnpm deploy` is a pnpm built-in that scripts cannot override).
 - Checks: `pnpm typecheck` and `pnpm test` (core and worker) must pass.
 - Hebrew in chat output prints reversed for the user's terminal; never reverse it in files.
