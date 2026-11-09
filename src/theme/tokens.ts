@@ -26,6 +26,15 @@ export const colors = {
   cookAlert: '#F2B84B',
 } as const
 
+/** Third-party sign-in branding; fixed by Apple's and Google's guidelines, not themeable. */
+export const brand = {
+  appleBg: '#000000',
+  appleFg: '#FFFFFF',
+  googleBg: '#FFFFFF',
+  googleFg: '#1F1F1F',
+  googleBorder: '#747775',
+} as const
+
 /**
  * On the web a family that has not loaded (or never does) must fall back to a sans, not the browser's
  * default serif, so each face carries a fallback stack there. Native needs the bare family name.

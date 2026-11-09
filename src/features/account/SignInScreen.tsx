@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { Button, Card, Text, TextField, useLayout } from '@/components'
+import { Button, Card, ProviderButton, Text, TextField, useLayout } from '@/components'
 import { DEV_AUTH } from '@/lib/config'
 import { colors, size, space } from '@/theme/tokens'
 
@@ -20,6 +21,7 @@ export function SignInScreen({
   reason?: string
 }) {
   const { wide } = useLayout()
+  const insets = useSafeAreaInsets()
   const [mode, setMode] = useState<Mode>('signIn')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -65,7 +67,14 @@ export function SignInScreen({
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, wide && styles.contentWide]}
+      contentContainerStyle={[
+        styles.content,
+        wide && styles.contentWide,
+        {
+          paddingTop: (wide ? size.gutterWide : space.huge) + insets.top,
+          paddingBottom: size.gutterPhone + insets.bottom,
+        },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       <View style={[styles.hero, wide && { flex: 1 }]}>
@@ -82,8 +91,8 @@ export function SignInScreen({
           own AI.
         </Text>
         <Text variant="small">
-          It’s on the host: Tavshil helps you avoid serving the wrong thing, but it can’t guarantee a
-          dish is safe.
+          It’s on the host: Tavshil helps you avoid serving the wrong thing, but it can’t guarantee
+          a dish is safe.
         </Text>
       </View>
 
@@ -96,22 +105,12 @@ export function SignInScreen({
               : 'Reset password'}
         </Text>
         <Text variant="small">
-          With your BeezyWorks account, the same one as Beitecha and the Siddur.
+          With your Tavshil account.
         </Text>
         {mode !== 'forgot' ? (
           <View style={styles.providers}>
-            <Button
-              label="Continue with Google"
-              variant="secondary"
-              full
-              onPress={() => social('google')}
-            />
-            <Button
-              label="Continue with Apple"
-              variant="secondary"
-              full
-              onPress={() => social('apple')}
-            />
+            <ProviderButton provider="apple" onPress={() => social('apple')} />
+            <ProviderButton provider="google" onPress={() => social('google')} />
           </View>
         ) : null}
         {mode === 'signUp' ? (
