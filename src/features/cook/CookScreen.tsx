@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 // Deep import: the app needs only the timer maths, not the calendar engine behind the index.
 import { remainingSec, timerId, timerStatus } from '@tavshil/core/src/cook'
@@ -52,6 +53,7 @@ function useWakeLock() {
 }
 
 export function CookScreen() {
+  const insets = useSafeAreaInsets()
   const {
     versionId,
     scale: scaleParam,
@@ -93,7 +95,7 @@ export function CookScreen() {
 
   if (!data || !step)
     return (
-      <View style={styles.screen}>
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
         <Text color={colors.cookMuted} style={{ padding: space.xl }}>
           Loading...
         </Text>
@@ -107,7 +109,7 @@ export function CookScreen() {
   const exit = () => router.replace(`/recipes/${recipe.id}` as Href)
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.top}>
         <Pressable
           accessibilityRole="button"
@@ -264,7 +266,7 @@ export function CookScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottom}>
+      <View style={[styles.bottom, { paddingBottom: space.lg + insets.bottom }]}>
         <Pressable
           accessibilityRole="button"
           disabled={i === 0}

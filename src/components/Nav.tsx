@@ -1,6 +1,7 @@
 import { useRouter, usePathname, type Href } from 'expo-router'
 import React from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
@@ -24,8 +25,9 @@ const TOP = [
 export function TopNav() {
   const path = usePathname()
   const router = useRouter()
+  const { top } = useSafeAreaInsets()
   return (
-    <View style={styles.top} role="navigation">
+    <View style={[styles.top, { height: size.navHeight + top, paddingTop: top }]} role="navigation">
       <Pressable
         accessibilityRole="link"
         onPress={() => router.push('/' as Href)}
@@ -70,8 +72,12 @@ export function BottomTabs() {
   const path = usePathname()
   const router = useRouter()
   const more = ['/more', '/prep', '/use-soon', '/settings']
+  const { bottom } = useSafeAreaInsets()
   return (
-    <View style={styles.tabs} accessibilityRole="tablist">
+    <View
+      style={[styles.tabs, { height: size.tabBarHeight + bottom, paddingBottom: bottom }]}
+      accessibilityRole="tablist"
+    >
       {TABS.map((t) => {
         const on =
           t.href === '/more'
@@ -104,10 +110,15 @@ export function BottomTabs() {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { wide } = useLayout()
+  const insets = useSafeAreaInsets()
+  // The nav bars absorb the top and bottom insets, so screens inside must not add them again.
+  const inner = { ...insets, top: wide ? 0 : insets.top, bottom: 0 }
   return (
     <View style={styles.shell}>
       {wide ? <TopNav /> : null}
-      <View style={styles.body}>{children}</View>
+      <View style={styles.body}>
+        <SafeAreaInsetsContext.Provider value={inner}>{children}</SafeAreaInsetsContext.Provider>
+      </View>
       {wide ? null : <BottomTabs />}
     </View>
   )

@@ -1,6 +1,7 @@
 import { useRouter, type Href } from 'expo-router'
 import React from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { colors, size, space } from '@/theme/tokens'
 
@@ -20,13 +21,14 @@ interface Props {
 export function Screen({ title, subtitle, eyebrow, back, actions, children }: Props) {
   const { wide } = useLayout()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const gutter = wide ? size.gutterWide : size.gutterPhone
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={{
         paddingHorizontal: gutter,
-        paddingTop: wide ? space.xxl : space.xl,
+        paddingTop: (wide ? space.xxl : space.xl) + insets.top,
         paddingBottom: space.huge * 1.5,
       }}
       keyboardShouldPersistTaps="handled"
