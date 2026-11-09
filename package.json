@@ -14,7 +14,10 @@
     "db:migrate:remote": "wrangler d1 migrations apply bishul --remote",
     "test": "pnpm -r --filter ./packages/core --filter ./worker test",
     "typecheck": "tsc --noEmit && pnpm -r --filter ./packages/core --filter ./worker typecheck",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "ship": "scripts/build-local.sh",
+    "build:local": "scripts/build-local.sh --no-submit",
+    "release:dry": "npx --yes -p semantic-release@24 -p @semantic-release/changelog@6 -p @semantic-release/git@10 semantic-release --dry-run --no-ci"
   },
   "dependencies": {
     "@bishul/core": "workspace:*",
@@ -31,6 +34,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.3",
+    "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

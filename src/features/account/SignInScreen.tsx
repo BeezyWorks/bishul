@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Platform, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { Button, Card, Text, TextField, useLayout } from '@/components'
 import { DEV_AUTH } from '@/lib/config'
@@ -49,6 +49,14 @@ export function SignInScreen({
       setBusy(false)
     }
   }
+  const social = async (provider: 'google' | 'apple') => {
+    setError(null)
+    try {
+      await signInWith(provider, returnTo)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+    }
+  }
   const ready =
     !!email.trim() &&
     (mode === 'forgot' ||
@@ -90,20 +98,19 @@ export function SignInScreen({
         <Text variant="small">
           With your BeezyWorks account, the same one as Beitecha and the Siddur.
         </Text>
-        {/* Google/Apple hand off through a web redirect; the app signs in with email for now. */}
-        {mode !== 'forgot' && Platform.OS === 'web' ? (
+        {mode !== 'forgot' ? (
           <View style={styles.providers}>
             <Button
               label="Continue with Google"
               variant="secondary"
               full
-              onPress={() => signInWith('google', returnTo)}
+              onPress={() => social('google')}
             />
             <Button
               label="Continue with Apple"
               variant="secondary"
               full
-              onPress={() => signInWith('apple', returnTo)}
+              onPress={() => social('apple')}
             />
           </View>
         ) : null}

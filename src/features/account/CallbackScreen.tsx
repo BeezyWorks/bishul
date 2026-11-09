@@ -10,8 +10,9 @@ import { completeHandoff, takeReturnTo } from './store'
 /** The handoff puts `ott` in the URL fragment (`error` comes in the query); read both. */
 function useHandoffParams() {
   const query = useLocalSearchParams<{ ott?: string; error?: string }>()
+  // Only a browser has a location; a native deep link carries the token in the query.
   const hash = new URLSearchParams(
-    typeof window === 'undefined' ? '' : window.location.hash.slice(1),
+    typeof window === 'undefined' || !window.location ? '' : window.location.hash.slice(1),
   )
   return { ott: hash.get('ott') ?? query.ott, error: hash.get('error') ?? query.error }
 }

@@ -1,4 +1,7 @@
+import * as Linking from 'expo-linking'
+import * as WebBrowser from 'expo-web-browser'
 import { useSyncExternalStore } from 'react'
+import { Platform } from 'react-native'
 
 import { AUTH_URL, DEV_AUTH, USE_MOCK } from '@/lib/config'
 
@@ -108,8 +111,15 @@ export async function signInEmail(email: string, password: string) {
   set({ status: 'signedIn', user: data.user })
 }
 
+/** The deep link (`scheme: bishul`) a native sign-in returns to. `bishul://` must be in the accounts TRUSTED_ORIGINS. */
+const NATIVE_CALLBACK_URL = 'bishul://account/callback'
+
+/** Where the accounts service sends the one-time token back: this app's own page, or its deep link. */
+const callbackUrl = () =>
+  Platform.OS === 'web' ? `${window.location.origin}/account/callback` : NATIVE_CALLBACK_URL
+
 export async function signUpEmail(name: string, email: string, password: string) {
-  const callbackURL = `${AUTH_URL}/handoff?return=${encodeURIComponent(`${window.location.origin}/account/callback`)}`
+  const callbackURL = `${AUTH_URL}/handoff?return=${encodeURIComponent(callbackUrl())}`
   await auth('/sign-up/email', { name, email, password, callbackURL })
 }
 
@@ -119,13 +129,24 @@ export async function requestPasswordReset(email: string) {
 
 const RETURN_KEY = 'bishul.returnTo'
 
-/** Leaves the page for the provider; comes back at /account/callback with a one-time token. */
-export function signInWith(provider: 'google' | 'apple', returnTo = '/') {
-  try {
-    sessionStorage.setItem(RETURN_KEY, returnTo)
-  } catch {}
-  const back = `${window.location.origin}/account/callback`
-  window.location.href = `${AUTH_URL}/start/${provider}?return=${encodeURIComponent(back)}`
+/**
+ * Google or Apple through the accounts service. On the web this leaves the page and comes back at
+ * /account/callback; in the app it runs in the system browser sheet and finishes here.
+ */
+export async function signInWith(provider: 'google' | 'apple', returnTo = '/') {
+  const start = `${AUTH_URL}/start/${provider}?return=${encodeURIComponent(callbackUrl())}`
+  if (Platform.OS === 'web') {
+    try {
+      sessionStorage.setItem(RETURN_KEY, returnTo)
+    } catch {}
+    window.location.href = start
+    return
+  }
+  const result = await WebBrowser.openAuthSessionAsync(start, NATIVE_CALLBACK_URL)
+  if (result.type !== 'success') return // closed the sheet: not an error
+  const params = Linking.parse(result.url).queryParams ?? {}
+  if (typeof params.ott !== 'string') throw new Error('Sign-in didn’t finish. Please try again.')
+  await completeHandoff(params.ott)
 }
 
 export async function completeHandoff(oneTimeToken: string) {

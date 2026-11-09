@@ -40,6 +40,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npx --yes semantic-release@24
+      # The changelog and git plugins are not bundled with semantic-release.
+      - run: npx --yes -p semantic-release@24 -p @semantic-release/changelog@6 -p @semantic-release/git@10 semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

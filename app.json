@@ -5,7 +5,10 @@
     "version": "0.1.0",
     "scheme": "bishul",
     "userInterfaceStyle": "light",
-    "platforms": ["ios", "web"],
+    "platforms": [
+      "ios",
+      "web"
+    ],
     "web": {
       "output": "single",
       "bundler": "metro",
@@ -33,6 +36,12 @@
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f493b752-ec00-475b-ac51-e84b80084549"
       }
     }
   }
