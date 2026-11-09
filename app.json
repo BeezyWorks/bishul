@@ -23,7 +23,8 @@
           "color": "#2E6A4E"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-widgets"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -35,7 +36,8 @@
       "bundleIdentifier": "com.beezyworks.tavshil",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       }
     },
     "extra": {

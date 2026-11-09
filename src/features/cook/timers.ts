@@ -13,6 +13,7 @@ import {
   type CookTimer,
 } from '@tavshil/core/src/cook'
 
+import { endLiveActivity, syncLiveActivity } from './liveActivity'
 import { cancelRing, scheduleRing } from './notifications'
 
 /** A cook-mode timer plus what the ring needs to say. */
@@ -44,6 +45,9 @@ function put(entry: CookTimerEntry) {
 function sync(entry: CookTimerEntry, now: number) {
   if (entry.endsAt === null) void cancelRing(entry.id)
   else void scheduleRing(entry, remainingSec(entry, now), entry.recipeTitle, entry.scale)
+  // Running and paused timers get a lock-screen countdown; a reset one has nothing to show.
+  if (timerStatus(entry, now) === 'idle') endLiveActivity(entry.id)
+  else syncLiveActivity(entry)
 }
 const withMeta = (
   base: CookTimer,
@@ -86,6 +90,7 @@ export const timerActions = {
   /** Drop a timer (one that rang, or that you no longer want). */
   clear(id: string) {
     void cancelRing(id)
+    endLiveActivity(id)
     commit(entries.filter((e) => e.id !== id))
   },
 }
