@@ -1,4 +1,4 @@
-/** Fetch wrapper for the Bishul REST API (`/api/*`): bearer token, JSON in and out, typed errors. */
+/** Fetch wrapper for the Tavshil REST API (`/api/*`): bearer token, JSON in and out, typed errors. */
 import { expireSession } from '@/features/account/store'
 import { tokenStore } from '@/features/account/tokens'
 import { API_URL } from '@/lib/config'
@@ -49,7 +49,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     })
   } catch {
-    throw new ApiError(0, 'network', 'Can’t reach Bishul. Check your connection and try again.')
+    throw new ApiError(0, 'network', 'Can’t reach Tavshil. Check your connection and try again.')
   }
   if (res.status === 204) return undefined as T
   const data = (await res.json().catch(() => null)) as {

@@ -180,7 +180,7 @@ export function adaptPerson(p: ServerPersonView): Person {
     ...(p.birthDate && { birthDate: p.birthDate, birthDateApprox: p.birthDateApprox }),
     isMember: !!p.userId,
     constraints: p.constraints.map((c) => adaptConstraint(c, p.id)),
-    link: p.link ? { profileName: 'a Bishul profile', mode: p.link.mode } : undefined,
+    link: p.link ? { profileName: 'a Tavshil profile', mode: p.link.mode } : undefined,
     rules: p.rules.map((r) => r.rule),
     notes: p.notes.map((n) => n.text),
     likes: p.likes.map((l) => l.title),

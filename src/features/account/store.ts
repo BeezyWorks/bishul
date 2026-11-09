@@ -111,8 +111,8 @@ export async function signInEmail(email: string, password: string) {
   set({ status: 'signedIn', user: data.user })
 }
 
-/** The deep link (`scheme: bishul`) a native sign-in returns to. `bishul://` must be in the accounts TRUSTED_ORIGINS. */
-const NATIVE_CALLBACK_URL = 'bishul://account/callback'
+/** The deep link (`scheme: tavshil`) a native sign-in returns to. `tavshil://` must be in the accounts TRUSTED_ORIGINS. */
+const NATIVE_CALLBACK_URL = 'tavshil://account/callback'
 
 /** Where the accounts service sends the one-time token back: this app's own page, or its deep link. */
 const callbackUrl = () =>
@@ -127,7 +127,7 @@ export async function requestPasswordReset(email: string) {
   await auth('/request-password-reset', { email, redirectTo: `${AUTH_URL}/reset-password` })
 }
 
-const RETURN_KEY = 'bishul.returnTo'
+const RETURN_KEY = 'tavshil.returnTo'
 
 /**
  * Google or Apple through the accounts service. On the web this leaves the page and comes back at

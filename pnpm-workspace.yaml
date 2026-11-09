@@ -1,7 +1,7 @@
 packages:
   - '.'
   - 'worker'
-  # @bishul/core, and the calendar engine (a git submodule, BeezyWorks/beitecha-engine).
+  # @tavshil/core, and the calendar engine (a git submodule, BeezyWorks/beitecha-engine).
   - 'packages/*'
 
 # Keep pnpm-lock.yaml as a single YAML document (see SiddurOneRN).

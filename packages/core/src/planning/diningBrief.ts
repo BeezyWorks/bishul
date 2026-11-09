@@ -16,7 +16,7 @@ import type {
 } from './types'
 
 export const DISCLAIMER =
-  "Bishul helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, " +
+  "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, " +
   'and confirm allergies with the guest.'
 
 // ---------------------------------------------------------------------------

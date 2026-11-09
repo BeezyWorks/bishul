@@ -26,7 +26,7 @@ export default defineConfig(async () => {
           bindings: {
             TEST_MIGRATIONS: migrations,
             AUTH_URL: 'https://auth.test',
-            PUBLIC_URL: 'https://bishul.test',
+            PUBLIC_URL: 'https://tavshil.test',
             ACCOUNT_EVENTS_SECRET: 'test-events-secret',
             TEST_KEYS: JSON.stringify(
               Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, v.priv])),

@@ -1,6 +1,6 @@
-# Bishul — Project Brief (draft 3)
+# Tavshil — Project Brief (draft 3)
 
-`bishul.baderech.app` — recipe, household and meal-planning app for kosher families.
+`tavshil.baderech.app` — recipe, household and meal-planning app for kosher families.
 The core job: **"plan Shabbat for these guests."** Everything else serves that.
 Primary interface is the user's own AI, through the MCP server or a skill + REST API. The web UI covers browsing, editing, the menu, the shopping list and cooking mode. Users are expected to create and edit data mostly through their AI, not forms.
 
@@ -8,8 +8,8 @@ Primary interface is the user's own AI, through the MCP server or a skill + REST
 - **AI for judgment, code for facts.** Constraint matching, scaling, unit conversion, calendar logic and shopping-list math are deterministic server code. The AI chooses dishes, balances menus, structures pasted recipes and handles fuzzy requests.
 - **One service layer** behind web UI, REST (API keys) and MCP. No feature exists in only one of them.
 - **Households are the unit.** You plan for households, but constraints live on individuals.
-- **It's on the host.** Bishul helps you avoid serving the wrong thing; it is not a guarantee. A disclaimer says so wherever allergy results are shown.
-- **Own identity.** Bishul does not use `@beezyworks/design`. It keeps the other conventions: pnpm, conventional commits, semantic-release, web-first on Cloudflare, EAS later.
+- **It's on the host.** Tavshil helps you avoid serving the wrong thing; it is not a guarantee. A disclaimer says so wherever allergy results are shown.
+- **Own identity.** Tavshil does not use `@beezyworks/design`. It keeps the other conventions: pnpm, conventional commits, semantic-release, web-first on Cloudflare, EAS later.
 - **Sync-friendly from day one.** Mobile apps will hold a local copy of the database for offline use. Use client-generatable IDs (ULID/UUID), `updated_at` on every row, soft deletes and an edit log, so sync can be added without a schema rewrite.
 
 ## 2. Stack
@@ -19,7 +19,7 @@ Primary interface is the user's own AI, through the MCP server or a skill + REST
 | API | Cloudflare Workers + Hono | REST + MCP + OpenAPI |
 | DB | D1 (SQLite) + Drizzle | See §11 |
 | Files | none | No photos (§6). |
-| Auth | BeezyWorks Accounts (`auth.baderech.app`) | The shared Better Auth server. Already has `@better-auth/mcp` for MCP OAuth (OAuth 2.1 + dynamic client registration). Bishul adds per-user API keys. |
+| Auth | BeezyWorks Accounts (`auth.baderech.app`) | The shared Better Auth server. Already has `@better-auth/mcp` for MCP OAuth (OAuth 2.1 + dynamic client registration). Tavshil adds per-user API keys. |
 | Calendar | `@beitecha/engine` (on `@hebcal/core`) | Reuse the shared engine from Beitecha/Siddur for location, Israel vs diaspora, holidays, zmanim and occasions. Don't rebuild it. |
 | Search | D1 FTS5 | Recipe text search, with transliteration aliases (§10). |
 
@@ -37,7 +37,7 @@ Primary interface is the user's own AI, through the MCP server or a skill + REST
 - **Everyone in your circle is a ghost.** A contact is a household *you* create, with Persons you fill in. It is visible only to your household and is never shared or discoverable.
 - **Linking**: you can link a ghost Person to a real user's profile. You choose to **merge** (keep what you entered, add theirs) or **overwrite** (replace with theirs). After that it is a **live link**: their self-entered constraints flow through as they change them.
 - **Your additions stay yours.** Anything you add on top — notes, extra constraints, likes/dislikes (§5) — is a private layer on your side. The real person never sees what you wrote about them. A ghost cannot be "claimed"; only you can link it.
-- **When a linked user deletes their account**, the link breaks and everything they entered about themselves is erased from your contact (required under GDPR-style erasure rules). Your own layer — notes, constraints you entered, likes/dislikes, serving history — stays, and the contact goes back to being a plain ghost. BeezyWorks Accounts must notify Bishul of account deletions so this runs.
+- **When a linked user deletes their account**, the link breaks and everything they entered about themselves is erased from your contact (required under GDPR-style erasure rules). Your own layer — notes, constraints you entered, likes/dislikes, serving history — stays, and the contact goes back to being a plain ghost. BeezyWorks Accounts must notify Tavshil of account deletions so this runs.
 - **Profiles are shared by link** (unlisted; no search or directory). There is no private setting: a profile exists to be shared. Each Person, kids included, is shared individually.
 - **Invites**: inviting a member into your own household is in scope. When you invite guests to a meal, you can drop individual Persons who won't be there (§9).
 
@@ -177,7 +177,7 @@ Both belong to the household (owned by the owner, used by all members).
 - UI strings are externalized so Hebrew and other languages can be added later.
 
 ## 11. API and MCP
-- **REST + OpenAPI** with per-user API keys (hashed, scoped read / read-write). A Bishul skill that drives the REST API is an alternative to MCP.
+- **REST + OpenAPI** with per-user API keys (hashed, scoped read / read-write). A Tavshil skill that drives the REST API is an alternative to MCP.
 - **MCP** via OAuth through BeezyWorks Accounts. A session acts on the signed-in user's household.
 - **MCP tools are intent-level, not CRUD**, but must cover every feature (§1):
   - Planning: `get_dining_brief`, `plan_meal`, `update_meal` (add/remove items, brought dishes, attendees, time), `accept_menu`, `get_menu`, `get_prep_schedule`
@@ -194,7 +194,7 @@ D1 is the right call. The data is modest and mostly per household, so there's no
 
 ## 12. Phasing
 ### MVP — "plan Shabbat for these guests", end to end
-- Foundation: monorepo, design basics, auth via BeezyWorks Accounts, API keys, MCP, deployed to `bishul.baderech.app`.
+- Foundation: monorepo, design basics, auth via BeezyWorks Accounts, API keys, MCP, deployed to `tavshil.baderech.app`.
 - Households with an owner and invited members; your own Person; ghost contact households with notes.
 - Constraints: all kinds and tag types, seasons via `@beitecha/engine`, combination rules, equipment rules, sourcing notes.
 - Recipes: versions, edit history, import, dimensions, cost, nutrition, source links, FTS search. Catalog built on demand by the AI, with source labels.
@@ -209,7 +209,7 @@ D1 is the right call. The data is modest and mostly per household, so there's no
 ### Left out of the MVP
 | Deferred | Why |
 |---|---|
-| Linking ghosts to real users, live links, deletion propagation | Only matters once other people use Bishul. Ghosts cover every MVP case. |
+| Linking ghosts to real users, live links, deletion propagation | Only matters once other people use Tavshil. Ghosts cover every MVP case. |
 | Snapshot share links and profile links | Same: value comes with other users. |
 | Duplicate detection and merge UI | Store `lineage_id` and content hashes now; build the merge flow with sharing. |
 | Equipment count / simultaneous-use checks | Designation rules are in. Pot and oven conflicts build on the basic prep schedule. |

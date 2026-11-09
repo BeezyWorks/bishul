@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bishul",
+  "name": "tavshil",
   "main": "worker/index.ts",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
-  // Served at bishul.baderech.app (the zone baderech.app is on Cloudflare).
-  "routes": [{ "pattern": "bishul.baderech.app", "custom_domain": true }],
+  // Served at tavshil.baderech.app (the zone baderech.app is on Cloudflare).
+  "routes": [{ "pattern": "tavshil.baderech.app", "custom_domain": true }],
   "build": { "command": "pnpm build:web" },
   "assets": {
     "directory": "./dist",
@@ -16,7 +16,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "bishul",
+      "database_name": "tavshil",
       "database_id": "c1427926-bb1b-4f3a-8ee7-0c730c909fb2",
       "migrations_dir": "migrations",
     },
@@ -29,6 +29,6 @@
   ],
   "vars": {
     "AUTH_URL": "https://auth.baderech.app",
-    "PUBLIC_URL": "https://bishul.baderech.app",
+    "PUBLIC_URL": "https://tavshil.baderech.app",
   },
 }

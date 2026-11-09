@@ -1,4 +1,4 @@
-// Bishul's D1 schema (Drizzle). Migrations are generated into `/migrations` with `pnpm db:generate`; the FTS5 table
+// Tavshil's D1 schema (Drizzle). Migrations are generated into `/migrations` with `pnpm db:generate`; the FTS5 table
 // and its triggers are hand-written SQL in a later migration. See README.md in this folder.
 //
 // Conventions: text ULID primary keys (client-generatable), `created_at`/`updated_at` as ms-epoch integers,
@@ -42,7 +42,7 @@ const base = () => ({
 const flagSource = ['seed', 'ai', 'user'] as const
 export type FlagSource = (typeof flagSource)[number]
 const dishCategory = ['meat', 'dairy', 'parve'] as const
-/** Mirrors `DAY_SLOTS` in `@bishul/core` (the schema stays free of runtime imports from it). */
+/** Mirrors `DAY_SLOTS` in `@tavshil/core` (the schema stays free of runtime imports from it). */
 const daySlots = [
   'breakfast',
   'kiddush',

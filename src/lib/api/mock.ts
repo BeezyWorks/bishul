@@ -1,5 +1,5 @@
 /**
- * In-memory implementation of BishulApi. It imitates what the server will do (dining brief,
+ * In-memory implementation of TavshilApi. It imitates what the server will do (dining brief,
  * ranking, shopping math, prep schedule) with simplified logic, so the UI can be clicked through.
  */
 import {
@@ -14,7 +14,7 @@ import {
 import { DISCLAIMER } from '@/lib/strings'
 import { formatAmount } from '@/lib/units'
 
-import type { BishulApi } from './client'
+import type { TavshilApi } from './client'
 import { bindHouseholds, mockPlan } from './mock-plan'
 import {
   buildHouseholds,
@@ -820,7 +820,7 @@ function defaultTime(name: string, date: ISODate): string {
 
 // ---- API ----
 
-export const mockApi: BishulApi = {
+export const mockApi: TavshilApi = {
   // Plan tab (simplified in-memory model: mock-plan.ts)
   getWeek: (date) => delay(mockPlan.getWeek(date)),
   getPlan: (range) => delay(mockPlan.getPlan(range)),

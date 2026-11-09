@@ -16,8 +16,8 @@ export interface OAuthIdentity {
   clientName: () => Promise<string | null>
 }
 
-/** The one scope a Bishul token carries. */
-export const MCP_SCOPE = 'bishul:write'
+/** The one scope a Tavshil token carries. */
+export const MCP_SCOPE = 'tavshil:write'
 /** The signing algorithms we accept (the accounts service signs with EdDSA by default); never `none` or HMAC. */
 const ALGORITHMS = ['EdDSA', 'ES256', 'RS256']
 const JWKS_TTL_MS = 5 * 60_000
@@ -165,7 +165,7 @@ export function challenge(
   return Response.json(
     {
       error: kind === 'missing' ? 'unauthorized' : kind,
-      error_description: message ?? 'Sign in with your Baderech account to use Bishul',
+      error_description: message ?? 'Sign in with your Baderech account to use Tavshil',
     },
     {
       status: kind === 'insufficient_scope' ? 403 : 401,

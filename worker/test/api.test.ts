@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { Env } from '../env'
 import worker from '../index'
 
-const ORIGIN = 'https://bishul.test'
+const ORIGIN = 'https://tavshil.test'
 const testEnv = env as unknown as Env & { TEST_KEYS: string }
 const keys = JSON.parse(testEnv.TEST_KEYS) as Record<string, any>
 
@@ -23,7 +23,7 @@ const call = (method: string, path: string, body?: unknown, token?: string) =>
   )
 
 const sign = async (opts: { scope?: string; kid?: string } = {}) =>
-  new SignJWT({ scope: opts.scope ?? 'bishul:write', azp: 'client-test' })
+  new SignJWT({ scope: opts.scope ?? 'tavshil:write', azp: 'client-test' })
     .setProtectedHeader({ alg: 'EdDSA', kid: opts.kid ?? 'a' })
     .setSubject('user-1')
     .setIssuer('https://auth.test/api/auth')
@@ -76,7 +76,7 @@ describe('mcp', () => {
     const res = await call('GET', '/.well-known/oauth-protected-resource/mcp')
     expect(await res.json()).toMatchObject({
       resource: `${ORIGIN}/mcp`,
-      scopes_supported: ['bishul:write'],
+      scopes_supported: ['tavshil:write'],
     })
   })
 
@@ -85,7 +85,7 @@ describe('mcp', () => {
     const init = await rpc(token, 'initialize', { protocolVersion: '2025-06-18' })
     expect(init.data.result).toMatchObject({
       protocolVersion: '2025-06-18',
-      serverInfo: { name: 'bishul' },
+      serverInfo: { name: 'tavshil' },
     })
     expect((await rpc(token, 'ping')).data.result).toEqual({})
     expect((await rpc(token, 'tools/list')).data.result.tools.length).toBeGreaterThan(30)

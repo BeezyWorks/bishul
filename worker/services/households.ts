@@ -1,5 +1,5 @@
 import { todayIn } from '@beitecha/engine'
-import { ageOn, type HouseholdLocation as CoreLocation } from '@bishul/core'
+import { ageOn, type HouseholdLocation as CoreLocation } from '@tavshil/core'
 import { and, eq, isNull } from 'drizzle-orm'
 
 import * as s from '../db/schema'

@@ -1,6 +1,6 @@
 // The Plan tab: a week (or any short range) of days with weekday meals and the runs of Shabbat / Yom Tov that touch
 // it; the hosted page of a run or a single hosted meal; and the guest, dish and recipe-search operations on a meal.
-// The calendar, naming and grouping rules are `@bishul/core` (hosting.ts, menu.ts); this file loads the data and
+// The calendar, naming and grouping rules are `@tavshil/core` (hosting.ts, menu.ts); this file loads the data and
 // shapes it.
 import { startOfWeek, todayIn } from '@beitecha/engine'
 import {
@@ -44,7 +44,7 @@ import {
   type HouseholdLocation,
   type MealProblem,
   type MealProblems,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 
 import * as s from '../db/schema'

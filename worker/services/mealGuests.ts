@@ -1,5 +1,5 @@
 // Guests on a meal: who is present, and what that does to a meal (it becomes hosted, and is named for its day).
-import { autoMealName, calendarDays, type DaySlot } from '@bishul/core'
+import { autoMealName, calendarDays, type DaySlot } from '@tavshil/core'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 
 import * as s from '../db/schema'

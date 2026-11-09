@@ -1,4 +1,4 @@
-/** BishulApi over the REST API (`/api/*`, bearer token). Server shapes are adapted in adapt.ts. */
+/** TavshilApi over the REST API (`/api/*`, bearer token). Server shapes are adapted in adapt.ts. */
 import { addDays, clock12 } from '@/lib/dates'
 
 import {
@@ -24,7 +24,7 @@ import {
   type ServerPeople,
   type ServerPersonView,
 } from './adapt'
-import type { AcceptResult, BishulApi } from './client'
+import type { AcceptResult, TavshilApi } from './client'
 import { ApiError, http } from './http'
 import type {
   Course,
@@ -121,7 +121,7 @@ const TAG_TYPE_OUT = {
   'kashrut-sourcing': 'kashrut_sourcing',
 } as const
 
-export const realApi: BishulApi = {
+export const realApi: TavshilApi = {
   // ---- Household and settings ----
   getHouseholdInfo: async () => info(await http.get('/household')),
   updateHousehold: async (patch) => info(await http.patch('/household', patch)),

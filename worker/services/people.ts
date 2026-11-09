@@ -4,7 +4,7 @@ import {
   mergePrivateLayer,
   type Constraint,
   type Person,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 
 import * as s from '../db/schema'

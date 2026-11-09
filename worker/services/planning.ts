@@ -25,7 +25,7 @@ import {
   type MealKind,
   type PlannedMealItem,
   type RankContext,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, asc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm'
 
 import * as s from '../db/schema'

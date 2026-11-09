@@ -1,4 +1,4 @@
-import type { DisplayPrefs } from '@bishul/core'
+import type { DisplayPrefs } from '@tavshil/core'
 import { and, eq, isNull } from 'drizzle-orm'
 
 import * as s from '../db/schema'

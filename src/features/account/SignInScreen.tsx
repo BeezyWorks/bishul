@@ -9,7 +9,7 @@ import { requestPasswordReset, signInDev, signInEmail, signInWith, signUpEmail }
 
 type Mode = 'signIn' | 'signUp' | 'forgot'
 
-/** Signed-out landing: what Bishul is, and the shared BeezyWorks sign-in. */
+/** Signed-out landing: what Tavshil is, and the shared BeezyWorks sign-in. */
 export function SignInScreen({
   returnTo = '/',
   reason,
@@ -70,7 +70,7 @@ export function SignInScreen({
     >
       <View style={[styles.hero, wide && { flex: 1 }]}>
         <Text variant="h2" color={colors.accent}>
-          Bishul
+          Tavshil
         </Text>
         {reason ? <Text variant="h2">{reason}</Text> : null}
         <Text variant={wide ? 'display' : 'h1'} accessibilityRole="header">
@@ -78,11 +78,11 @@ export function SignInScreen({
         </Text>
         <Text color={colors.muted}>
           Recipes, guests and their constraints, the menu, the shopping list and the prep schedule
-          for a kosher home. Bishul checks every dish against who is coming, and it works with your
+          for a kosher home. Tavshil checks every dish against who is coming, and it works with your
           own AI.
         </Text>
         <Text variant="small">
-          It’s on the host: Bishul helps you avoid serving the wrong thing, but it can’t guarantee a
+          It’s on the host: Tavshil helps you avoid serving the wrong thing, but it can’t guarantee a
           dish is safe.
         </Text>
       </View>

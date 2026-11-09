@@ -232,7 +232,7 @@ function ConnectCard() {
     <Card>
       <SectionHeader
         title="Connect your AI"
-        hint="Bishul is built to be used through your own AI. It adds recipes, plans meals and reads your lists for you."
+        hint="Tavshil is built to be used through your own AI. It adds recipes, plans meals and reads your lists for you."
       />
       <Text variant="h3">Claude</Text>
       <Text>
@@ -253,7 +253,7 @@ function ConnectCard() {
         </View>
         <CopyButton text={REST_URL} />
       </View>
-      <Code>{'Authorization: Bearer bsk_…'}</Code>
+      <Code>{'Authorization: Bearer tsk_…'}</Code>
       <Text>
         The full description of every call is the OpenAPI document at{' '}
         <Text variant="bodyStrong" selectable>

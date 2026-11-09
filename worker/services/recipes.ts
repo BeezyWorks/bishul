@@ -8,7 +8,7 @@ import {
   toCanonical,
   type DisplayPrefs,
   type Quantity,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { todayIn } from '@beitecha/engine'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
@@ -1580,7 +1580,7 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
       versions: [lead, ...rest].map(summary),
     })),
     disclaimer: checked
-      ? "Bishul helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
+      ? "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
       : null,
   }
 }

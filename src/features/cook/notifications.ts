@@ -3,7 +3,7 @@ import { useRouter, type Href } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 
-import type { CookTimer } from '@bishul/core/src/cook'
+import type { CookTimer } from '@tavshil/core/src/cook'
 
 import { formatClock } from '@/lib/units'
 

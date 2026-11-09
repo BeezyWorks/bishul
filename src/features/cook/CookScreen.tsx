@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 // Deep import: the app needs only the timer maths, not the calendar engine behind the index.
-import { remainingSec, timerId, timerStatus } from '@bishul/core/src/cook'
+import { remainingSec, timerId, timerStatus } from '@tavshil/core/src/cook'
 
 import { Checkbox, Segmented, Text } from '@/components'
 import { useVersion } from '@/lib/api/hooks'

@@ -107,7 +107,7 @@ export function buildSheet(page: HostedPage, opts: SheetOptions): Sheet {
     title: page.title,
     range: rangeText(page.from, page.to || addDays(page.from, 0)),
     days,
-    printed: `Bishul · printed ${longDate(page.today)}`,
+    printed: `Tavshil · printed ${longDate(page.today)}`,
   }
 }
 

@@ -13,7 +13,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta name="theme-color" content="#2E6A4E" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Bishul" />
+        <meta name="apple-mobile-web-app-title" content="Tavshil" />
         <link rel="icon" href="/favicon.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />

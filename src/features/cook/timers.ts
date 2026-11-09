@@ -11,7 +11,7 @@ import {
   timerStatus,
   trayTimers,
   type CookTimer,
-} from '@bishul/core/src/cook'
+} from '@tavshil/core/src/cook'
 
 import { cancelRing, scheduleRing } from './notifications'
 

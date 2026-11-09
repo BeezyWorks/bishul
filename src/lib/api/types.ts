@@ -1,4 +1,4 @@
-/** Domain types for the Bishul UI. They follow BRIEF.md; the real API will return the same shapes. */
+/** Domain types for the Tavshil UI. They follow BRIEF.md; the real API will return the same shapes. */
 
 export type ISODate = string // YYYY-MM-DD in the household's time zone
 export type Id = string

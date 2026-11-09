@@ -17,7 +17,7 @@ describe('API keys and /v1', () => {
   it('creates a key shown once, authenticates /v1, enforces scope, and revokes', async () => {
     const who = 'key-a'
     const write = await api(who, 'POST', '/keys', { scope: 'write' }, 201)
-    expect(write.key).toMatch(/^bsk_[0-9a-f]{40}$/)
+    expect(write.key).toMatch(/^tsk_[0-9a-f]{40}$/)
     const read = await api(who, 'POST', '/keys', { scope: 'read' }, 201)
 
     const listed = await api(who, 'GET', '/keys')
@@ -50,7 +50,7 @@ describe('API keys and /v1', () => {
     expect(((await (await v1(other.key, 'GET', '/recipes')).json()) as any).total).toBe(0)
 
     // Bad, missing and web-session credentials are rejected; web-only ops are absent.
-    const bad = await v1('bsk_' + '0'.repeat(40), 'GET', '/recipes')
+    const bad = await v1('tsk_' + '0'.repeat(40), 'GET', '/recipes')
     expect(bad.status).toBe(401)
     expect(((await bad.json()) as any).error.code).toBe('unauthorized')
     expect((await call('GET', '/v1/recipes')).status).toBe(401)

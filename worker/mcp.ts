@@ -13,16 +13,16 @@ import { ensureActor } from './services/households'
 // no sessions and no server-sent streams. The tools are intent-level (BRIEF §11); each is a thin call into the same
 // services the REST faces use.
 
-const SERVER = { name: 'bishul', title: 'Bishul', version: '1.0.0' }
+const SERVER = { name: 'tavshil', title: 'Tavshil', version: '1.0.0' }
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 const MAX_BODY = 256 * 1024
 
 const PROMPTS = [
   {
     name: 'meal_planning',
-    title: 'Meal planning in Bishul',
+    title: 'Meal planning in Tavshil',
     description:
-      'The data model and constraint semantics behind Bishul, and the when, who, dishes, review flow. Read it before planning a meal.',
+      'The data model and constraint semantics behind Tavshil, and the when, who, dishes, review flow. Read it before planning a meal.',
   },
 ]
 

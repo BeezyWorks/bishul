@@ -81,7 +81,7 @@ fi
 [[ "$REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--ref must be a semver tag like v0.2.0 (got '$REF')"
 git -C "$REPO" rev-parse -q --verify "refs/tags/$REF" >/dev/null || die "tag $REF does not exist"
 SHA="$REF"
-WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/bishul-build.XXXXXX")"
+WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/tavshil-build.XXXXXX")"
 echo "==> Building $REF in $WORKTREE"
 git -C "$REPO" worktree add --detach "$WORKTREE" "$SHA" >/dev/null
 VERSION="$(node -p "require('$WORKTREE/package.json').version")"
@@ -93,7 +93,7 @@ git -C "$WORKTREE" submodule update --init --recursive --quiet
 # --- build + submit --------------------------------------------------------
 NI="--non-interactive"
 [[ $INTERACTIVE -eq 1 ]] && NI=""
-ARTIFACT="$OUT/bishul-${SHA}-ios-$(date +%Y%m%d-%H%M%S).ipa"
+ARTIFACT="$OUT/tavshil-${SHA}-ios-$(date +%Y%m%d-%H%M%S).ipa"
 
 echo "==> building ($PROFILE)"
 (cd "$WORKTREE" && "${EAS[@]}" build --platform ios --profile "$PROFILE" --local $NI --output "$ARTIFACT")

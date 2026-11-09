@@ -1,6 +1,6 @@
 import { storage } from '@/lib/storage'
 
-const KEY = 'bishul.authToken'
+const KEY = 'tavshil.authToken'
 
 /** The Baderech session (bearer) token, kept in localStorage on the web. */
 export const tokenStore = {
@@ -8,7 +8,7 @@ export const tokenStore = {
   set: (token: string | null) => storage.set(KEY, token),
 }
 
-const USER_KEY = 'bishul.authUser'
+const USER_KEY = 'tavshil.authUser'
 
 /** The last signed-in user, so the app can start signed in before the session check returns. */
 export const userStore = {

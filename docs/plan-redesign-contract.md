@@ -139,9 +139,9 @@ MCP (same services): `get_week`, `get_hosted`, `manage_meal_guests`, `manage_mea
 
 `meals`: `slot` (default `dinner`; existing meals backfilled from their time), `hosted` (bool), `name_edited` (bool; existing meals are marked edited). `meals.kind` is unchanged: it is meat/dairy/parve, not the slot. New table `meal_households (meal_id, household_id)`: guest households on a meal (all members away still leaves the household listed); your own household is implicit. Who is coming stays in `meal_attendees` (a row = coming; removing a row = away, soft-deleted so toggling back revives it). `meal_items.course` carries the menu course. All rows keep ULIDs, `updated_at`, soft delete.
 
-## 8. Core helpers (`@bishul/core`, `packages/core/src/planning/hosting.ts`, `menu.ts`; tested)
+## 8. Core helpers (`@tavshil/core`, `packages/core/src/planning/hosting.ts`, `menu.ts`; tested)
 
-Worker-side only (the app does not import `@bishul/core`; the app-side mirrors are in `src/lib/plan.ts`).
+Worker-side only (the app does not import `@tavshil/core`; the app-side mirrors are in `src/lib/plan.ts`).
 `hostedRuns(from, to, loc)`, `runStartingOn(date, loc)`, `holyDateOfMeal({date, slot}, holyDates)`, `holyDatesOf(runs)`, `eveLinkOn(date, runs)`, `autoMealName(day, slot)`, `namingJewishHoliday`, `displayHolidays`, `visibleCivilHolidays`, `nameToStore`, `compareMealsInDay`, `compareMealsInHolyDay`, `DAY_SLOTS`, `SLOT_LABELS`, `slotFromTime`, `runKey/mealKey/parseHostedKey/hostedKeyFor`; `groupMenu`, `groupMenuWithDefaults`, `menuSummary`, `courseGroup`, `headcount`, `sumHeadcounts`, `countsText`, `awayText`, `constraintLabels`, `mealProblems` (allergy names the dish; gap = a guest with no main they can eat), `foodNotes`. The calendar comes from the engine through `calendarDays`; nothing here rebuilds it.
 
 ## 9. Things to know

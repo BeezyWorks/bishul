@@ -7,7 +7,7 @@ import {
   formatQuantity,
   type PrepMeal,
   type Quantity,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
 import * as s from '../db/schema'

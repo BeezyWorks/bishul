@@ -1,4 +1,4 @@
-/** Display-only unit conversion for the mock UI. The real conversion lives in @bishul/core. */
+/** Display-only unit conversion for the mock UI. The real conversion lives in @tavshil/core. */
 import type { IngredientLine } from '@/lib/api/types'
 
 export type UnitSystem = 'metric' | 'us'

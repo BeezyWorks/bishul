@@ -32,7 +32,7 @@ export function TopNav() {
         style={styles.brand}
       >
         <Text variant="h2" color={colors.accent}>
-          Bishul
+          Tavshil
         </Text>
       </Pressable>
       <View style={styles.topLinks}>

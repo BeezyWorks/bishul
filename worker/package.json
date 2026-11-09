@@ -1,5 +1,5 @@
 {
-  "name": "@bishul/worker",
+  "name": "@tavshil/worker",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@beitecha/engine": "workspace:*",
-    "@bishul/core": "workspace:*",
+    "@tavshil/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.16",
     "jose": "^6.2.15",

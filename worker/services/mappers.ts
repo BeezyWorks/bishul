@@ -1,4 +1,4 @@
-// Database rows <-> @bishul/core types. Core knows nothing about rows; everything that crosses the line is here.
+// Database rows <-> @tavshil/core types. Core knows nothing about rows; everything that crosses the line is here.
 import {
   PERIOD_NAMES,
   PERSON_RULES,
@@ -13,7 +13,7 @@ import {
   type MeatDairy,
   type OccasionFit,
   type PeriodName,
-} from '@bishul/core'
+} from '@tavshil/core'
 
 import * as s from '../db/schema'
 import { invalid, slugOf } from './ctx'

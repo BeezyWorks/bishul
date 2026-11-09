@@ -47,7 +47,7 @@ const LABEL: Record<DaySlot, string> = {
 const NIGHT: DaySlot[] = ['dinner', 'oneg']
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DISCLAIMER =
-  "Bishul helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
+  "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
 const NO_PROBLEMS = { allergies: 0, gaps: 0, other: 0, total: 0 }
 
 interface Run {

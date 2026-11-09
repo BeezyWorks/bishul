@@ -87,10 +87,10 @@ export function buildOpenApi(publicUrl: string): Json {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Bishul API',
+      title: 'Tavshil API',
       version: '1.0.0',
       description:
-        'Recipes, households and meal planning for kosher families. Authenticate with a per-user API key ("Authorization: Bearer bsk_…"); keys are read or read-write. Errors are { "error": { "code", "message" } }. Dining briefs and anything about allergies carry a disclaimer: Bishul helps avoid serving the wrong thing but it is not a guarantee, and AI-filled ingredient data is flagged.',
+        'Recipes, households and meal planning for kosher families. Authenticate with a per-user API key ("Authorization: Bearer tsk_…"); keys are read or read-write. Errors are { "error": { "code", "message" } }. Dining briefs and anything about allergies carry a disclaimer: Tavshil helps avoid serving the wrong thing but it is not a guarantee, and AI-filled ingredient data is flagged.',
     },
     servers: [{ url: `${publicUrl.replace(/\/$/, '')}/v1` }],
     tags: [...new Set(operations.filter((o) => !o.webOnly).map((o) => o.tag))].map((name) => ({
@@ -102,8 +102,8 @@ export function buildOpenApi(publicUrl: string): Json {
         apiKey: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'bsk_…',
-          description: 'A Bishul API key',
+          bearerFormat: 'tsk_…',
+          description: 'A Tavshil API key',
         },
       },
       schemas: {

@@ -53,7 +53,7 @@ export function SharedRecipeScreen() {
             ? 'The person who shared it has stopped sharing it.'
             : 'Check the link, or ask the person who sent it to share it again.'}
         </Text>
-        <Button label="Go to Bishul" href="/" />
+        <Button label="Go to Tavshil" href="/" />
       </Screen>
     )
   }

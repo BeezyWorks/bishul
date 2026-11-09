@@ -7,7 +7,7 @@ import {
   parseQuantity,
   toCanonical,
   type Quantity,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 
 import * as s from '../db/schema'

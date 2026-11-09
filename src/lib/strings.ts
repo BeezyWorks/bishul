@@ -1,6 +1,6 @@
 /** UI strings in one place so other languages can be added later. */
 export const DISCLAIMER =
-  'Bishul helps you check, but it can’t guarantee a dish is safe. Confirm allergies with your guests.'
+  'Tavshil helps you check, but it can’t guarantee a dish is safe. Confirm allergies with your guests.'
 
 export const KIND_LABEL = { meat: 'Meat', dairy: 'Dairy', parve: 'Parve' } as const
 

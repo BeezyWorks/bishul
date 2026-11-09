@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Bishul",
-    "slug": "bishul",
+    "name": "Tavshil",
+    "slug": "tavshil",
     "version": "0.1.0",
-    "scheme": "bishul",
+    "scheme": "tavshil",
     "userInterfaceStyle": "light",
     "platforms": [
       "ios",
@@ -32,7 +32,7 @@
     "owner": "beezyworkstudios",
     "icon": "./assets/brand/icon.png",
     "ios": {
-      "bundleIdentifier": "com.beezyworks.bishul",
+      "bundleIdentifier": "com.beezyworks.tavshil",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -41,7 +41,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f493b752-ec00-475b-ac51-e84b80084549"
+        "projectId": "b89c8474-4e3f-4ca9-b349-e2e90ec3eb45"
       }
     }
   }

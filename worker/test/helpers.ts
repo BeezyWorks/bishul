@@ -4,7 +4,7 @@ import { SignJWT, importJWK } from 'jose'
 import type { Env } from '../env'
 import worker from '../index'
 
-export const ORIGIN = 'https://bishul.test'
+export const ORIGIN = 'https://tavshil.test'
 export const testEnv = env as unknown as Env & { TEST_KEYS: string }
 const keys = JSON.parse(testEnv.TEST_KEYS) as Record<string, any>
 
@@ -34,7 +34,7 @@ export async function api(who: string, method: string, path: string, body?: unkn
 }
 
 export const sign = async (userId: string, opts: { scope?: string } = {}) =>
-  new SignJWT({ scope: opts.scope ?? 'bishul:write', azp: 'client-test' })
+  new SignJWT({ scope: opts.scope ?? 'tavshil:write', azp: 'client-test' })
     .setProtectedHeader({ alg: 'EdDSA', kid: 'a' })
     .setSubject(userId)
     .setIssuer('https://auth.test/api/auth')

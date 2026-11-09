@@ -415,13 +415,13 @@ export async function saveShared(db: Db, actor: Actor, token: string) {
 // ---------------------------------------------------------------------------------------------------------------
 // API keys (BRIEF §11): hashed, scoped read or write. The key is shown once.
 
-const KEY_RE = /^bsk_[0-9a-f]{40}$/
+const KEY_RE = /^tsk_[0-9a-f]{40}$/
 const LAST_USED_EVERY_MS = 5 * 60_000
 
 export async function createApiKey(db: Db, userId: string, scope: 'read' | 'write') {
   const raw = new Uint8Array(20)
   crypto.getRandomValues(raw)
-  const key = `bsk_${[...raw].map((b) => b.toString(16).padStart(2, '0')).join('')}`
+  const key = `tsk_${[...raw].map((b) => b.toString(16).padStart(2, '0')).join('')}`
   const [row] = await db
     .insert(s.apiKeys)
     .values({ userId, hashedKey: await sha256Hex(key), prefix: key.slice(0, 12), scope })
@@ -462,7 +462,7 @@ export async function revokeApiKey(db: Db, userId: string, id: string) {
   return { revoked: true }
 }
 
-/** The user and scope behind a `bsk_…` key, or null (unknown, malformed or revoked). */
+/** The user and scope behind a `tsk_…` key, or null (unknown, malformed or revoked). */
 export async function authenticateApiKey(db: Db, raw: string) {
   if (!KEY_RE.test(raw)) return null
   const [row] = await db

@@ -4,7 +4,7 @@ import {
   type HouseholdLocation,
   type PantryItem as CorePantryItem,
   type PlannedMealItem,
-} from '@bishul/core'
+} from '@tavshil/core'
 import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 
 import * as s from '../db/schema'

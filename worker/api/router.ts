@@ -27,11 +27,11 @@ async function sessionAuth(c: Ctx): Promise<Auth> {
   return { user: { id: user.id, name: user.name }, via: 'web', scope: 'write' }
 }
 
-/** `/v1`: `Authorization: Bearer bsk_…`. Bad keys count against the caller's IP. */
+/** `/v1`: `Authorization: Bearer tsk_…`. Bad keys count against the caller's IP. */
 async function keyAuth(c: Ctx): Promise<Auth> {
   const match = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '')
   if (!match)
-    throw new ApiError(401, 'unauthorized', 'Send your API key as "Authorization: Bearer bsk_…"')
+    throw new ApiError(401, 'unauthorized', 'Send your API key as "Authorization: Bearer tsk_…"')
   const db = openDb(c.env.DB)
   const key = await authenticateApiKey(db, match[1])
   if (!key) {

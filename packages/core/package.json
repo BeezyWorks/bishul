@@ -1,8 +1,8 @@
 {
-  "name": "@bishul/core",
+  "name": "@tavshil/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Bishul's pure domain logic: units, scaling, constraint evaluation. No platform dependencies.",
+  "description": "Tavshil's pure domain logic: units, scaling, constraint evaluation. No platform dependencies.",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",

@@ -52,7 +52,7 @@ export interface AcceptResult {
   blocked: { id: Id; name: string; problems: string[] }[]
 }
 
-export interface BishulApi {
+export interface TavshilApi {
   // Household and settings
   getHouseholdInfo(): Promise<HouseholdInfo>
   updateHousehold(patch: { name?: string; location?: HouseholdLocation }): Promise<HouseholdInfo>
@@ -191,6 +191,6 @@ export interface BishulApi {
 }
 
 // The mock (and its fixtures) is only bundled when the demo build asks for it.
-export const api: BishulApi = USE_MOCK
+export const api: TavshilApi = USE_MOCK
   ? (require('./mock') as typeof import('./mock')).mockApi
   : realApi
