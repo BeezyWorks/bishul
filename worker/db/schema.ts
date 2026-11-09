@@ -319,6 +319,27 @@ export const versionEquipment = sqliteTable(
   (t) => [index('version_equipment_version_idx').on(t.versionId)],
 )
 
+/**
+ * Free-form keywords on a version ("spicy", "italian", "from Savta"). No vocabulary and no owner: `tag` is as typed
+ * (trimmed, spaces collapsed), `key` is the folded form used to match and count ("One-Pot" = "one pot"). Descriptive
+ * only; they never feed allergy or kashrut checks.
+ */
+export const versionTags = sqliteTable(
+  'version_tags',
+  {
+    ...base(),
+    versionId: text('version_id')
+      .notNull()
+      .references(() => recipeVersions.id),
+    tag: text('tag').notNull(),
+    key: text('key').notNull(),
+  },
+  (t) => [
+    index('version_tags_version_idx').on(t.versionId),
+    index('version_tags_key_idx').on(t.key),
+  ],
+)
+
 /** Occasion-fit dimensions: built-in (household null) or custom per household. */
 export const dimensions = sqliteTable(
   'dimensions',

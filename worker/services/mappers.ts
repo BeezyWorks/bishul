@@ -162,6 +162,8 @@ export interface LoadedVersion {
   lines: { line: LineRow; ingredient: IngredientRow | null }[]
   equipment: (typeof s.versionEquipment.$inferSelect)[]
   dims: { dimension: DimensionRow; fit: 'fine' | 'good' | 'especially' }[]
+  /** Free-form keywords: as typed, and the folded key they match on. */
+  tags: { tag: string; key: string }[]
 }
 
 /** Meat / dairy / parve of a version: as declared, else from its ingredients. */

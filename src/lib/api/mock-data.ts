@@ -224,6 +224,7 @@ type StepSpec = [text: string, timerMin: number, uses: string[]]
 
 interface VSpec {
   id: Id
+  tags?: string[]
   label: string
   parentId?: Id
   description: string
@@ -289,6 +290,7 @@ function version(recipeId: Id, s: VSpec): RecipeVersion {
     flags: s.flags ?? [],
     cost: s.cost ?? '$',
     occasionFit: (s.fit ?? []).map(([dimension, fit]) => ({ dimension, fit })),
+    tags: s.tags ?? [],
     source: s.source,
     pesachFriendly: s.pesach ?? false,
     ingredients,

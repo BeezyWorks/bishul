@@ -98,6 +98,8 @@ export const useRecipes = (query: string, filters: RecipeFilters) =>
     placeholderData: keepPreviousData,
   })
 
+export const useTags = () => useQuery({ queryKey: ['tags'], queryFn: () => api.getTags() })
+
 export const useRecipe = (id: Id) =>
   useQuery({ queryKey: ['recipe', id], queryFn: () => api.getRecipe(id) })
 export const useVersion = (id: Id) =>
@@ -188,7 +190,15 @@ export const stale = {
   people: [['household'], ['contacts'], ['person'], ['meal'], ['suggestions'], ['recipes']],
   /** Notes and reactions: the person, plus what ranks suggestions and the recipe page. */
   reactions: [['person'], ['household'], ['contacts'], ['suggestions'], ['recipe']],
-  recipes: [['recipes'], ['recipe'], ['version'], ['collections'], ['meal'], ['suggestions']],
+  recipes: [
+    ['recipes'],
+    ['recipe'],
+    ['version'],
+    ['tags'],
+    ['collections'],
+    ['meal'],
+    ['suggestions'],
+  ],
   collections: [['collections']],
   shopping: [['shopping']],
   pantry: [['pantry'], ['shopping'], ['suggestions']],

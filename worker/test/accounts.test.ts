@@ -46,7 +46,7 @@ describe('account deletion notice', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Doomed soup', ingredients: ['1 onion'], steps: ['Cook'] },
+      { servings: 4, title: 'Doomed soup', ingredients: ['1 onion'], steps: ['Cook'] },
       201,
     )
     const share = await api(who, 'POST', '/shares', { kind: 'profile', targetId: me.id }, 201)
@@ -120,7 +120,7 @@ describe('account deletion notice', () => {
       'ad-own',
       'POST',
       '/recipes/import',
-      { title: 'Owner cake', ingredients: ['2 eggs'], steps: ['Bake'] },
+      { servings: 4, title: 'Owner cake', ingredients: ['2 eggs'], steps: ['Bake'] },
       201,
     )
     const invite = await api('ad-own', 'POST', '/household/invites', {}, 201)
@@ -129,7 +129,7 @@ describe('account deletion notice', () => {
       'ad-mem',
       'POST',
       '/recipes/import',
-      { title: 'Member pie', ingredients: ['1 apple'], steps: ['Bake'] },
+      { servings: 4, title: 'Member pie', ingredients: ['1 apple'], steps: ['Bake'] },
       201,
     )
 

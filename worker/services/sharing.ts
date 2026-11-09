@@ -51,6 +51,8 @@ interface SnapshotVersion {
   flags: Record<string, boolean>
   equipment: { item: string; designation: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions: { name: string; fit: string }[]
+  /** Absent on links shared before tags existed. */
+  tags?: string[]
   ingredients: SnapshotIngredient[]
   lineageId: string
   /** Index of the parent in the dish's `versions`, for a dish link. */
@@ -87,6 +89,7 @@ function snapshotVersion(
     flags: Object.fromEntries(Object.entries(x.flags ?? {}).map(([k, f]) => [k, !!f?.value])),
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
     dimensions: v.dims.map((d) => ({ name: d.dimension.name, fit: d.fit })),
+    tags: v.tags.map((t) => t.tag),
     ingredients: v.lines.map((l) => ({
       section: l.line.section,
       original: l.line.originalText,
@@ -375,6 +378,7 @@ function toInput(v: SnapshotVersion): SaveRecipeInput {
     flags: v.flags,
     equipment: v.equipment,
     dimensions: v.dimensions.map((d) => ({ dimension: d.name, fit: d.fit })),
+    tags: v.tags ?? [],
     ingredients,
   }
 }

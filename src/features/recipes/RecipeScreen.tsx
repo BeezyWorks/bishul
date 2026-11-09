@@ -249,6 +249,9 @@ function VersionView({
             <Badge key={f} label={f} tone="warn" />
           ))}
         {v.parentId ? <Badge label="A variation" tone="muted" /> : null}
+        {v.tags.map((t) => (
+          <Badge key={`tag:${t}`} label={`#${t}`} tone="muted" />
+        ))}
       </View>
 
       <EditableTiles v={v} scale={scale} />

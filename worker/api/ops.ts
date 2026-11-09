@@ -409,6 +409,8 @@ export const operations: Operation[] = [
       difficulty: S.difficulty.optional(),
       activeMinutes: z.number().int().optional(),
       totalMinutes: z.number().int().optional(),
+      nutrition: S.nutritionInput,
+      tags: S.versionFields.tags,
       ingredientData: z
         .record(z.string(), S.ingredientMeta)
         .optional()
@@ -630,6 +632,16 @@ export const operations: Operation[] = [
       }),
   }),
   op({
+    id: 'listTags',
+    method: 'get',
+    path: '/tags',
+    tag: 'Recipes',
+    scope: 'read',
+    summary: 'Tags used on your recipes, with how many recipes use each',
+    input: none,
+    run: (c) => recipes.listTags(c.db, c.actor),
+  }),
+  op({
     id: 'listDimensions',
     method: 'get',
     path: '/dimensions',
@@ -846,6 +858,7 @@ export const operations: Operation[] = [
       q: z.string().optional(),
       course: z.string().optional(),
       limit: S.int.optional(),
+      ...S.nutritionSearchFields,
     }),
     run: (c, { id, ...rest }) => hosting.searchRecipesForMeal(c.db, c.actor, id, rest),
   }),
@@ -1225,7 +1238,8 @@ export const operations: Operation[] = [
     tag: 'Sharing',
     scope: 'write',
     status: 201,
-    summary: 'Save a shared recipe to your household as an independent copy of how it is now (keeps its lineage; later edits by the author do not reach the copy)',
+    summary:
+      'Save a shared recipe to your household as an independent copy of how it is now (keeps its lineage; later edits by the author do not reach the copy)',
     input: z.object({ token: z.string() }),
     run: (c, i) => sharing.saveShared(c.db, c.actor, i.token),
   }),

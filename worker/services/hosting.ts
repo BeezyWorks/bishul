@@ -44,6 +44,8 @@ import {
   type HouseholdLocation,
   type MealProblem,
   type MealProblems,
+  type ServingNutrition,
+  perServing,
 } from '@tavshil/core'
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 
@@ -71,7 +73,7 @@ import {
 import { setPresent, syncHosted, reopenIfAccepted } from './mealGuests'
 import { loadEffectivePeopleOnDates, requirePerson, type EffectivePerson } from './people'
 import { itemsOfMeals, mealsInRange, type MealItemRow, type MealRow } from './plans'
-import { loadAllVersions, loadVersions, searchRecipes } from './recipes'
+import { loadAllVersions, loadVersions, searchRecipes, type SearchInput } from './recipes'
 
 const MAX_PLAN_DAYS = 62
 
@@ -1295,6 +1297,19 @@ export async function moveDish(
 // ---------------------------------------------------------------------------------------------------------------
 // Recipe search for a meal
 
+/** The nutrition filters and sorts of a recipe search, usable when searching for a meal. */
+export type NutritionSearch = Pick<
+  SearchInput,
+  | 'nutrition'
+  | 'minProteinG'
+  | 'minFiberG'
+  | 'maxCalories'
+  | 'maxCarbsG'
+  | 'maxSodiumMg'
+  | 'maxSugarG'
+  | 'sort'
+>
+
 export interface MealRecipeHit {
   recipeId: string
   versionId: string
@@ -1311,6 +1326,8 @@ export interface MealRecipeHit {
   /** Eat-around hints for ones that fit. */
   eatAround: string[]
   aiWarnings: string[]
+  /** Per serving, when the recipe has nutrition. */
+  nutritionPerServing: ServingNutrition | null
 }
 
 /**
@@ -1321,11 +1338,16 @@ export async function searchRecipesForMeal(
   db: Db,
   actor: Actor,
   mealId: string,
-  input: { q?: string; course?: string; limit?: number },
+  input: { q?: string; course?: string; limit?: number } & NutritionSearch,
 ) {
   const meal = await requireMeal(db, actor, mealId)
   const ctx = await buildContext(db, actor, meal)
-  const found = input.q?.trim() ? await searchRecipes(db, actor, { q: input.q, limit: 200 }) : null
+  const { q, course: _course, limit: _limit, ...nutrition } = input
+  const filtered = Object.values(nutrition).some((v) => v !== undefined)
+  const found =
+    q?.trim() || filtered
+      ? await searchRecipes(db, actor, { q: q?.trim() || undefined, ...nutrition, limit: 200 })
+      : null
   const versions: LoadedVersion[] = found
     ? [
         ...(
@@ -1368,6 +1390,7 @@ export async function searchRecipesForMeal(
       failsFor: [...people].map(([personId, personName]) => ({ personId, personName })),
       eatAround: c.eatAround.map((e) => e.text),
       aiWarnings: c.aiWarnings.map((w) => w.text),
+      nutritionPerServing: perServing(v.version.nutrition, v.version.servings),
     })
   }
   const rank = (h: MealRecipeHit) => order?.get(h.recipeId) ?? 0
@@ -1379,6 +1402,10 @@ export async function searchRecipesForMeal(
     fits: hits.filter((h) => !h.why.length).slice(0, limit),
     excluded: hits.filter((h) => h.why.length).slice(0, limit),
     total: hits.length,
+    ...(filtered && {
+      nutritionNote:
+        'Nutrition is per serving. Recipes without figures for the filter were left out; the AI can fill them in on request.',
+    }),
     disclaimer: DISCLAIMER,
   }
 }

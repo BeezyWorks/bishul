@@ -64,6 +64,20 @@
       "when": 1794146046436,
       "tag": "0008_worried_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794236268017,
+      "tag": "0009_version_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794236268386,
+      "tag": "0010_fts_tags",
+      "breakpoints": true
     }
   ]
 }

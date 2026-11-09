@@ -11,6 +11,7 @@ import type {
   ApiKey,
   CalendarDay,
   Collection,
+  TagCount,
   ConstraintInput,
   Course,
   CreatedApiKey,
@@ -129,6 +130,8 @@ export interface TavshilApi {
   /** A single version with its recipe, for cooking mode. */
   getVersion(versionId: Id): Promise<{ recipe: Recipe; version: RecipeVersion }>
   getCollections(): Promise<Collection[]>
+  /** Tags in use, most used first. */
+  getTags(): Promise<TagCount[]>
   saveCollection(name: string, filters: RecipeFilters): Promise<Collection>
   /** Parses pasted text without saving. */
   previewImport(text: string, title?: string): Promise<ImportPreview>

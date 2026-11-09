@@ -1,5 +1,7 @@
 /** Domain types for the Tavshil UI. They follow BRIEF.md; the real API will return the same shapes. */
 
+import type { NutritionGoal } from '@tavshil/core/src/nutrition'
+
 export type ISODate = string // YYYY-MM-DD in the household's time zone
 export type Id = string
 
@@ -218,6 +220,8 @@ export interface RecipeVersion {
   cost: Cost
   nutrition?: NutritionInfo
   occasionFit: OccasionFit[]
+  /** Free-form keywords ("spicy", "italian"), as typed. */
+  tags: string[]
   source?: { label: string; url: string }
   pesachFriendly: boolean
   /** Pesach-friendly only for those who eat kitniyot. */
@@ -254,11 +258,15 @@ export interface RecipeSummary {
   pesachKitniyot?: boolean
   lastServed?: ISODate
   fits: OccasionFit[]
+  tags: string[]
+  /** Per serving, when the recipe has nutrition. */
+  nutrition?: { calories?: number; proteinG?: number; fiberG?: number; source?: 'ai' | 'user' }
   /** For the chosen "safe for" people, who can't have it and why. */
   unsafeFor: { personId: Id; personName: string; reason: string }[]
 }
 
-export type RecipeSort = 'relevance' | 'quickest' | 'easiest' | 'longest-unserved' | 'a-z'
+export type RecipeSort =
+  'relevance' | 'quickest' | 'easiest' | 'longest-unserved' | 'a-z' | 'protein' | 'fiber'
 
 export interface RecipeFilters {
   course?: Course
@@ -269,9 +277,21 @@ export interface RecipeFilters {
   notServedWeeks?: number
   difficulty?: Difficulty
   cost?: Cost
+  /** Only recipes with all of these tags. */
+  tags?: string[]
   /** Occasion dimension at `good` or better. */
   dimension?: string
+  /** Goals per serving: high_protein, high_fiber, low_calorie, low_carb, ... */
+  nutrition?: NutritionGoal[]
+  /** At least this much protein per serving, in grams. */
+  minProteinG?: number
   sort?: RecipeSort
+}
+
+/** A tag used on the household's recipes, with how many recipes carry it. */
+export interface TagCount {
+  tag: string
+  recipes: number
 }
 
 export interface Collection {
@@ -570,8 +590,12 @@ export interface VersionEdit {
   cost?: Cost
   serving?: RecipeVersion['serving']
   holdsOnBlech?: boolean
+  /** `null` clears it. */
+  nutrition?: NutritionInfo | null
   /** Hand-set dish flags (`spicy`, `kid_friendly`). Send the full set; it replaces the old one. */
   flags?: Record<string, boolean>
+  /** Free-form keywords. Send the full list; it replaces the old one. */
+  tags?: string[]
   description?: string
   ingredients?: { text: string; section?: string }[]
   steps?: {

@@ -2,6 +2,8 @@
  * Server shapes (worker/services/*) to the UI's presentation types (types.ts).
  * Everything the server does not say in the UI's vocabulary is translated here, and nowhere else.
  */
+import type { NutritionGoal } from '@tavshil/core/src/nutrition'
+
 import { clock12, shortHebrew, weekdayName } from '@/lib/dates'
 import { DISCLAIMER } from '@/lib/strings'
 
@@ -710,6 +712,7 @@ interface ServerVersion {
   flags: Record<string, { value: boolean } | undefined>
   equipment: { item: string; designation: string | null }[]
   dimensions: { name: string; fit: string }[]
+  tags?: string[]
   ingredients: {
     id: string
     section?: string | null
@@ -794,6 +797,7 @@ export function adaptVersion(
       .map(([k]) => k),
     cost: costIn(v.cost),
     nutrition: v.nutrition ?? undefined,
+    tags: v.tags ?? [],
     occasionFit: v.dimensions.map((d) => ({
       dimension: d.name,
       fit: FIT_FROM[d.fit] ?? 'fine',
@@ -857,8 +861,15 @@ interface ServerResult {
   pesachFriendly: boolean
   pesachKitniyotFree?: boolean
   dimensions: { name: string; fit: string }[]
+  tags?: string[]
   lastServed: string | null
   versionCount: number
+  nutritionPerServing?: {
+    calories?: number
+    proteinG?: number
+    fiberG?: number
+  } | null
+  nutritionSource?: 'ai' | 'user' | null
   unsafeFor?: { personId: string; personName: string; reasons: string[] }[]
   /** Every matching version of the recipe, the lead one first. */
   versions?: { kashrut: string }[]
@@ -883,7 +894,11 @@ export function adaptResults(results: ServerResult[]): RecipeSummary[] {
       pesachFriendly: r.pesachFriendly,
       pesachKitniyot: r.pesachFriendly && r.pesachKitniyotFree === false,
       lastServed: r.lastServed ?? undefined,
+      nutrition: r.nutritionPerServing
+        ? { ...r.nutritionPerServing, source: r.nutritionSource ?? undefined }
+        : undefined,
       fits: r.dimensions.map((d) => ({ dimension: d.name, fit: FIT_FROM[d.fit] ?? 'fine' })),
+      tags: r.tags ?? [],
       unsafeFor: (r.unsafeFor ?? []).map((u) => ({
         personId: u.personId,
         personName: u.personName,
@@ -899,6 +914,8 @@ const SORT_OUT: Record<string, string> = {
   easiest: 'easiest',
   'longest-unserved': 'longest_unserved',
   'a-z': 'a_z',
+  protein: 'protein',
+  fiber: 'fiber',
 }
 const SORT_IN: Record<string, RecipeFilters['sort']> = {
   relevance: 'relevance',
@@ -906,6 +923,8 @@ const SORT_IN: Record<string, RecipeFilters['sort']> = {
   easiest: 'easiest',
   longest_unserved: 'longest-unserved',
   a_z: 'a-z',
+  protein: 'protein',
+  fiber: 'fiber',
 }
 
 /** UI filters to the server's search parameters (also the stored shape of a collection). */
@@ -921,7 +940,10 @@ export function filtersOut(
     notServedWeeks: f.notServedWeeks,
     difficulty: f.difficulty ? difficultyOut(f.difficulty) : undefined,
     maxCost: f.cost ? costOut(f.cost) : undefined,
+    tags: f.tags?.length ? f.tags : undefined,
     dimension: f.dimension,
+    nutrition: f.nutrition?.length ? f.nutrition : undefined,
+    minProteinG: f.minProteinG,
     sort: f.sort ? SORT_OUT[f.sort] : undefined,
   }
 }
@@ -936,7 +958,10 @@ export function filtersIn(spec: Record<string, unknown>): RecipeFilters {
   if (typeof spec.notServedWeeks === 'number') f.notServedWeeks = spec.notServedWeeks
   if (typeof spec.difficulty === 'string') f.difficulty = difficultyIn(spec.difficulty)
   if (typeof spec.maxCost === 'number') f.cost = costIn(spec.maxCost)
+  if (Array.isArray(spec.tags)) f.tags = spec.tags as string[]
   if (typeof spec.dimension === 'string') f.dimension = spec.dimension
+  if (Array.isArray(spec.nutrition)) f.nutrition = spec.nutrition as NutritionGoal[]
+  if (typeof spec.minProteinG === 'number') f.minProteinG = spec.minProteinG
   if (typeof spec.sort === 'string') f.sort = SORT_IN[spec.sort]
   return f
 }

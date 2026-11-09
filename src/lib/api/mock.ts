@@ -2,6 +2,8 @@
  * In-memory implementation of TavshilApi. It imitates what the server will do (dining brief,
  * ranking, shopping math, prep schedule) with simplified logic, so the UI can be clicked through.
  */
+import { meetsBounds, nutritionBounds, perServing } from '@tavshil/core/src/nutrition'
+
 import {
   addDays,
   diffDays,
@@ -746,13 +748,21 @@ function summarize(r: Recipe, filters: RecipeFilters, people: Person[]): RecipeS
     difficulty: d.difficulty,
     cost: d.cost,
     pesachFriendly: r.versions.some((v) => v.pesachFriendly),
+    nutrition: perServing(d.nutrition, d.servings) ?? undefined,
     lastServed: lastServedOf(r),
     fits: d.occasionFit,
+    tags: d.tags,
     unsafeFor,
   }
 }
 
 function matchesFilters(r: Recipe, f: RecipeFilters): boolean {
+  const bounds = nutritionBounds(f.nutrition, { minProteinG: f.minProteinG })
+  if (
+    bounds.length &&
+    !r.versions.some((v) => meetsBounds(perServing(v.nutrition, v.servings), bounds) === 'yes')
+  )
+    return false
   if (f.course && r.course !== f.course) return false
   if (f.kind && !r.versions.some((v) => v.kind === f.kind)) return false
   if (f.pesachFriendly && !r.versions.some((v) => v.pesachFriendly)) return false
@@ -767,6 +777,10 @@ function matchesFilters(r: Recipe, f: RecipeFilters): boolean {
       )
     )
       return false
+  }
+  if (f.tags?.length) {
+    const want = f.tags.map(norm)
+    if (!want.every((t) => r.versions.some((v) => v.tags.some((x) => norm(x) === t)))) return false
   }
   if (f.notServedWeeks) {
     const last = lastServedOf(r)
@@ -989,6 +1003,7 @@ export const mockApi: TavshilApi = {
               v.label,
               v.description,
               v.kind,
+              ...v.tags,
               ...v.ingredients.map((l) => l.name),
             ]),
           ].join(' '),
@@ -1008,6 +1023,11 @@ export const mockApi: TavshilApi = {
           return (a.s.lastServed ?? '0') < (b.s.lastServed ?? '0') ? -1 : 1
         case 'a-z':
           return a.s.title.localeCompare(b.s.title)
+        case 'protein':
+        case 'fiber': {
+          const f = sort === 'protein' ? 'proteinG' : 'fiberG'
+          return (b.s.nutrition?.[f] ?? -1) - (a.s.nutrition?.[f] ?? -1)
+        }
         default: {
           const t = (x: { s: RecipeSummary }) =>
             q.length && norm(x.s.title).includes(q[0]) ? 0 : 1
@@ -1016,6 +1036,16 @@ export const mockApi: TavshilApi = {
       }
     })
     return delay(rows.map((x) => x.s))
+  },
+
+  getTags: async () => {
+    const counts = new Map<string, number>()
+    for (const r of recipes)
+      for (const t of new Set(r.versions.flatMap((v) => v.tags)))
+        counts.set(t, (counts.get(t) ?? 0) + 1)
+    return delay(
+      [...counts].map(([tag, n]) => ({ tag, recipes: n })).sort((a, b) => b.recipes - a.recipes),
+    )
   },
 
   getRecipe: async (id) => {

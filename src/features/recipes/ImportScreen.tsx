@@ -24,16 +24,20 @@ export function ImportScreen() {
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
+  // Read from the text when it says "serves 6"; otherwise the person says how many it feeds.
+  const [servings, setServings] = useState('')
+  const servingsNum = Math.round(Number(servings))
   const [notes, setNotes] = useState<{ review: string[]; unquantified: string[] } | null>(null)
 
   const parse = useApiMutation(async () => {
     const p = await api.previewImport(text, title)
     setPreview(p)
     if (!title.trim() && p.title) setTitle(p.title)
+    setServings(p.servings ? String(p.servings) : '')
     return p
   }, [])
   const save = useApiMutation(async () => {
-    const r = await api.importRecipe({ text, title, servings: preview?.servings })
+    const r = await api.importRecipe({ text, title, servings: servingsNum })
     setNotes({ review: r.needsReview, unquantified: r.unquantified })
     return r
   }, stale.recipes)
@@ -76,6 +80,13 @@ export function ImportScreen() {
           {!preview.title && !title.trim() ? (
             <Text color={colors.warn}>Add a title above so the recipe can be saved.</Text>
           ) : null}
+          <TextField
+            label="Servings (how many people it feeds)"
+            value={servings}
+            onChangeText={setServings}
+            keyboardType="numeric"
+            hint="Needed for scaling, shopping and nutrition."
+          />
           <Text variant="label">Ingredients ({preview.ingredients.length})</Text>
           {groupBySection(preview.ingredients).map((g, gi, all) => (
             <View key={gi + g.section}>
@@ -113,7 +124,9 @@ export function ImportScreen() {
           ) : null}
           <Button
             label="Save recipe"
-            disabled={!(preview.title || title.trim()) || !preview.ingredients.length}
+            disabled={
+              !(preview.title || title.trim()) || !preview.ingredients.length || !(servingsNum > 0)
+            }
             loading={save.isPending}
             onPress={async () => {
               const r = await save.mutateAsync(undefined)

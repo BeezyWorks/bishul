@@ -236,6 +236,7 @@ describe('meal planning flow', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Cheese blintzes',
         category: 'dairy',
         course: 'dessert',

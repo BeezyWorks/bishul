@@ -94,7 +94,7 @@ Given a set of attending Persons, a date and the host household, the server retu
 
 **Version fields**
 - title, description, **source links** (blogs, YouTube…: link out only)
-- servings (base yield)
+- servings (base yield). Required: a recipe or version cannot be created without it.
 - **course**: main, side, dessert…
 - **form**: salad, soup, kugel…
 - **meat / dairy / parve**
@@ -107,7 +107,7 @@ Given a set of attending Persons, a date and the host household, the server retu
 - **flags**: gebrokts, kitniyot, etc. Derived from ingredients where possible; can be set by hand.
 - **occasion fit**: arbitrary dimensions (§6.1)
 - **cost**: optional `$` / `$$` / `$$$`, filterable. No prices.
-- **nutrition**: optional; the AI can fill it in on request.
+- **nutrition**: optional; the AI can fill it in on request. Always stored per serving (whole-recipe figures are divided by servings when saved; editing only the servings re-splits them so the dish's total stays, while a variation that scales the ingredients keeps per-serving), with a `source` of `ai` or `user`. Searchable by goal (high protein 20 g+, high fiber 5 g+, low calorie, low carb, low sodium, low sugar) or by limits, and totalled per person for a meal. Recipes without figures are left out of a nutrition search and counted.
 
 **Ingredient lines**
 - quantity (canonical metric amount plus the original as written), unit, ingredient, prep note

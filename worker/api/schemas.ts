@@ -1,5 +1,6 @@
 // zod schemas shared by the REST operations and the MCP tools. Inputs from a query string arrive as text, so the
 // numeric and list helpers accept both forms.
+import { NUTRITION_GOAL_NAMES, type NutritionGoal } from '@tavshil/core'
 import { z } from 'zod'
 
 export const id = z.string().min(1).max(64)
@@ -39,6 +40,30 @@ export const ids = z.preprocess(
       : v,
   z.array(id),
 )
+
+export const nutritionInput = z
+  .object({
+    perServing: z
+      .boolean()
+      .optional()
+      .describe('true (default) when the figures are for one serving, false for the whole recipe'),
+    calories: z.number().min(0).optional(),
+    proteinG: z.number().min(0).optional(),
+    carbsG: z.number().min(0).optional(),
+    fatG: z.number().min(0).optional(),
+    fiberG: z.number().min(0).optional(),
+    sugarG: z.number().min(0).optional(),
+    sodiumMg: z.number().min(0).optional(),
+    source: z
+      .enum(['ai', 'user'])
+      .optional()
+      .describe(
+        '"ai" for your own estimate (shown as approximate), "user" when the host gave them',
+      ),
+  })
+  .nullable()
+  .optional()
+  .describe('Nutrition; send null to clear. Searchable per serving (search_recipes).')
 
 export const kashrut = z.enum(['meat', 'dairy', 'parve'])
 export const designation = z.enum(['meat', 'dairy', 'parve', 'pesach'])
@@ -162,7 +187,12 @@ export const versionFields = {
   sourceLinks: z
     .array(z.object({ url: z.string().url(), label: z.string().optional() }))
     .optional(),
-  servings: z.number().int().positive().nullable().optional(),
+  servings: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('How many people it feeds. Required when creating a recipe or version.'),
   course: z
     .string()
     .max(40)
@@ -178,20 +208,7 @@ export const versionFields = {
   holdsOnBlech: z.boolean().nullable().optional(),
   easyToDeliver: z.boolean().nullable().optional(),
   cost: z.number().int().min(1).max(3).nullable().optional().describe('1, 2 or 3 for $, $$, $$$'),
-  nutrition: z
-    .object({
-      perServing: z.boolean().optional(),
-      calories: z.number().optional(),
-      proteinG: z.number().optional(),
-      carbsG: z.number().optional(),
-      fatG: z.number().optional(),
-      fiberG: z.number().optional(),
-      sugarG: z.number().optional(),
-      sodiumMg: z.number().optional(),
-      source: z.enum(['ai', 'user']).optional(),
-    })
-    .nullable()
-    .optional(),
+  nutrition: nutritionInput,
   prePrep: z
     .array(z.object({ step: z.string(), leadMinutes: z.number().int().min(0) }))
     .optional()
@@ -210,6 +227,13 @@ export const versionFields = {
     .array(z.object({ dimension: z.string().describe('A dimension name or id'), fit }))
     .optional()
     .describe('Occasion fit: dimension and fit (fine, good, especially)'),
+  tags: z
+    .array(z.string().max(30))
+    .max(12)
+    .optional()
+    .describe(
+      "Free-form keywords people can search and filter by: cuisine, flavor, source, anything (e.g. spicy, italian, from Savta, one pot). Call list_tags first and reuse a matching tag where one fits; new ones are fine. Not for occasion (use dimensions), course, form or meat/dairy/parve, which have their own fields. Tags never affect allergy or kashrut checks, and a spicy tag does not warn guests who cannot eat spicy food: set the spicy flag for that. Replaces the version's tags; at most 12, each at most 30 characters.",
+    ),
   ingredients: z.array(ingredientInput).optional(),
 }
 
@@ -224,13 +248,41 @@ export const saveRecipeInput = z.object({
   ...versionFields,
 })
 
+export const nutritionSearchFields = {
+  nutrition: z
+    .preprocess(
+      (v) =>
+        typeof v === 'string'
+          ? v
+              .split(',')
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : v,
+      z.array(z.enum(NUTRITION_GOAL_NAMES as [NutritionGoal, ...NutritionGoal[]])),
+    )
+    .optional()
+    .describe(
+      'Nutrition goals per serving: high_protein (20g+), high_fiber (5g+), low_calorie (400 kcal or less), low_carb (20g or less), low_sodium (400mg or less), low_sugar (5g or less). Recipes without nutrition data are left out; the result says how many.',
+    ),
+  minProteinG: num.optional().describe('At least this much protein per serving'),
+  minFiberG: num.optional().describe('At least this much fiber per serving'),
+  maxCalories: num.optional().describe('At most this many calories per serving'),
+  maxCarbsG: num.optional().describe('At most this many carbs per serving'),
+  maxSodiumMg: num.optional().describe('At most this much sodium per serving'),
+  maxSugarG: num.optional().describe('At most this much sugar per serving'),
+  sort: z
+    .enum(['relevance', 'quickest', 'easiest', 'longest_unserved', 'a_z', 'protein', 'fiber'])
+    .optional()
+    .describe('protein / fiber: most per serving first (recipes without data last)'),
+}
+
 export const searchInput = z.object({
   q: z
     .string()
     .max(200)
     .optional()
     .describe(
-      'Words to find (title, description, ingredients). Other spellings work: Shabbos, kitniyos.',
+      'Words to find (title, description, ingredients, tags). Other spellings work: Shabbos, kitniyos.',
     ),
   course: z.string().optional(),
   kashrut: kashrut.optional(),
@@ -244,10 +296,25 @@ export const searchInput = z.object({
   notServedWeeks: int.optional().describe('Not served in this many weeks'),
   difficulty: difficulty.optional(),
   maxCost: int.optional(),
+  ...nutritionSearchFields,
+  tags: z
+    .preprocess(
+      (v) =>
+        typeof v === 'string'
+          ? v
+              .split(',')
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : v,
+      z.array(z.string()),
+    )
+    .optional()
+    .describe(
+      'Only recipes with all of these tags ("spicy", "italian"). Case, spelling and hyphens do not matter.',
+    ),
   dimension: z.string().optional().describe('A dimension name or id'),
   minFit: fit.optional(),
   collectionId: id.optional(),
-  sort: z.enum(['relevance', 'quickest', 'easiest', 'longest_unserved', 'a_z']).optional(),
   limit: int.optional(),
   offset: int.optional(),
 })

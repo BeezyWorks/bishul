@@ -3,11 +3,48 @@ import { StyleSheet, View } from 'react-native'
 
 import { Button, Card, Pill, SectionHeader, Segmented, Text, TextField } from '@/components'
 import { api } from '@/lib/api/client'
-import { stale, useApiMutation } from '@/lib/api/hooks'
-import { COURSES, type Course, type Kind, type Recipe, type RecipeVersion } from '@/lib/api/types'
+import { stale, useApiMutation, useTags } from '@/lib/api/hooks'
+import {
+  COURSES,
+  type Course,
+  type Kind,
+  type NutritionInfo,
+  type Recipe,
+  type RecipeVersion,
+} from '@/lib/api/types'
 import { fromEditorText, sameLines, toEditorText } from '@/lib/sections'
 import { COURSE_LABEL } from '@/lib/strings'
 import { colors, space } from '@/theme/tokens'
+
+const NUTRITION_FIELDS = [
+  ['calories', 'Calories'],
+  ['proteinG', 'Protein (g)'],
+  ['carbsG', 'Carbs (g)'],
+  ['fatG', 'Fat (g)'],
+  ['fiberG', 'Fiber (g)'],
+  ['sugarG', 'Sugar (g)'],
+  ['sodiumMg', 'Sodium (mg)'],
+] as const
+type NutritionKey = (typeof NUTRITION_FIELDS)[number][0]
+
+const amount = (t: string) => {
+  const n = Number(t.trim())
+  return t.trim() === '' || !Number.isFinite(n) || n < 0 ? undefined : n
+}
+
+/** Tags as typed: comma-separated, trimmed, blanks and repeats (any case) dropped. */
+const parseTags = (text: string) => {
+  const seen = new Set<string>()
+  return text
+    .split(',')
+    .map((t) => t.replace(/\s+/g, ' ').trim())
+    .filter((t) => {
+      const k = t.toLowerCase()
+      if (!t || seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+}
 
 const num = (t: string) => (t.trim() === '' ? undefined : Math.max(0, Math.round(Number(t))))
 
@@ -47,6 +84,35 @@ export function EditVersion({
   const [description, setDescription] = useState(version.description)
   const [ingredients, setIngredients] = useState(toEditorText(startIngredients))
   const [steps, setSteps] = useState(toEditorText(startSteps))
+  const [nutrition, setNutrition] = useState<Record<NutritionKey, string>>(
+    () =>
+      Object.fromEntries(
+        NUTRITION_FIELDS.map(([k]) => [
+          k,
+          version.nutrition?.[k] != null ? String(version.nutrition[k]) : '',
+        ]),
+      ) as Record<NutritionKey, string>,
+  )
+  const [tags, setTags] = useState(version.tags.join(', '))
+  const knownTags = useTags()
+  const [wholeRecipe, setWholeRecipe] = useState(version.nutrition?.perServing === false)
+
+  /** Only when a figure or the per-serving choice changed. Whatever a person types is theirs, not an AI estimate. */
+  const nutritionEdit = (): { nutrition?: NutritionInfo | null } => {
+    const next = Object.fromEntries(
+      NUTRITION_FIELDS.flatMap(([k]) => {
+        const v = amount(nutrition[k])
+        return v === undefined ? [] : [[k, v]]
+      }),
+    ) as Partial<Record<NutritionKey, number>>
+    const had = version.nutrition
+    const unchanged =
+      NUTRITION_FIELDS.every(([k]) => next[k] === (had?.[k] ?? undefined)) &&
+      (wholeRecipe === (had?.perServing === false) || !Object.keys(next).length)
+    if (unchanged) return {}
+    if (!Object.keys(next).length) return had ? { nutrition: null } : {}
+    return { nutrition: { ...next, perServing: !wholeRecipe, source: 'user' } }
+  }
 
   const save = useApiMutation(async () => {
     const ing = fromEditorText(ingredients)
@@ -61,9 +127,11 @@ export function EditVersion({
         num(active) !== version.activeMin && { activeMin: num(active) }),
       ...(num(total) !== undefined && num(total) !== version.totalMin && { totalMin: num(total) }),
       ...(description !== version.description && { description }),
+      ...(!sameTags(parseTags(tags), version.tags) && { tags: parseTags(tags) }),
       // Only rewrite the lists when they changed, so skip-impact and substitutions are kept otherwise.
       ...(!sameLines(ing, startIngredients) && { ingredients: ing }),
       ...(!sameLines(st, startSteps) && { steps: st }),
+      ...nutritionEdit(),
     }
     if (variation) return api.createVariation(version.id, label.trim(), edit)
     await api.saveVersion(version.id, {
@@ -73,7 +141,7 @@ export function EditVersion({
     return version.id
   }, stale.recipes)
 
-  const ready = variation ? !!label.trim() : !!recipeTitle.trim()
+  const ready = (variation ? !!label.trim() : !!recipeTitle.trim()) && (num(servings) ?? 0) > 0
   return (
     <Card tone="subtle">
       <SectionHeader
@@ -120,7 +188,7 @@ export function EditVersion({
       </View>
       <View style={styles.row}>
         <TextField
-          label="Servings"
+          label="Servings (required)"
           value={servings}
           onChangeText={setServings}
           keyboardType="numeric"
@@ -139,6 +207,28 @@ export function EditVersion({
         />
       </View>
       <TextField label="Description" value={description} onChangeText={setDescription} lines={2} />
+      <View style={styles.group}>
+        <TextField
+          label="Tags"
+          value={tags}
+          onChangeText={setTags}
+          placeholder="e.g. italian, spicy, one pot"
+          hint="Your own keywords, separated by commas. Search and filter find them. For an allergy or a guest who can't eat spicy, use the ingredients and the spicy switch instead: tags are never checked for safety."
+        />
+        <View style={styles.row}>
+          {(knownTags.data ?? [])
+            .filter((k) => !parseTags(tags).some((t) => t.toLowerCase() === k.tag.toLowerCase()))
+            .slice(0, 12)
+            .map((k) => (
+              <Pill
+                key={k.tag}
+                label={`+ ${k.tag}`}
+                dashed
+                onPress={() => setTags([...parseTags(tags), k.tag].join(', '))}
+              />
+            ))}
+        </View>
+      </View>
       <TextField
         label="Ingredients, one per line"
         value={ingredients}
@@ -153,6 +243,32 @@ export function EditVersion({
         lines={8}
         hint="Steps can have their own ## headings, such as ## Assembly."
       />
+      <View style={styles.group}>
+        <Text variant="label">Nutrition (optional)</Text>
+        <Segmented
+          options={[
+            { value: 'serving', label: 'Per serving' },
+            { value: 'recipe', label: 'Whole recipe' },
+          ]}
+          value={wholeRecipe ? 'recipe' : 'serving'}
+          onChange={(v) => setWholeRecipe(v === 'recipe')}
+        />
+        <View style={styles.row}>
+          {NUTRITION_FIELDS.map(([k, label]) => (
+            <TextField
+              key={k}
+              label={label}
+              value={nutrition[k]}
+              onChangeText={(t) => setNutrition((n) => ({ ...n, [k]: t }))}
+              keyboardType="numeric"
+            />
+          ))}
+        </View>
+        <Text variant="small">
+          Lets you and your AI find high-protein or high-fiber dishes. Stored per serving:
+          whole-recipe figures are divided by Servings when you save. Leave blank if unknown.
+        </Text>
+      </View>
       {save.error ? (
         <Text color={colors.danger} accessibilityRole="alert">
           {(save.error as Error).message}
@@ -170,6 +286,9 @@ export function EditVersion({
     </Card>
   )
 }
+
+const sameTags = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((t, i) => t === b[i])
 
 const styles = StyleSheet.create({
   group: { gap: space.sm },

@@ -376,6 +376,57 @@ describe('MCP tools', () => {
   })
 })
 
+describe('nutrition at a meal', () => {
+  it('totals a person’s serving of each dish, names dishes without figures, and searches by what is missing', async () => {
+    const who = 'meal-nutrition'
+    const token = await sign(who)
+    await api(who, 'PATCH', '/household', { location: NY })
+    const add = async (title: string, course: string, nutrition?: object) =>
+      (
+        await api(
+          who,
+          'POST',
+          '/recipes/import',
+          {
+            title,
+            course,
+            category: 'parve',
+            servings: 6,
+            ingredients: ['1 cup rice'],
+            steps: ['Cook.'],
+            ...(nutrition && { nutrition }),
+          },
+          201,
+        )
+      ).version.id as string
+    const soup = await add('Lentil soup', 'soup', { proteinG: 12, fiberG: 8 })
+    const salad = await add('Green salad', 'salad')
+    await add('Tofu steak', 'main', { proteinG: 30 })
+    await add('Rice pilaf', 'main', { proteinG: 5 })
+    const plan = await tool(token, 'plan_meal', { date: '2027-04-20', hosted: true })
+    const id = plan.data.meal.id
+    await tool(token, 'manage_meal_dishes', {
+      mealId: id,
+      add: [
+        { course: 'starter', versionId: soup },
+        { course: 'starter', versionId: salad },
+      ],
+    })
+    const m = await tool(token, 'get_meal', { mealId: id })
+    expect(m.data.review.nutrition.perPerson).toEqual({ proteinG: 12, fiberG: 8 })
+    expect(m.data.review.nutrition.missing.proteinG).toEqual(['Green salad'])
+    // 40 g wanted, 12 so far: look for a main with at least 28 g.
+    const s = await tool(token, 'search_recipes_for_meal', {
+      mealId: id,
+      minProteinG: 28,
+      sort: 'protein',
+    })
+    expect(s.data.fits.map((h: any) => h.title)).toEqual(['Tofu steak'])
+    expect(s.data.fits[0].nutritionPerServing.proteinG).toBe(30)
+    expect(s.data.nutritionNote).toContain('per serving')
+  })
+})
+
 describe('plan and hosted views with several meals (parity)', () => {
   /** Replaces generated ids with stable placeholders, in order of first appearance, and drops `today`. */
   const normalize = (value: unknown) => {

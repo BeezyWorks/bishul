@@ -169,7 +169,12 @@ describe('shopping list state', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Salad', ingredients: ['2 cucumbers', '3 tomatoes', '1 onion'], steps: ['Chop'] },
+      {
+        servings: 4,
+        title: 'Salad',
+        ingredients: ['2 cucumbers', '3 tomatoes', '1 onion'],
+        steps: ['Chop'],
+      },
       201,
     )
     const date = await nextFriday(who)
@@ -211,6 +216,7 @@ describe('shopping list state', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Butter noodles',
         category: 'dairy',
         ingredients: ['200 g noodles', '50 g butter'],

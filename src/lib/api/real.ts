@@ -39,6 +39,7 @@ import type {
   PrepDay,
   Reaction,
   VersionEdit,
+  TagCount,
 } from './types'
 
 interface ServerSharedVersion {
@@ -92,7 +93,9 @@ function versionBody(e: VersionEdit) {
     ...(e.cost !== undefined && { cost: costOut(e.cost) }),
     ...(e.serving !== undefined && { servingStyle: e.serving.replace(' ', '_') }),
     ...(e.holdsOnBlech !== undefined && { holdsOnBlech: e.holdsOnBlech }),
+    ...(e.nutrition !== undefined && { nutrition: e.nutrition }),
     ...(e.flags !== undefined && { flags: e.flags }),
+    ...(e.tags !== undefined && { tags: e.tags }),
     ...(e.description !== undefined && { description: e.description }),
     ...(e.ingredients && {
       ingredients: e.ingredients
@@ -331,6 +334,8 @@ export const realApi: TavshilApi = {
     })
     return adaptResults(r.results)
   },
+
+  getTags: async () => (await http.get<{ tags: TagCount[] }>('/tags')).tags,
 
   getRecipe: async (id) => {
     const r = await http.get<{ id: string; title: string; versions: { id: string }[] }>(

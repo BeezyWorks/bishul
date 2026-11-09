@@ -2,11 +2,18 @@ import {
   createDishChecker,
   effectiveFlags,
   formatQuantity,
+  goalsMet,
   matchStepsToIngredients,
+  normalizeNutrition,
+  resplitNutrition,
+  meetsBounds,
+  nutritionBounds,
+  perServing,
   parseQuantity,
   scaleLines,
   toCanonical,
   type DisplayPrefs,
+  type NutritionGoal,
   type Quantity,
 } from '@tavshil/core'
 import { todayIn } from '@beitecha/engine'
@@ -49,6 +56,7 @@ import {
 } from './mappers'
 import { loadEffectivePeople, householdPersonIds, recordReaction, requirePerson } from './people'
 import { getPrefs } from './prefs'
+import { normalizeTags, tagKey } from './tags'
 import { wordVariants } from './translit'
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -111,6 +119,13 @@ async function hydrate(
         ),
       ),
   )
+  const vtags = await inChunks(ids, (part) =>
+    db
+      .select()
+      .from(s.versionTags)
+      .where(and(inArray(s.versionTags.versionId, part), isNull(s.versionTags.deletedAt)))
+      .orderBy(asc(s.versionTags.createdAt), asc(s.versionTags.id)),
+  )
   const ingIds = unique(lines.map((l) => l.ingredientId).filter((x): x is string => !!x))
   const ings = await inChunks(ingIds, (part) =>
     db.select().from(s.ingredients).where(inArray(s.ingredients.id, part)),
@@ -132,6 +147,9 @@ async function hydrate(
       dims: vdims
         .filter((d) => d.vd.versionId === r.version.id)
         .map((d) => ({ dimension: d.dimension, fit: d.vd.fit })),
+      tags: vtags
+        .filter((t) => t.versionId === r.version.id)
+        .map((t) => ({ tag: t.tag, key: t.key })),
     })
   }
   return out
@@ -227,6 +245,7 @@ export function versionView(v: LoadedVersion, prefs?: DisplayPrefs) {
     steps: x.steps ?? [],
     flags: x.flags ?? {},
     equipment: v.equipment.map((e) => ({ item: e.item, designation: e.designation })),
+    tags: v.tags.map((t) => t.tag),
     dimensions: v.dims.map((d) => ({
       id: d.dimension.id,
       name: d.dimension.name,
@@ -377,6 +396,8 @@ export interface VersionInput {
   flags?: Record<string, boolean>
   equipment?: { item: string; designation?: 'meat' | 'dairy' | 'parve' | 'pesach' | null }[]
   dimensions?: { dimension: string; fit: string }[]
+  /** Free-form keywords ("spicy", "italian"). Replaces the version's tags. Descriptive only: never used for allergy or kashrut checks. */
+  tags?: string[]
   ingredients?: IngredientInput[]
 }
 
@@ -395,6 +416,19 @@ const SCALAR_FIELDS = [
   'cost',
   'nutrition',
 ] as const
+
+/** Nutrition is stored per serving: whole-recipe figures are divided by the servings they were given with. */
+function storedNutrition(n: s.Nutrition | null | undefined, servings: number | null | undefined) {
+  if (!n) return n
+  const out = normalizeNutrition(n, servings)
+  if (!out)
+    throw invalid(
+      'Nutrition for the whole recipe needs servings: give servings, or send per-serving figures',
+    )
+  return out
+}
+
+const NEEDS_SERVINGS = 'Give servings: how many people the recipe feeds'
 
 /** Stored shape for the JSON-ish fields of a version input. */
 function versionPatch(
@@ -731,6 +765,26 @@ async function replaceChildren(
       input.equipment.map((e) => ({ versionId, item: e.item, designation: e.designation ?? null })),
     )
   }
+  if (input.tags) {
+    const wanted = normalizeTags(input.tags)
+    const existing = await db
+      .select()
+      .from(s.versionTags)
+      .where(and(eq(s.versionTags.versionId, versionId), isNull(s.versionTags.deletedAt)))
+    const have = new Set(existing.map((e) => e.key))
+    const want = new Set(wanted.map((w) => w.key))
+    for (const e of existing)
+      if (!want.has(e.key))
+        await db.update(s.versionTags).set({ deletedAt: now }).where(eq(s.versionTags.id, e.id))
+    await insertMany(
+      db,
+      s.versionTags,
+      wanted
+        .filter((w) => !have.has(w.key))
+        // One millisecond apart so they read back in the order they were typed.
+        .map((w, i) => ({ versionId, tag: w.tag, key: w.key, createdAt: now + i })),
+    )
+  }
   if (input.dimensions) {
     const wanted = new Map<string, string>()
     for (const d of input.dimensions) wanted.set(d.dimension, d.fit)
@@ -795,6 +849,22 @@ export async function saveRecipe(
 
   if (input.versionId) {
     const cur = await requireVersion(db, actor, input.versionId)
+    if (input.servings === null) throw invalid(NEEDS_SERVINGS)
+    if (input.nutrition !== undefined)
+      patch.nutrition = storedNutrition(input.nutrition, input.servings ?? cur.version.servings)
+    else if (
+      input.servings &&
+      cur.version.servings &&
+      input.servings !== cur.version.servings &&
+      cur.version.nutrition &&
+      !input.ingredients
+    )
+      // Same ingredients, different number of servings: the dish's totals stay, each serving's share changes.
+      patch.nutrition = resplitNutrition(
+        cur.version.nutrition,
+        cur.version.servings,
+        input.servings,
+      )
     const built = input.ingredients
       ? await buildLines(db, actor, catalog, cur.version.id, input.ingredients)
       : null
@@ -830,9 +900,14 @@ export async function saveRecipe(
     const linesBefore = cur.lines.map((l) => withSection(l.line.originalText, l.line.section))
     const linesAfter = built?.map((b) => withSection(b.row.originalText, b.row.section))
     const linesChanged = !!linesAfter && JSON.stringify(linesBefore) !== JSON.stringify(linesAfter)
+    const tagKeys = (list: { key: string }[]) => list.map((t) => t.key).sort()
+    const tagsChanged =
+      !!input.tags &&
+      JSON.stringify(tagKeys(cur.tags)) !== JSON.stringify(tagKeys(normalizeTags(input.tags)))
     const extra = {
       ...(input.equipment && { equipment: true }),
       ...(input.dimensions && { dimensions: true }),
+      ...(tagsChanged && { tags: true }),
     }
     if (!Object.keys(changed).length && !linesChanged && !Object.keys(extra).length)
       return { created: false, version: versionView(cur), newIngredients: [] }
@@ -878,6 +953,9 @@ export async function saveRecipe(
   }
 
   // Create: a new recipe, or a new version of an existing one.
+  if (!input.servings) throw invalid(NEEDS_SERVINGS)
+  if (input.nutrition !== undefined)
+    patch.nutrition = storedNutrition(input.nutrition, input.servings)
   let recipeId = input.recipeId
   let recipeTitle = input.recipeTitle ?? ''
   if (recipeId) {
@@ -969,6 +1047,9 @@ export async function saveVariation(
   const catalog = await loadCatalog(db, actor.householdId)
   const patch = versionPatch(input, sourceKind)
   const base = src.version
+  if (input.servings === null) throw invalid(NEEDS_SERVINGS)
+  if (input.nutrition !== undefined)
+    patch.nutrition = storedNutrition(input.nutrition, input.servings ?? base.servings)
   const versionId = ulid()
   const built = input.ingredients
     ? await buildLines(db, actor, catalog, versionId, input.ingredients)
@@ -1036,6 +1117,7 @@ export async function saveVariation(
       input.equipment ?? src.equipment.map((e) => ({ item: e.item, designation: e.designation })),
     dimensions:
       input.dimensions ?? src.dims.map((d) => ({ dimension: d.dimension.id, fit: d.fit })),
+    tags: input.tags ?? src.tags.map((t) => t.tag),
   }
   await replaceChildren(db, actor, versionId, children, built)
   await writeEdit(db, actor, versionId, `Variation of "${base.title}"`, { forkedFrom: base.id })
@@ -1083,6 +1165,8 @@ export interface ImportRecipeInput {
   difficulty?: 'easy' | 'average' | 'a_pain'
   activeMinutes?: number
   totalMinutes?: number
+  nutrition?: s.Nutrition | null
+  tags?: string[]
   /** Catalog data for ingredients the AI knows, keyed by ingredient name as written in the lines. */
   ingredientData?: Record<string, IngredientMeta>
   /** Parse and report, without saving. */
@@ -1236,7 +1320,12 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
     stepList = stepList.map((st, i) => (matched[i].length ? { ...st, uses: matched[i] } : st))
   }
   if (input.dryRun)
-    return { saved: false, parsed: { title, servings, ingredients: preview, steps: stepList } }
+    return {
+      saved: false,
+      parsed: { title, servings, ingredients: preview, steps: stepList },
+      /** What is still needed before it can be saved. */
+      needs: servings ? [] : ['servings'],
+    }
   const res = await saveRecipe(db, actor, {
     recipeTitle: title,
     title,
@@ -1249,6 +1338,8 @@ export async function importRecipe(db: Db, actor: Actor, input: ImportRecipeInpu
     difficulty: input.difficulty,
     activeMinutes: input.activeMinutes,
     totalMinutes: input.totalMinutes,
+    nutrition: input.nutrition,
+    tags: input.tags,
     ingredients: withMeta,
     steps: stepList,
   })
@@ -1369,11 +1460,21 @@ export interface SearchInput {
   notServedWeeks?: number
   difficulty?: 'easy' | 'average' | 'a_pain'
   maxCost?: number
+  /** Goals per serving (high_protein, high_fiber, ...); explicit limits below override a goal's threshold. */
+  nutrition?: NutritionGoal[]
+  minProteinG?: number
+  minFiberG?: number
+  maxCalories?: number
+  maxCarbsG?: number
+  maxSodiumMg?: number
+  maxSugarG?: number
+  /** Free-form tags; a recipe must have all of them (spelling, case and hyphens don't matter). */
+  tags?: string[]
   /** A dimension name or id. */
   dimension?: string
   minFit?: 'fine' | 'good' | 'especially'
   collectionId?: string
-  sort?: 'relevance' | 'quickest' | 'easiest' | 'longest_unserved' | 'a_z'
+  sort?: 'relevance' | 'quickest' | 'easiest' | 'longest_unserved' | 'a_z' | 'protein' | 'fiber'
   limit?: number
   offset?: number
 }
@@ -1451,6 +1552,10 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     }
     return true
   })
+  if (input.tags?.length) {
+    const wanted = unique(input.tags.map(tagKey).filter(Boolean))
+    hits = hits.filter((v) => wanted.every((k) => v.tags.some((t) => t.key === k)))
+  }
   if (input.dimension) {
     const dim = await findDimension(db, actor, input.dimension)
     if (!dim) return { total: 0, results: [], disclaimer: null }
@@ -1458,6 +1563,17 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
     hits = hits.filter((v) =>
       v.dims.some((d) => d.dimension.id === dim.id && FIT_RANK[d.fit] >= min),
     )
+  }
+
+  // Nutrition, per serving. Recipes without the figures a filter needs are dropped and counted, not guessed at.
+  const bounds = nutritionBounds(input.nutrition, input)
+  let unknownNutrition = 0
+  if (bounds.length) {
+    hits = hits.filter((v) => {
+      const r = meetsBounds(perServing(v.version.nutrition, v.version.servings), bounds)
+      if (r === 'unknown') unknownNutrition++
+      return r === 'yes'
+    })
   }
 
   // 3. Serving history (this household's layer).
@@ -1513,8 +1629,14 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
   // 5. Sort.
   const sort = input.sort ?? (order ? 'relevance' : 'a_z')
   const title = (v: LoadedVersion) => v.recipe.title.toLowerCase()
+  const per = (v: LoadedVersion) => perServing(v.version.nutrition, v.version.servings)
   hits.sort((a, b) => {
     switch (sort) {
+      case 'protein':
+      case 'fiber': {
+        const f = sort === 'protein' ? 'proteinG' : 'fiberG'
+        return (per(b)?.[f] ?? -1) - (per(a)?.[f] ?? -1) || title(a).localeCompare(title(b))
+      }
       case 'relevance':
         return (
           (order?.get(a.version.id) ?? 0) - (order?.get(b.version.id) ?? 0) ||
@@ -1563,13 +1685,24 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
       totalMinutes: v.version.totalMinutes,
       pesachFriendly: pc.friendly,
       pesachKitniyotFree: pc.friendlyForKitniyotAvoiders,
+      nutritionPerServing: per(v),
+      nutritionGoals: goalsMet(per(v)),
+      nutritionSource: v.version.nutrition?.source ?? null,
       dimensions: v.dims.map((d) => ({ name: d.dimension.name, fit: d.fit })),
+      tags: v.tags.map((t) => t.tag),
       lastServed: served.get(v.version.id) ?? null,
       ...(checked && { unsafeFor: unsafe.get(v.version.id) ?? [] }),
     }
   }
   return {
     total,
+    ...(bounds.length && {
+      nutritionNote:
+        `Nutrition is per serving. ${unknownNutrition} matching version${unknownNutrition === 1 ? ' has' : 's have'} no ` +
+        'figures for this filter and were left out; the AI can fill them in on request (save_recipe, nutrition). ' +
+        'Figures marked "ai" are estimates.',
+      unknownNutrition,
+    }),
     results: page.map(([lead, ...rest]) => ({
       recipeId: lead.recipe.id,
       title: lead.recipe.title,
@@ -1583,6 +1716,20 @@ export async function searchRecipes(db: Db, actor: Actor, input: SearchInput) {
       ? "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest."
       : null,
   }
+}
+
+/** The household's tags with how many recipes use each, most used first. Spellings that fold together count as one. */
+export async function listTags(db: Db, actor: Actor) {
+  const rows = await db.all<{ tag: string; key: string; recipes: number }>(sql`
+    SELECT vt.key AS key, min(vt.tag) AS tag, count(DISTINCT v.recipe_id) AS recipes
+    FROM version_tags vt
+      JOIN versions v ON v.id = vt.version_id
+      JOIN recipes r ON r.id = v.recipe_id
+    WHERE vt.deleted_at IS NULL AND v.deleted_at IS NULL AND r.deleted_at IS NULL
+      AND r.household_id = ${actor.householdId}
+    GROUP BY vt.key
+    ORDER BY recipes DESC, vt.key`)
+  return { tags: rows.map((r) => ({ tag: r.tag, recipes: r.recipes })) }
 }
 
 /** Whether anyone in the household avoids kitniyot (a kitniyot kashrut constraint, whenever it applies). */

@@ -21,8 +21,9 @@ all migrations to the test D1 (`vitest.config.mts` reads them, `test/setup.ts` a
 - **Kitchen:** `pantry_items`, `equipment`, `shopping_list` (order, checked and manual lines only; holds and totals
   are computed).
 - **Access:** `share_links` (snapshot JSON, `revoked_at`), `api_keys` (hashed, `read|write`).
+- **Tags:** `version_tags` (`tag` as typed, `key` folded for matching; no owner or vocabulary table).
 - **Search:** `recipe_fts` (FTS5, one row per live version: recipe and version title, description, ingredient text
-  with catalog names and aliases). Triggers on `versions`, `ingredient_lines`, `recipes` and `ingredients` keep it in
+  with catalog names and aliases, and tags; rebuilt in `0010_fts_tags.sql`). Triggers on `versions`, `ingredient_lines`, `recipes` and `ingredients` keep it in
   sync, including soft deletes. Query: `SELECT version_id FROM recipe_fts WHERE recipe_fts MATCH 'lem*'`.
 
 ## Layering of private additions

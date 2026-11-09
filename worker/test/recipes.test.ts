@@ -5,6 +5,7 @@ import { api, call, sign, tool } from './helpers'
 describe('steps use ingredients', () => {
   const brownies = {
     title: 'Brownies',
+    servings: 8,
     ingredients: ['200 g dark chocolate', '2 tbsp butter', '1 cup sugar', '3 eggs'],
     steps: [
       {
@@ -29,7 +30,12 @@ describe('steps use ingredients', () => {
       'rec-uses',
       'POST',
       '/recipes/import',
-      { title: 'Bad', ingredients: ['1 cup sugar'], steps: [{ text: 'Add.', uses: ['saffron'] }] },
+      {
+        servings: 4,
+        title: 'Bad',
+        ingredients: ['1 cup sugar'],
+        steps: [{ text: 'Add.', uses: ['saffron'] }],
+      },
       400,
     )
     expect(bad.error.message).toContain('saffron')
@@ -148,6 +154,7 @@ Instructions
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Hummus',
         ingredients: ['1 cup chickpeas', '3 tbsp techina'],
         steps: ['Blend'],
@@ -161,7 +168,12 @@ Instructions
       who,
       'POST',
       '/recipes/import',
-      { title: 'Tahini dressing', ingredients: ['2 tbsp tahini', '1 chickpea'], steps: ['Whisk'] },
+      {
+        servings: 4,
+        title: 'Tahini dressing',
+        ingredients: ['2 tbsp tahini', '1 chickpea'],
+        steps: ['Whisk'],
+      },
       201,
     )
     expect(r.newIngredients).toEqual([])
@@ -234,7 +246,13 @@ describe('recipes in several parts', () => {
       'Assembly',
     ])
 
-    const saved = await api('rec-parts', 'POST', '/recipes/import', { text: MOUSSE_CAKE }, 201)
+    const saved = await api(
+      'rec-parts',
+      'POST',
+      '/recipes/import',
+      { servings: 4, text: MOUSSE_CAKE },
+      201,
+    )
     const v = saved.version
     expect(v.title).toBe('Chocolate mousse cake')
     expect(v.sourceLinks.map((l: any) => l.url)).toHaveLength(2)
@@ -288,6 +306,7 @@ describe('recipe search', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Shabbat cholent',
         course: 'main',
         category: 'meat',
@@ -303,6 +322,7 @@ describe('recipe search', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Lemon tart',
         course: 'dessert',
         category: 'dairy',
@@ -319,6 +339,7 @@ describe('recipe search', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Cucumber salad',
         course: 'salad',
         category: 'parve',
@@ -356,6 +377,7 @@ describe('recipe search', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Sesame noodles',
         ingredients: ['2 tbsp sesame oil', '200 g noodles'],
         steps: ['Toss'],
@@ -367,7 +389,7 @@ describe('recipe search', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Plain rice', ingredients: ['1 cup rice'], steps: ['Boil'] },
+      { servings: 4, title: 'Plain rice', ingredients: ['1 cup rice'], steps: ['Boil'] },
       201,
     )
     const noa = await api(
@@ -397,14 +419,14 @@ describe('recipe search', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Brisket', ingredients: ['1 kg brisket'], steps: ['Braise'] },
+      { servings: 4, title: 'Brisket', ingredients: ['1 kg brisket'], steps: ['Braise'] },
       201,
     )
     await api(
       who,
       'POST',
       '/recipes/import',
-      { title: 'Tuna melt', ingredients: ['1 can tuna'], steps: ['Melt'] },
+      { servings: 4, title: 'Tuna melt', ingredients: ['1 can tuna'], steps: ['Melt'] },
       201,
     )
     await api(who, 'PUT', `/versions/${a.version.id}/dimensions`, {
@@ -528,7 +550,7 @@ describe('versions', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Matzo balls', ingredients: ['1 cup matzo meal'], steps: ['Roll'] },
+      { servings: 4, title: 'Matzo balls', ingredients: ['1 cup matzo meal'], steps: ['Roll'] },
       201,
     )
     const ing = r.version.ingredients[0].ingredient
@@ -553,6 +575,7 @@ describe('kitniyot and chametz by name', () => {
       'POST',
       '/recipes/import',
       {
+        servings: 4,
         title: 'Rice pilaf',
         ingredients: ['2 cups basmati rice', '1 onion', '2 tbsp oil'],
         steps: ['Cook'],
@@ -566,7 +589,12 @@ describe('kitniyot and chametz by name', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Kneidlach', ingredients: ['1 cup matzah meal', '2 eggs'], steps: ['Boil'] },
+      {
+        servings: 4,
+        title: 'Kneidlach',
+        ingredients: ['1 cup matzah meal', '2 eggs'],
+        steps: ['Boil'],
+      },
       201,
     )
     expect(m.version.pesach).toMatchObject({
@@ -582,14 +610,14 @@ describe('kitniyot and chametz by name', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
+      { servings: 4, title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
       201,
     )
     await api(
       who,
       'POST',
       '/recipes/import',
-      { title: 'Roast potatoes', ingredients: ['1 kg potatoes'], steps: ['Roast'] },
+      { servings: 4, title: 'Roast potatoes', ingredients: ['1 kg potatoes'], steps: ['Roast'] },
       201,
     )
     const titles = async () =>
@@ -608,7 +636,7 @@ describe('kitniyot and chametz by name', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
+      { servings: 4, title: 'Rice pilaf', ingredients: ['2 cups rice'], steps: ['Cook'] },
       201,
     )
     const noa = await api(
@@ -637,7 +665,12 @@ describe('search returns one row per recipe', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Lemon cake', ingredients: ['1 cup sugar', '2 lemons'], steps: ['Bake'] },
+      {
+        servings: 4,
+        title: 'Lemon cake',
+        ingredients: ['1 cup sugar', '2 lemons'],
+        steps: ['Bake'],
+      },
       201,
     )
     await api(
@@ -651,7 +684,7 @@ describe('search returns one row per recipe', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Lemon soup', ingredients: ['2 lemons'], steps: ['Simmer'] },
+      { servings: 4, title: 'Lemon soup', ingredients: ['2 lemons'], steps: ['Simmer'] },
       201,
     )
     for (const qs of ['q=lemon', '']) {
@@ -676,7 +709,12 @@ describe('reactions to a version', () => {
       who,
       'POST',
       '/recipes/import',
-      { title: 'Potato kugel', ingredients: ['1 kg potatoes', '3 eggs'], steps: ['Bake'] },
+      {
+        servings: 4,
+        title: 'Potato kugel',
+        ingredients: ['1 kg potatoes', '3 eggs'],
+        steps: ['Bake'],
+      },
       201,
     )
     const noa = await api(
@@ -728,7 +766,7 @@ describe('reactions to a version', () => {
       'rec-14',
       'POST',
       '/recipes/import',
-      { title: 'Soup', ingredients: ['1 onion'], steps: ['Simmer'] },
+      { servings: 4, title: 'Soup', ingredients: ['1 onion'], steps: ['Simmer'] },
       201,
     )
     const noa = await api(
@@ -745,5 +783,164 @@ describe('reactions to a version', () => {
       'rec-15',
     )
     expect(res.status).toBe(404)
+  })
+})
+
+describe('search by nutrition', () => {
+  it('filters and sorts by protein and fiber per serving, and counts recipes without figures', async () => {
+    const who = 'rec-nutrition'
+    const add = (title: string, extra: object) =>
+      api(
+        who,
+        'POST',
+        '/recipes',
+        { servings: 4, recipeTitle: title, ingredients: [{ text: '1 cup rice' }], ...extra },
+        201,
+      )
+    await add('Lentil stew', {
+      servings: 4,
+      nutrition: { perServing: true, proteinG: 24, fiberG: 12, calories: 380, source: 'ai' },
+    })
+    // Whole-recipe figures: 80 g protein / 4 servings = 20 g each.
+    await add('Chicken bowl', {
+      servings: 4,
+      nutrition: { perServing: false, proteinG: 80, fiberG: 4, calories: 2000 },
+    })
+    await add('Plain rice', {
+      servings: 4,
+      nutrition: { perServing: true, proteinG: 4, fiberG: 1 },
+    })
+    await add('Mystery kugel', {})
+
+    const q = async (qs: string) => api(who, 'GET', `/recipes?${qs}`)
+    const titles = async (qs: string) => (await q(qs)).results.map((r: any) => r.title)
+
+    expect(await titles('nutrition=high_protein&sort=protein')).toEqual([
+      'Lentil stew',
+      'Chicken bowl',
+    ])
+    expect(await titles('nutrition=high_protein,high_fiber')).toEqual(['Lentil stew'])
+    expect(await titles('minProteinG=21')).toEqual(['Lentil stew'])
+    expect(await titles('maxCalories=400')).toEqual(['Lentil stew'])
+
+    const r = await q('nutrition=high_protein')
+    // Mystery kugel has no figures, so it is left out and counted; Plain rice fails outright.
+    expect(r.unknownNutrition).toBe(1)
+    expect(r.nutritionNote).toContain('per serving')
+    const lentil = r.results.find((x: any) => x.title === 'Lentil stew')
+    expect(lentil.nutritionPerServing.proteinG).toBe(24)
+    expect(lentil.nutritionGoals).toEqual(['high_protein', 'high_fiber', 'low_calorie'])
+    expect(lentil.nutritionSource).toBe('ai')
+
+    // No nutrition filter: nothing is dropped and there is no note.
+    const all = await q('sort=protein')
+    expect(all.results.map((x: any) => x.title)).toEqual([
+      'Lentil stew',
+      'Chicken bowl',
+      'Plain rice',
+      'Mystery kugel',
+    ])
+    expect(all.nutritionNote).toBeUndefined()
+  })
+})
+
+describe('nutrition on save and import', () => {
+  const who = 'rec-nutrition-save'
+  it('imports with nutrition, edits it alone, and clears it', async () => {
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      {
+        title: 'Salmon',
+        servings: 4,
+        ingredients: ['4 salmon fillets'],
+        steps: ['Bake'],
+        nutrition: { perServing: true, proteinG: 34, calories: 360, source: 'ai' },
+      },
+      201,
+    )
+    expect(r.version.nutrition).toMatchObject({ proteinG: 34, source: 'ai' })
+    const id = r.version.id
+    // A person corrects it: only the nutrition changes.
+    const e = await api(who, 'PUT', `/versions/${id}`, {
+      nutrition: { perServing: true, proteinG: 31, fiberG: 0, source: 'user' },
+    })
+    expect(e.version.nutrition).toEqual({
+      perServing: true,
+      proteinG: 31,
+      fiberG: 0,
+      source: 'user',
+    })
+    expect(e.version.ingredients).toHaveLength(1)
+    expect((await api(who, 'GET', '/recipes?minProteinG=30')).results).toHaveLength(1)
+    const cleared = await api(who, 'PUT', `/versions/${id}`, { nutrition: null })
+    expect(cleared.version.nutrition ?? null).toBeNull()
+    expect((await api(who, 'GET', '/recipes?minProteinG=30')).results).toHaveLength(0)
+  })
+  it('rejects negative amounts', async () => {
+    await api(
+      who,
+      'POST',
+      '/recipes',
+      { servings: 4, recipeTitle: 'Bad', nutrition: { proteinG: -5 } },
+      400,
+    )
+  })
+})
+
+describe('servings and per-serving nutrition', () => {
+  const who = 'rec-servings'
+  it('requires servings to create a recipe or version, and never lets them be cleared', async () => {
+    const e = await api(who, 'POST', '/recipes', { recipeTitle: 'No servings' }, 400)
+    expect(e.error.message).toContain('servings')
+    await api(who, 'POST', '/recipes/import', { title: 'No servings', ingredients: ['1 egg'] }, 400)
+    const dry = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { title: 'Dry', ingredients: ['1 egg'], dryRun: true },
+      201,
+    )
+    expect(dry.needs).toEqual(['servings'])
+    const r = await api(who, 'POST', '/recipes', { recipeTitle: 'Eggs', servings: 2 }, 201)
+    await api(who, 'POST', '/recipes', { recipeId: r.recipeId, title: 'v2' }, 400)
+    await api(who, 'PUT', `/versions/${r.version.id}`, { servings: null }, 400)
+  })
+
+  it('stores nutrition per serving: whole-recipe figures are divided once, and a servings-only edit re-splits them', async () => {
+    const r = await api(
+      who,
+      'POST',
+      '/recipes',
+      {
+        recipeTitle: 'Chili',
+        servings: 4,
+        nutrition: { perServing: false, proteinG: 120, calories: 2000, source: 'ai' },
+      },
+      201,
+    )
+    expect(r.version.nutrition).toEqual({
+      perServing: true,
+      proteinG: 30,
+      calories: 500,
+      source: 'ai',
+    })
+    const id = r.version.id
+    // Same ingredients, twice the servings: each serving has half.
+    const e = await api(who, 'PUT', `/versions/${id}`, { servings: 8 })
+    expect(e.version.nutrition).toMatchObject({ proteinG: 15, calories: 250, source: 'ai' })
+    // New ingredients with the servings are a different dish: the figures are left alone.
+    const e3 = await api(who, 'PUT', `/versions/${id}`, {
+      servings: 4,
+      ingredients: [{ text: '2 cups beans' }],
+    })
+    expect(e3.version.nutrition.proteinG).toBe(15)
+    await api(who, 'PUT', `/versions/${id}`, { servings: 8 })
+    // Whole-recipe figures in an edit use the servings sent with them, else the current ones.
+    const e2 = await api(who, 'PUT', `/versions/${id}`, {
+      nutrition: { perServing: false, proteinG: 160 },
+    })
+    expect(e2.version.nutrition.proteinG).toBe(20)
   })
 })

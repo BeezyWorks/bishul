@@ -25,6 +25,8 @@ import {
   type MealKind,
   type PlannedMealItem,
   type RankContext,
+  mealNutrition,
+  perServing,
 } from '@tavshil/core'
 import { and, asc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm'
 
@@ -612,6 +614,19 @@ async function reviewOf(db: Db, actor: Actor, ctx: MealContext, brief: DiningBri
       .limit(1)
   )[0]
   return {
+    /** One serving of each recipe dish, per person. Brought dishes are not counted; people who skip a course eat less. */
+    nutrition: mealNutrition(
+      dishes.flatMap((v) =>
+        v
+          ? [
+              {
+                title: v.recipe.title,
+                nutrition: perServing(v.version.nutrition, v.version.servings),
+              },
+            ]
+          : [],
+      ),
+    ),
     handsOnMinutes: dishes.reduce((n, v) => n + (v?.version.activeMinutes ?? 0), 0),
     issues: brief.mealIssues.filter((i) => i.severity === 'error').map((i) => i.text),
     warnings: brief.mealIssues.filter((i) => i.severity === 'warning').map((i) => i.text),

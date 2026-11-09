@@ -25,6 +25,7 @@ describe('API keys and /v1', () => {
     expect(JSON.stringify(listed)).not.toContain(write.key)
 
     const made = await v1(write.key, 'POST', '/recipes/import', {
+      servings: 4,
       title: 'Key soup',
       ingredients: ['1 onion'],
       steps: ['Boil'],
@@ -38,6 +39,7 @@ describe('API keys and /v1', () => {
 
     // Read key cannot write.
     const denied = await v1(read.key, 'POST', '/recipes/import', {
+      servings: 4,
       title: 'Nope',
       ingredients: ['1 egg'],
       steps: ['x'],

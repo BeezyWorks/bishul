@@ -37,7 +37,7 @@ describe('households', () => {
       'scope-a',
       'POST',
       '/recipes/import',
-      { title: 'Secret kugel', ingredients: ['2 eggs'], steps: ['Bake'] },
+      { servings: 4, title: 'Secret kugel', ingredients: ['2 eggs'], steps: ['Bake'] },
       201,
     )
     const meal = await api(
@@ -91,14 +91,14 @@ describe('households', () => {
       'inv-a',
       'POST',
       '/recipes/import',
-      { title: 'A soup', ingredients: ['1 onion'], steps: ['Boil'] },
+      { servings: 4, title: 'A soup', ingredients: ['1 onion'], steps: ['Boil'] },
       201,
     )
     const bRecipe = await api(
       'inv-b',
       'POST',
       '/recipes/import',
-      { title: 'B cake', ingredients: ['2 eggs'], steps: ['Bake'] },
+      { servings: 4, title: 'B cake', ingredients: ['2 eggs'], steps: ['Bake'] },
       201,
     )
     const invite = await api('inv-a', 'POST', '/household/invites', {}, 201)

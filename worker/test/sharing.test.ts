@@ -86,7 +86,7 @@ describe('share links', () => {
       'sh-d',
       'POST',
       '/recipes/import',
-      { title: 'Challah', ingredients: ['1 kg flour'], steps: ['Braid'] },
+      { servings: 4, title: 'Challah', ingredients: ['1 kg flour'], steps: ['Braid'] },
       201,
     )
     await api('sh-d', 'POST', `/versions/${r.version.id}/variations`, { title: 'Whole wheat' }, 201)

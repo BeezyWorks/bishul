@@ -1,3 +1,4 @@
+import type { NutritionGoal } from '@tavshil/core/src/nutrition'
 import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
@@ -23,6 +24,7 @@ import {
   useContacts,
   useHousehold,
   useRecipes,
+  useTags,
   useToday,
 } from '@/lib/api/hooks'
 import {
@@ -45,6 +47,14 @@ const SORTS: { value: RecipeSort; label: string }[] = [
   { value: 'easiest', label: 'Easiest' },
   { value: 'longest-unserved', label: 'Longest unserved' },
   { value: 'a-z', label: 'A to Z' },
+  { value: 'protein', label: 'Most protein' },
+  { value: 'fiber', label: 'Most fiber' },
+]
+const GOALS: { value: NutritionGoal; label: string }[] = [
+  { value: 'high_protein', label: 'High protein' },
+  { value: 'high_fiber', label: 'High fiber' },
+  { value: 'low_calorie', label: 'Low calorie' },
+  { value: 'low_carb', label: 'Low carb' },
 ]
 const DIFFS: Difficulty[] = ['easy', 'average', 'a pain']
 const COSTS: Cost[] = ['$', '$$', '$$$']
@@ -69,6 +79,7 @@ export function RecipesScreen() {
   const collections = useCollections()
   const household = useHousehold()
   const contacts = useContacts()
+  const tags = useTags()
   const today = useToday()
   const saveCollection = useApiMutation(
     (name: string) => api.saveCollection(name, { ...filters, sort: undefined }),
@@ -174,6 +185,28 @@ export function RecipesScreen() {
               />
             ))}
           </FilterGroup>
+          {tags.data?.length ? (
+            <FilterGroup label="Tags">
+              {tags.data.slice(0, 30).map((t) => {
+                const on = !!filters.tags?.some((x) => x.toLowerCase() === t.tag.toLowerCase())
+                return (
+                  <Pill
+                    key={t.tag}
+                    label={`${t.tag} (${t.recipes})`}
+                    selected={on}
+                    onPress={() => {
+                      const cur = filters.tags ?? []
+                      set({
+                        tags: on
+                          ? cur.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                          : [...cur, t.tag],
+                      })
+                    }}
+                  />
+                )
+              })}
+            </FilterGroup>
+          ) : null}
           <FilterGroup label="Safe for">
             {people.map((p) => (
               <Pill
@@ -205,6 +238,32 @@ export function RecipesScreen() {
               label="Not served in 4 weeks"
               selected={filters.notServedWeeks === 4}
               onPress={() => toggle('notServedWeeks', 4)}
+            />
+          </FilterGroup>
+          <FilterGroup label="Nutrition, per serving">
+            {GOALS.map((g) => (
+              <Pill
+                key={g.value}
+                label={g.label}
+                selected={!!filters.nutrition?.includes(g.value)}
+                onPress={() => {
+                  const cur = filters.nutrition ?? []
+                  set({
+                    nutrition: cur.includes(g.value)
+                      ? cur.filter((x) => x !== g.value)
+                      : [...cur, g.value],
+                  })
+                }}
+              />
+            ))}
+            <TextField
+              label="Protein at least (g)"
+              value={filters.minProteinG ? String(filters.minProteinG) : ''}
+              keyboardType="numeric"
+              onChangeText={(t) => {
+                const n = Number(t)
+                set({ minProteinG: t.trim() && n > 0 ? n : undefined })
+              }}
             />
           </FilterGroup>
           <FilterGroup label="Difficulty">
@@ -268,6 +327,21 @@ export function RecipesScreen() {
                 <Badge label={formatMinutes(r.totalMin)} tone="muted" />
                 <Badge label={r.difficulty} tone="muted" />
                 <Badge label={r.cost} tone="muted" />
+                {r.nutrition?.proteinG !== undefined || r.nutrition?.fiberG !== undefined ? (
+                  <Badge
+                    label={[
+                      r.nutrition.proteinG !== undefined
+                        ? `${Math.round(r.nutrition.proteinG)} g protein`
+                        : '',
+                      r.nutrition.fiberG !== undefined
+                        ? `${Math.round(r.nutrition.fiberG)} g fiber`
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                    tone="info"
+                  />
+                ) : null}
                 {r.pesachFriendly ? (
                   <Badge
                     label={r.pesachKitniyot ? 'Pesach, with kitniyot' : 'Pesach-friendly'}
