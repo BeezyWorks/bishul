@@ -130,7 +130,13 @@ export function EditVersion({
       ...(!sameTags(parseTags(tags), version.tags) && { tags: parseTags(tags) }),
       // Only rewrite the lists when they changed, so skip-impact and substitutions are kept otherwise.
       ...(!sameLines(ing, startIngredients) && { ingredients: ing }),
-      ...(!sameLines(st, startSteps) && { steps: st }),
+      ...(!sameLines(st, startSteps) && {
+        // Keep each step's timer when its text is unchanged.
+        steps: st.map((x) => {
+          const was = version.steps.find((o) => o.text === x.text)
+          return was?.timerSec ? { ...x, timerMin: was.timerSec / 60 } : x
+        }),
+      }),
       ...nutritionEdit(),
     }
     if (variation) return api.createVariation(version.id, label.trim(), edit)

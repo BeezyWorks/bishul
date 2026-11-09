@@ -601,6 +601,8 @@ export interface VersionEdit {
   steps?: {
     text: string
     section?: string
+    /** Cooking-mode timer in minutes. Always send it when rewriting steps, or the timer is lost. */
+    timerMin?: number
     /** Ingredient lines (0-based positions in the ingredient list). Omit to keep the step's current links. */
     uses?: { line: number; portion?: number }[]
   }[]

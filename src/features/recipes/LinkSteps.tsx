@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { Button, Card, Pill, SectionHeader, Text } from '@/components'
+import { Button, Card, Pill, SectionHeader, Text, TextField } from '@/components'
 import { api } from '@/lib/api/client'
 import { stale, useApiMutation } from '@/lib/api/hooks'
 import type { Id, RecipeVersion } from '@/lib/api/types'
@@ -36,6 +36,13 @@ export function LinkSteps({
     ),
   )
 
+  /** step id -> timer minutes as typed ('' = none) */
+  const [timers, setTimers] = useState<Record<Id, string>>(() =>
+    Object.fromEntries(
+      version.steps.map((s) => [s.id, s.timerSec ? String(round(s.timerSec / 60)) : '']),
+    ),
+  )
+
   const totals: Record<Id, number> = {}
   for (const s of version.steps)
     for (const [id, p] of Object.entries(links[s.id] ?? {})) totals[id] = (totals[id] ?? 0) + p
@@ -55,6 +62,7 @@ export function LinkSteps({
       steps: version.steps.map((s) => ({
         text: s.text,
         section: s.section,
+        ...(Number(timers[s.id]) > 0 && { timerMin: Number(timers[s.id]) }),
         uses: Object.entries(links[s.id] ?? {})
           .filter(([id]) => index.has(id))
           .map(([id, p]) => ({ line: index.get(id)!, ...(p < 1 && { portion: p }) }))
@@ -66,8 +74,8 @@ export function LinkSteps({
   return (
     <Card tone="subtle">
       <SectionHeader
-        title="Ingredients for each step"
-        hint="Cooking mode shows these with each step. Tap an ingredient to add or remove it. If a step uses only part of it, pick how much."
+        title="Ingredients and timers for each step"
+        hint="Cooking mode shows these with each step. Tap an ingredient to add or remove it. If a step uses only part of it, pick how much. Set a timer in minutes for steps that need one."
       />
       {unused.length ? (
         <Text color={colors.danger}>
@@ -79,6 +87,13 @@ export function LinkSteps({
           <Text variant="bodyStrong">
             {n + 1}. <Text>{s.text}</Text>
           </Text>
+          <TextField
+            label="Timer (minutes)"
+            value={timers[s.id] ?? ''}
+            onChangeText={(t) => setTimers((cur) => ({ ...cur, [s.id]: t.replace(/[^0-9.]/g, '') }))}
+            keyboardType="decimal-pad"
+            placeholder="No timer"
+          />
           <View style={styles.row}>
             {version.ingredients.map((l) => (
               <Pill
