@@ -23,6 +23,8 @@ export interface RecipePickerProps {
   onClose?: () => void
   autoFocus?: boolean
   placeholder?: string
+  /** Show recipes before anything is typed. Turn off to show the list only once the user starts typing. */
+  showListWhenEmpty?: boolean
 }
 
 /**
@@ -39,6 +41,7 @@ export function RecipePicker({
   onClose,
   autoFocus = true,
   placeholder = 'Search your recipes',
+  showListWhenEmpty = true,
 }: RecipePickerProps) {
   const [text, setText] = useState(initialQuery)
   const q = useDebounced(text.trim(), 250)
@@ -68,6 +71,7 @@ export function RecipePicker({
         }))
   const fits = data ? data.fits : fallback
   const typed = text.trim()
+  const showList = showListWhenEmpty || !!typed
   return (
     <View style={styles.wrap}>
       <View style={styles.box}>
@@ -90,59 +94,64 @@ export function RecipePicker({
           </Pressable>
         ) : null}
       </View>
-      <View style={styles.list}>
-        {fits.map((h) => (
-          <Pressable
-            key={h.versionId}
-            accessibilityRole="button"
-            accessibilityLabel={`Add ${h.title}`}
-            onPress={() => onPick(h)}
-            style={({ pressed }: { pressed: boolean }) => [styles.row, pressed && { opacity: 0.7 }]}
-          >
-            <Text variant="bodyStrong">{h.title}</Text>
-            <Text variant="small">{h.note}</Text>
-            {h.eatAround.map((e) => (
-              <Text key={e} variant="small" color={colors.warn}>
-                {e}
+      {showList ? (
+        <View style={styles.list}>
+          {fits.map((h) => (
+            <Pressable
+              key={h.versionId}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${h.title}`}
+              onPress={() => onPick(h)}
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.row,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text variant="bodyStrong">{h.title}</Text>
+              <Text variant="small">{h.note}</Text>
+              {h.eatAround.map((e) => (
+                <Text key={e} variant="small" color={colors.warn}>
+                  {e}
+                </Text>
+              ))}
+            </Pressable>
+          ))}
+          {data?.excluded.map((h) => (
+            <View
+              key={h.versionId}
+              style={[styles.row, styles.out]}
+              accessibilityLabel={`${h.title}, does not fit: ${h.why.join('; ')}`}
+            >
+              <Text variant="bodyStrong" color={colors.muted}>
+                {h.title}
               </Text>
-            ))}
-          </Pressable>
-        ))}
-        {data?.excluded.map((h) => (
-          <View
-            key={h.versionId}
-            style={[styles.row, styles.out]}
-            accessibilityLabel={`${h.title}, does not fit: ${h.why.join('; ')}`}
-          >
-            <Text variant="bodyStrong" color={colors.muted}>
-              {h.title}
-            </Text>
-            <Text variant="small" color={colors.danger}>
-              {h.note.split(' · ')[0]}
-              {h.why.length ? ` · ${h.why[0]}` : ''}
-            </Text>
-          </View>
-        ))}
-        {!fits.length && !data?.excluded.length ? (
-          <View style={styles.row}>
-            <Text variant="small">
-              {isFetching || plain.isFetching ? 'Searching…' : 'No recipes match.'}
-            </Text>
-          </View>
-        ) : null}
-        {typed ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onAddWithoutRecipe(typed)}
-            style={[styles.row, styles.free]}
-          >
-            <Text color={colors.accent} style={{ fontFamily: fonts.bodySemiBold }}>
-              {`Add “${typed}” as a dish without a recipe`}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-      {data?.excluded.length ? <Disclaimer /> : null}
+              <Text variant="small" color={colors.danger}>
+                {h.note.split(' · ')[0]}
+                {h.why.length ? ` · ${h.why[0]}` : ''}
+              </Text>
+            </View>
+          ))}
+          {!fits.length && !data?.excluded.length ? (
+            <View style={styles.row}>
+              <Text variant="small">
+                {isFetching || plain.isFetching ? 'Searching…' : 'No recipes match.'}
+              </Text>
+            </View>
+          ) : null}
+          {typed ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onAddWithoutRecipe(typed)}
+              style={[styles.row, styles.free]}
+            >
+              <Text color={colors.accent} style={{ fontFamily: fonts.bodySemiBold }}>
+                {`Add “${typed}” as a dish without a recipe`}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {showList && data?.excluded.length ? <Disclaimer /> : null}
     </View>
   )
 }

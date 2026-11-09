@@ -119,6 +119,7 @@ export function MealEditor({
       <RecipePicker
         mealId={mealId}
         course="main"
+        showListWhenEmpty={false}
         placeholder="Add dish: search recipes or type a name"
         onPick={(hit) => addDish({ versionId: hit.versionId })}
         onAddWithoutRecipe={(t) => addDish({ description: t })}

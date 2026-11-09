@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native'
 import { Text } from '@/components'
 import { useSaveVersion } from '@/lib/api/hooks'
 import type { RecipeVersion } from '@/lib/api/types'
-import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
+import { colors, fontSize, fonts, radius, space } from '@/theme/tokens'
 
 const MAX_TAGS = 12
 
@@ -63,25 +63,27 @@ export function AddTag({ v }: { v: RecipeVersion }) {
 
 const styles = StyleSheet.create({
   add: {
-    minHeight: size.touch,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: space.sm + 2,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
     borderRadius: radius.pill,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.accent,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addText: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.sm, color: colors.accent },
+  addText: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.xs, color: colors.accent },
   editor: {
-    minHeight: size.touch,
-    minWidth: 150,
-    paddingHorizontal: space.lg,
+    minWidth: 120,
+    paddingHorizontal: space.sm + 2,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
     borderRadius: radius.pill,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.accent,
     backgroundColor: colors.surface,
     justifyContent: 'center',
   },
-  input: { fontFamily: fonts.body, fontSize: fontSize.sm, color: colors.ink, padding: 0 },
+  input: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.ink, padding: 0 },
 })
