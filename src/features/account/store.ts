@@ -7,7 +7,7 @@ import { AUTH_URL, DEV_AUTH, USE_MOCK } from '@/lib/config'
 
 import { tokenStore, userStore } from './tokens'
 
-/** Mirrors Beitecha's account store: Better Auth on auth.baderech.app with bearer tokens, no cookies. */
+/** Account store: Better Auth on auth.baderech.app with bearer tokens, no cookies. */
 export interface AccountUser {
   id: string
   name: string

@@ -20,7 +20,7 @@ Primary interface is the user's own AI, through the MCP server or a skill + REST
 | DB | D1 (SQLite) + Drizzle | See §11 |
 | Files | none | No photos (§6). |
 | Auth | BeezyWorks Accounts (`auth.baderech.app`) | The shared Better Auth server. Already has `@better-auth/mcp` for MCP OAuth (OAuth 2.1 + dynamic client registration). Tavshil adds per-user API keys. |
-| Calendar | `@beitecha/engine` (on `@hebcal/core`) | Reuse the shared engine from Beitecha/Siddur for location, Israel vs diaspora, holidays, zmanim and occasions. Don't rebuild it. |
+| Calendar | `@beitecha/engine` (on `@hebcal/core`) | Reuse the shared engine for location, Israel vs diaspora, holidays, zmanim and occasions. Don't rebuild it. |
 | Search | D1 FTS5 | Recipe text search, with transliteration aliases (§10). |
 
 ## 3. People model
@@ -106,6 +106,7 @@ Given a set of attending Persons, a date and the host household, the server retu
 - **equipment**: each item with its designation (dairy pot, pesach…)
 - **flags**: gebrokts, kitniyot, etc. Derived from ingredients where possible; can be set by hand.
 - **occasion fit**: arbitrary dimensions (§6.1)
+- **tags**: free-form keywords ("spicy", "italian", "from Savta"), up to 12 per version. Stored as typed and matched case-, hyphen- and spelling-insensitively; no household vocabulary, so a shared recipe carries its tags. Searchable as plain text and filterable; the AI reuses tags already in use (`list_tags`) but is not required to. Descriptive only: never read by allergy or kashrut checks, and a "spicy" tag does not replace the spicy flag that warns guests who can't eat spicy food.
 - **cost**: optional `$` / `$$` / `$$$`, filterable. No prices.
 - **nutrition**: optional; the AI can fill it in on request. Always stored per serving (whole-recipe figures are divided by servings when saved; editing only the servings re-splits them so the dish's total stays, while a variation that scales the ingredients keeps per-serving), with a `source` of `ai` or `user`. Searchable by goal (high protein 20 g+, high fiber 5 g+, low calorie, low carb, low sodium, low sugar) or by limits, and totalled per person for a meal. Recipes without figures are left out of a nutrition search and counted.
 

@@ -165,7 +165,7 @@ export function challenge(
   return Response.json(
     {
       error: kind === 'missing' ? 'unauthorized' : kind,
-      error_description: message ?? 'Sign in with your Baderech account to use Tavshil',
+      error_description: message ?? 'Sign in to use Tavshil',
     },
     {
       status: kind === 'insufficient_scope' ? 403 : 401,

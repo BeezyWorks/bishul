@@ -1,10 +1,10 @@
 packages:
   - '.'
   - 'worker'
-  # @tavshil/core, and the calendar engine (a git submodule, BeezyWorks/beitecha-engine).
+  # @tavshil/core, and the calendar engine (a git submodule).
   - 'packages/*'
 
-# Keep pnpm-lock.yaml as a single YAML document (see SiddurOneRN).
+# Keep pnpm-lock.yaml as a single YAML document.
 pmOnFail: ignore
 
 publicHoistPattern:

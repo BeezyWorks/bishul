@@ -237,7 +237,7 @@ function ConnectCard() {
       <Text variant="h3">Claude</Text>
       <Text>
         In Claude, open Settings, then Connectors, then Add custom connector. Paste this address and
-        sign in with your Baderech account when asked.
+        sign in with your account when asked.
       </Text>
       <View style={styles.row}>
         <View style={{ flex: 1, minWidth: 220 }}>

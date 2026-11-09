@@ -2,8 +2,7 @@
 
 Recipe, household and meal-planning app for kosher families. The core job is "plan Shabbat for these guests". The
 product spec is `BRIEF.md`; read it first. Primary interface is the user's own AI (MCP, or a skill over the REST API);
-the web UI covers browsing, editing, the menu, the shopping list and cooking mode. Served at `tavshil.baderech.app`,
-a sibling of Beitecha and the Baderech apps.
+the web UI covers browsing, editing, the menu, the shopping list and cooking mode. Served at `tavshil.baderech.app`.
 
 ## Architecture
 
@@ -21,7 +20,7 @@ a sibling of Beitecha and the Baderech apps.
   Clone with `--recurse-submodules`.
 - **Worker (`worker/`, `@tavshil/worker`).** Hono in `index.ts`; `mcp.ts` is a hand-written stateless JSON-RPC endpoint
   (initialize, ping, tools/list, tools/call; no sessions). Tools are intent-level, not CRUD. Auth: the web app sends the
-  Baderech bearer token, checked with `GET /api/auth/get-session` on the accounts Worker over the `AUTH` service
+  account bearer token, checked with `GET /api/auth/get-session` on the accounts Worker over the `AUTH` service
   binding (`auth.ts`; `DEV_AUTH=1` in `.dev.vars` accepts `Bearer dev-<name>`). MCP access tokens are JWTs verified
   against the accounts JWKS (`oauth.ts`; scope `tavshil:write`, resource `${PUBLIC_URL}/mcp`). Per-user API keys
   (hashed, read / read-write) are added for REST. Vitest with `@cloudflare/vitest-pool-workers`; the accounts service is

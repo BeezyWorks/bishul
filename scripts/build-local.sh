@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Builds the iOS app on this machine with `eas build --local` (no EAS build credits) and submits the
-# .ipa to TestFlight. Modelled on the Siddur's script, iOS only.
+# .ipa to TestFlight. iOS only.
 #
 # EAS stays the source of truth for signing credentials and build numbers (appVersionSource:
 # remote + autoIncrement), so local and cloud builds never diverge.
 #
-# Like the Siddur, it only builds semver release tags (vX.Y.Z), from a throwaway git worktree, so
+# It only builds semver release tags (vX.Y.Z), from a throwaway git worktree, so
 # your working tree (dirty or not) is never touched and every build in TestFlight maps back to an
 # exact commit and changelog entry. CI cuts the tag after a push to main (semantic-release bumps
 # package.json, which app.config.ts uses as the app version); `git pull --tags`, then ship.

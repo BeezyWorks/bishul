@@ -2,7 +2,7 @@ import { storage } from '@/lib/storage'
 
 const KEY = 'tavshil.authToken'
 
-/** The Baderech session (bearer) token, kept in localStorage on the web. */
+/** The account session (bearer) token, kept in localStorage on the web. */
 export const tokenStore = {
   get: () => storage.get(KEY),
   set: (token: string | null) => storage.set(KEY, token),
