@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { Card, Loading, Text, useLayout } from '@/components'
 import { useToday, usePlan } from '@/lib/api/hooks'
 import type { ISODate, WeekDay } from '@/lib/api/types'
-import { dayNum, longDate, monthGrid, monthName, toDate } from '@/lib/dates'
+import { dayNum, hebrewDayMonth, longDate, monthGrid, monthName, toDate } from '@/lib/dates'
 import { colors, fontSize, fonts, space } from '@/theme/tokens'
 
 import { PlanHeader } from './PlanHeader'
@@ -119,7 +119,7 @@ function DayBox({
         >
           {dayNum(date)}
         </Text>
-        {phone ? null : <Text variant="small">{day?.hebrew}</Text>}
+        {phone ? null : <Text variant="small">{day ? hebrewDayMonth(day.date) : ''}</Text>}
       </View>
       {phone ? (
         <View style={styles.dots}>

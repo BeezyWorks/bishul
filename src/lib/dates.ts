@@ -84,6 +84,31 @@ export function hebrewDate(iso: ISODate): string {
   }
 }
 
+const HE_ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט']
+const HE_TENS = ['', 'י', 'כ', 'ל']
+/** 1–30 as Hebrew letters, no geresh: 4 → ד, 15 → טו, 30 → ל. */
+function hebrewNumeral(n: number): string {
+  if (n === 15) return 'טו'
+  if (n === 16) return 'טז'
+  return `${HE_TENS[Math.floor(n / 10)]}${HE_ONES[n % 10]}`
+}
+
+/** Hebrew date for a day card, in Hebrew only and without the year: "ל כסלו". */
+export function hebrewDayMonth(iso: ISODate): string {
+  try {
+    const parts = new Intl.DateTimeFormat('he-u-ca-hebrew', {
+      day: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }).formatToParts(toDate(iso))
+    const day = Number(parts.find((p) => p.type === 'day')?.value)
+    const month = parts.find((p) => p.type === 'month')?.value ?? ''
+    return day ? `${hebrewNumeral(day)} ${month}` : ''
+  } catch {
+    return ''
+  }
+}
+
 /** "16:28" to "4:28 PM". */
 export function clock12(hhmm: string | null | undefined): string {
   if (!hhmm) return ''

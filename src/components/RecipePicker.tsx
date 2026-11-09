@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, TextInput, View } from 'react-native'
 
-import { useMealRecipes } from '@/lib/api/hooks'
+import { useMealRecipes, useRecipes } from '@/lib/api/hooks'
 import type { Id, MealRecipeHit } from '@/lib/api/types'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
@@ -10,7 +10,7 @@ import { Text } from './Text'
 
 export interface RecipePickerProps {
   /** The meal the dish is for: its attendees' constraints decide what fits. */
-  mealId: Id
+  mealId?: Id
   /** Only recipes of this course (`main`, `dessert`, `starter`…). */
   course?: string
   /** Text to start with, e.g. "vegetarian" from "Find a vegetarian main". */
@@ -47,6 +47,26 @@ export function RecipePicker({
     { q: q || undefined, course, limit: 20 },
     !!q || !!course,
   )
+  // Until the meal-aware search answers (or while there is no meal yet), show the cached recipe list so the picker
+  // is never empty. Once the meal's own result lands it replaces this and carries the constraint checks.
+  const plain = useRecipes(q, { course: course as never })
+  const fallback: MealRecipeHit[] =
+    data || !plain.data
+      ? []
+      : plain.data.slice(0, 20).map((r) => ({
+          recipeId: r.id,
+          versionId: r.defaultVersionId,
+          title: r.title,
+          versionTitle: r.title,
+          course: r.course,
+          kashrut: r.kinds[0],
+          note: r.kinds[0] ?? '',
+          why: [],
+          failsFor: [],
+          eatAround: [],
+          aiWarnings: [],
+        }))
+  const fits = data ? data.fits : fallback
   const typed = text.trim()
   return (
     <View style={styles.wrap}>
@@ -71,7 +91,7 @@ export function RecipePicker({
         ) : null}
       </View>
       <View style={styles.list}>
-        {data?.fits.map((h) => (
+        {fits.map((h) => (
           <Pressable
             key={h.versionId}
             accessibilityRole="button"
@@ -103,9 +123,11 @@ export function RecipePicker({
             </Text>
           </View>
         ))}
-        {data && !data.fits.length && !data.excluded.length ? (
+        {!fits.length && !data?.excluded.length ? (
           <View style={styles.row}>
-            <Text variant="small">{isFetching ? 'Searching…' : 'No recipes match.'}</Text>
+            <Text variant="small">
+              {isFetching || plain.isFetching ? 'Searching…' : 'No recipes match.'}
+            </Text>
           </View>
         ) : null}
         {typed ? (

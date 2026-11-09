@@ -1,7 +1,7 @@
 import React from 'react'
 import Svg, { Path } from 'react-native-svg'
 
-export type IconName = 'edit' | 'share' | 'link' | 'plus' | 'play'
+export type IconName = 'edit' | 'share' | 'link' | 'plus' | 'play' | 'trash'
 
 // 24x24 stroke icons (Feather-style), drawn in the current text colour.
 const paths: Record<IconName, string[]> = {
@@ -13,6 +13,13 @@ const paths: Record<IconName, string[]> = {
   ],
   plus: ['M12 5v14', 'M5 12h14'],
   play: ['M6 4l14 8-14 8z'],
+  trash: [
+    'M3 6h18',
+    'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+    'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6',
+    'M10 11v6',
+    'M14 11v6',
+  ],
 }
 
 export function Icon({ name, size = 18, color }: { name: IconName; size?: number; color: string }) {

@@ -2,7 +2,8 @@ import { useRouter, type Href } from 'expo-router'
 import React, { useRef, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
-import { Button, RecipePicker, Text, TextField } from '@/components'
+import { Button, RecipePicker, Text } from '@/components'
+import { Icon } from '@/components/Icon'
 import {
   useAddMealDish,
   useCreatePlanMeal,
@@ -18,7 +19,7 @@ import { colors, radius, size, space } from '@/theme/tokens'
 import { Sheet } from './Sheet'
 
 /**
- * Fill a day's meal in place: type a dish or pick a recipe. The meal is created on the first dish, so opening the
+ * Fill a day's meal in place: add dishes from your recipes or by name. The meal is created on the first dish, so opening the
  * editor and closing it again leaves nothing behind.
  */
 export function MealEditor({
@@ -36,8 +37,6 @@ export function MealEditor({
   onClose: () => void
 }) {
   const router = useRouter()
-  const [text, setText] = useState('')
-  const [picking, setPicking] = useState(false)
   const [mine, setMine] = useState<Id | null>(createdId ?? null)
   const added = useRef(0)
   const mealId = meal?.id ?? mine ?? undefined
@@ -68,7 +67,6 @@ export function MealEditor({
       const id = await ensure()
       await add.mutateAsync({ mealId: id, dish: { course: 'main', ...dish } })
       added.current += 1
-      setText('')
     })
   const close = async () => {
     // Remove a meal we made here that stayed empty.
@@ -79,7 +77,6 @@ export function MealEditor({
     onClose()
   }
   const dishes = hm.data?.menu.flatMap((c) => c.items) ?? []
-  const busy = add.isPending || create.isPending
 
   return (
     <Sheet title={`${meal?.name ?? SLOT_LABEL[slot]} · ${longDate(date)}`} onClose={close}>
@@ -112,59 +109,27 @@ export function MealEditor({
                 }
                 style={styles.x}
               >
-                <Text color={colors.muted}>{'×'}</Text>
+                <Icon name="trash" size={18} color={colors.muted} />
               </Pressable>
             </View>
           ))}
         </View>
       ) : null}
 
-      <TextField
-        label="Type a dish"
-        value={text}
-        onChangeText={setText}
-        placeholder="e.g. Pasta bake"
-        returnKeyType="done"
+      <RecipePicker
+        mealId={mealId}
+        course="main"
+        placeholder="Add dish: search recipes or type a name"
+        onPick={(hit) => addDish({ versionId: hit.versionId })}
+        onAddWithoutRecipe={(t) => addDish({ description: t })}
         autoFocus
-        onSubmitEditing={() => text.trim() && addDish({ description: text.trim() })}
       />
-      <View style={styles.row}>
-        <Button
-          label="Add dish"
-          disabled={!text.trim()}
-          loading={busy && !picking}
-          onPress={() => addDish({ description: text.trim() })}
-        />
-        {picking ? null : (
-          <Button
-            label="Pick a recipe"
-            variant="soft"
-            onPress={() =>
-              run(async () => {
-                await ensure()
-                setPicking(true)
-              })
-            }
-          />
-        )}
-      </View>
-      {picking && mealId ? (
-        <RecipePicker
-          mealId={mealId}
-          course="main"
-          onPick={(hit) => addDish({ versionId: hit.versionId })}
-          onAddWithoutRecipe={(t) => addDish({ description: t })}
-          onClose={() => setPicking(false)}
-          autoFocus
-        />
-      ) : null}
       {error ? (
         <Text color={colors.danger} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
       <View style={styles.row}>
-        <Button label="Done" variant="secondary" onPress={close} />
         {meal?.id && !meal.hosted ? (
           <Button
             label="Remove meal"

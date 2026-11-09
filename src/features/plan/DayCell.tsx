@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { Badge, Text } from '@/components'
 import { useEnsureRunMeal } from '@/lib/api/hooks'
 import type { DaySlot, Id, MealCard, WeekDay } from '@/lib/api/types'
-import { addDays, dayNum, weekdayName } from '@/lib/dates'
+import { addDays, dayNum, hebrewDayMonth, weekdayName } from '@/lib/dates'
 import { hostedHref, SLOT_LABEL, wizardHref } from '@/lib/plan'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
@@ -39,10 +39,13 @@ export function DayCell({
     >
       <View style={styles.head}>
         <View style={styles.name}>
-          <Text style={styles.dname}>{`${weekdayName(day.date, true)} ${dayNum(day.date)}`}</Text>
-          {day.isToday ? <Badge tone="accent" label="Today" /> : null}
-          {tomorrow ? <Text variant="small">Tomorrow</Text> : null}
+          <Text
+            style={styles.dname}
+            numberOfLines={1}
+          >{`${weekdayName(day.date, true)} ${dayNum(day.date)}`}</Text>
         </View>
+        {day.isToday ? <Badge tone="accent" label="Today" /> : null}
+        {tomorrow ? <Text variant="small">Tomorrow</Text> : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`More for ${weekdayName(day.date)} ${dayNum(day.date)}`}
@@ -55,7 +58,7 @@ export function DayCell({
         </Pressable>
       </View>
       <Text variant="small" numberOfLines={1}>
-        {day.hebrew}
+        {hebrewDayMonth(day.date)}
       </Text>
       {holidays.map((h) => (
         <Text
@@ -147,8 +150,8 @@ const styles = StyleSheet.create({
     minHeight: 150,
   },
   today: { borderColor: colors.accent, borderWidth: 2, padding: 9 },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 4 },
-  name: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 4, flexShrink: 1 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: size.touch - 12 },
+  name: { flex: 1, flexDirection: 'row', alignItems: 'baseline', minWidth: 0 },
   dname: { fontFamily: fonts.display, fontSize: 16, color: colors.ink },
   more: {
     minWidth: size.touch - 12,
