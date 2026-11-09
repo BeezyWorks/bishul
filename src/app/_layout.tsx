@@ -4,7 +4,7 @@ import {
   InstrumentSans_500Medium,
   InstrumentSans_600SemiBold,
 } from '@expo-google-fonts/instrument-sans'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -12,6 +12,7 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import { refreshAccount, useAccount } from '@/features/account/store'
 import { configureNotifications, useTimerTapRouting } from '@/features/cook/notifications'
+import { createQueryClient, persistOptions, useOfflineWarmup } from '@/lib/api/offline'
 import { colors } from '@/theme/tokens'
 
 configureNotifications()
@@ -30,10 +31,9 @@ export default function RootLayout() {
     InstrumentSans_500Medium,
     InstrumentSans_600SemiBold,
   })
-  const [client] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 1 } } }),
-  )
-  const { user } = useAccount()
+  const [client] = useState(createQueryClient)
+  const { user, status } = useAccount()
+  useOfflineWarmup(client, status === 'signedIn')
 
   useEffect(() => {
     void refreshAccount()
@@ -50,12 +50,12 @@ export default function RootLayout() {
 
   if (!fontsReady && !fontError) return null
   return (
-    <QueryClientProvider client={client}>
+    <PersistQueryClientProvider client={client} persistOptions={persistOptions}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}
       />
       <TimerTapRouting />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   )
 }
