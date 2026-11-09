@@ -1,3 +1,17 @@
+# [2.4.0](https://github.com/BeezyWorks/bishul/compare/v2.3.0...v2.4.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **app:** respect iOS safe areas on screens, nav and cooking mode ([77ee9b2](https://github.com/BeezyWorks/bishul/commit/77ee9b2423f3b5b82df26e8bb462cf2d7e18154e))
+* **app:** use branded Apple and Google sign-in buttons ([e87ae35](https://github.com/BeezyWorks/bishul/commit/e87ae353852fee2c7a9029e631f77ea97fb416c9))
+
+
+### Features
+
+* **app:** keep the query cache on the device so screens open offline ([f84795d](https://github.com/BeezyWorks/bishul/commit/f84795d478091708fc270f74313e7cff5a7e174e))
+* search recipes by nutrition and tags, require servings ([2b9e449](https://github.com/BeezyWorks/bishul/commit/2b9e449604ff9b2228be217e8347b481965739de))
+
 # [2.3.0](https://github.com/BeezyWorks/bishul/compare/v2.2.1...v2.3.0) (2026-11-09)
 
 
