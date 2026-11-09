@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 
 import { AUTH_URL, DEV_AUTH, USE_MOCK } from '@/lib/config'
 
-import { tokenStore } from './tokens'
+import { tokenStore, userStore } from './tokens'
 
 /** Mirrors Beitecha's account store: Better Auth on auth.baderech.app with bearer tokens, no cookies. */
 export interface AccountUser {
@@ -16,12 +16,18 @@ interface State {
   user: AccountUser | null
 }
 
-let state: State = USE_MOCK
-  ? { status: 'signedIn', user: { id: 'demo', name: 'Demo', email: 'demo@localhost' } }
-  : { status: 'unknown', user: null }
+/** A stored token plus the last known user: start signed in and verify in the background. */
+function initialState(): State {
+  if (USE_MOCK)
+    return { status: 'signedIn', user: { id: 'demo', name: 'Demo', email: 'demo@localhost' } }
+  const user = tokenStore.get() ? userStore.get() : null
+  return user ? { status: 'signedIn', user } : { status: 'unknown', user: null }
+}
+let state: State = initialState()
 const listeners = new Set<() => void>()
 function set(next: State) {
   state = next
+  userStore.set(next.status === 'signedIn' ? next.user : null)
   listeners.forEach((l) => l())
 }
 
@@ -37,6 +43,15 @@ export function useAccount(): State {
 }
 export const getAccount = () => state
 
+class AuthError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+  }
+}
+
 async function auth(path: string, body?: unknown) {
   const headers: Record<string, string> = {}
   const token = tokenStore.get()
@@ -50,7 +65,11 @@ async function auth(path: string, body?: unknown) {
     credentials: 'omit',
   })
   const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error(data?.message ?? data?.error ?? `Sign-in failed (${res.status})`)
+  if (!res.ok)
+    throw new AuthError(
+      data?.message ?? data?.error ?? `Sign-in failed (${res.status})`,
+      res.status,
+    )
   const fresh = res.headers.get('set-auth-token')
   if (fresh) tokenStore.set(fresh)
   return data
@@ -66,14 +85,20 @@ export async function refreshAccount(): Promise<void> {
       user: { id: token, name: token.slice(4), email: `${token}@localhost` },
     })
   }
+  const cached = state.status === 'signedIn'
   try {
     const data = await auth('/get-session')
+    // Signed out while this was in flight: stay signed out. (A rotated token differs from `token`.)
+    if (!tokenStore.get()) return
     if (data?.user) set({ status: 'signedIn', user: data.user })
     else {
       tokenStore.set(null)
       set({ status: 'signedOut', user: null })
     }
-  } catch {
+  } catch (e) {
+    // Offline or a server hiccup must not sign out someone we already trust; an HTTP 401 does.
+    if (cached && !(e instanceof AuthError && e.status === 401)) return
+    if (tokenStore.get() === token) tokenStore.set(null)
     set({ status: 'signedOut', user: null })
   }
 }
