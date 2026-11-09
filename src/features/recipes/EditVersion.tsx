@@ -240,7 +240,9 @@ export function EditVersion({
           value={tags}
           onChangeText={setTags}
           placeholder="e.g. italian, spicy, one pot"
-          hint="Your own keywords, separated by commas. Search and filter find them. For an allergy or a guest who can't eat spicy, use the ingredients and the spicy switch instead: tags are never checked for safety."
+          hint={
+            'Your own keywords, separated by commas. Search and filter find them. Tag a dish “spicy” to flag it for guests who can’t eat spicy food, and “kid friendly” to favour it when kids are coming. Tags are never checked for allergies.'
+          }
         />
         <View style={styles.row}>
           {(knownTags.data ?? [])

@@ -125,4 +125,25 @@ describe('recipe tags', () => {
     const found = await tool(token, 'search_recipes', { tags: ['middle-eastern'] })
     expect(JSON.stringify(found)).toContain('Hummus')
   })
+
+  it('turns the old spicy and kid_friendly flags into tags', async () => {
+    const who = 'tag-6'
+    const r = await api(
+      who,
+      'POST',
+      '/recipes',
+      dish('Chili', {
+        recipeTitle: 'Chili',
+        ingredients: [{ text: '1 cup beans' }],
+        tags: ['Mexican'],
+        flags: { spicy: true, kid_friendly: true, gebrokts: true },
+      }),
+      201,
+    )
+    expect(r.version.tags).toEqual(['Mexican', 'spicy', 'kid friendly'])
+    expect(Object.keys(r.version.flags)).toEqual(['gebrokts'])
+    // Setting one to false takes the tag off again.
+    const v = await api(who, 'PUT', `/versions/${r.version.id}`, { flags: { spicy: false } })
+    expect(v.version.tags).toEqual(['Mexican', 'kid friendly'])
+  })
 })

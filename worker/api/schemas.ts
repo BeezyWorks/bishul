@@ -228,7 +228,7 @@ export const versionFields = {
     .record(z.string(), z.boolean())
     .optional()
     .describe(
-      'Hand-set flags: gebrokts, kitniyot, chametz, spicy, kid_friendly (a dish kids will eat, like schnitzel nuggets or plain rice)…',
+      'Hand-set flags: gebrokts, kitniyot, chametz… For spicy or kid-friendly dishes use the tags "spicy" and "kid friendly" instead.',
     ),
   equipment: z
     .array(z.object({ item: z.string(), designation: designation.nullable().optional() }))
@@ -242,7 +242,7 @@ export const versionFields = {
     .max(12)
     .optional()
     .describe(
-      "Free-form keywords people can search and filter by: cuisine, flavor, source, anything (e.g. spicy, italian, from Savta, one pot). Call list_tags first and reuse a matching tag where one fits; new ones are fine. Not for occasion (use dimensions), course, form or meat/dairy/parve, which have their own fields. Tags never affect allergy or kashrut checks, and a spicy tag does not warn guests who cannot eat spicy food: set the spicy flag for that. Replaces the version's tags; at most 12, each at most 30 characters.",
+      "Free-form keywords people can search and filter by: cuisine, flavor, source, anything (e.g. spicy, italian, from Savta, one pot). Call list_tags first and reuse a matching tag where one fits; new ones are fine. Not for occasion (use dimensions), course, form or meat/dairy/parve, which have their own fields. Tags never affect allergy or kashrut checks, but two tags mean something to the planner: \"spicy\" (flagged for guests who can't eat spicy food) and \"kid friendly\" (a dish kids will eat, like schnitzel nuggets or plain rice; favoured when kids are coming). Replaces the version's tags; at most 12, each at most 30 characters.",
     ),
   ingredients: z.array(ingredientInput).optional(),
 }

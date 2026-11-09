@@ -19,6 +19,7 @@ import {
 import { api } from '@/lib/api/client'
 import { stale, useApiMutation, useHousehold, useRecipe } from '@/lib/api/hooks'
 
+import { AddTag } from './AddTag'
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
 import { LinkSteps } from './LinkSteps'
@@ -209,31 +210,9 @@ function VersionView({
 }) {
   const { wide } = useLayout()
   const [measure, setMeasure] = useMeasure()
-  const saveFlags = useApiMutation(
-    (flags: Record<string, boolean>) => api.saveVersion(v.id, { flags }),
-    stale.recipes,
-  )
-  // The edit replaces the whole hand-set flag set, so start from what is on now.
-  const toggleFlag = (flag: string) =>
-    saveFlags.mutate({
-      ...Object.fromEntries(v.flags.map((f) => [f, true])),
-      [flag]: !v.flags.includes(flag),
-    })
   return (
     <View style={styles.col}>
       <Text color={colors.muted}>{v.description}</Text>
-      <View style={styles.wrapRow}>
-        <Pill
-          label="Kid friendly"
-          selected={v.flags.includes('kid_friendly')}
-          onPress={() => toggleFlag('kid_friendly')}
-        />
-        <Pill
-          label="Spicy"
-          selected={v.flags.includes('spicy')}
-          onPress={() => toggleFlag('spicy')}
-        />
-      </View>
       <View style={styles.wrapRow}>
         <KindLabel kind={v.kind} />
         {v.pesachFriendly ? (
@@ -243,15 +222,14 @@ function VersionView({
           />
         ) : null}
         {v.easyToDeliver ? <Badge label="Easy to deliver" tone="muted" /> : null}
-        {v.flags
-          .filter((f) => f !== 'kid_friendly' && f !== 'spicy')
-          .map((f) => (
-            <Badge key={f} label={f} tone="warn" />
-          ))}
+        {v.flags.map((f) => (
+          <Badge key={f} label={f} tone="warn" />
+        ))}
         {v.parentId ? <Badge label="A variation" tone="muted" /> : null}
         {v.tags.map((t) => (
           <Badge key={`tag:${t}`} label={`#${t}`} tone="muted" />
         ))}
+        <AddTag v={v} />
       </View>
 
       <EditableTiles v={v} scale={scale} />

@@ -104,7 +104,7 @@ Given a set of attending Persons, a date and the host household, the server retu
 - **serving style**: hot, room temperature, cold; holds on a blech
 - **easy to deliver**: yes/no
 - **equipment**: each item with its designation (dairy pot, pesach…)
-- **flags**: gebrokts, kitniyot, etc. Derived from ingredients where possible; can be set by hand.
+- **flags**: gebrokts, kitniyot, etc. Derived from ingredients where possible; can be set by hand. "Spicy" and "kid friendly" are tags, not flags: a `spicy` tag flags the dish for guests who can't eat spicy food, a `kid friendly` tag favours it when kids are coming.
 - **occasion fit**: arbitrary dimensions (§6.1)
 - **tags**: free-form keywords ("spicy", "italian", "from Savta"), up to 12 per version. Stored as typed and matched case-, hyphen- and spelling-insensitively; no household vocabulary, so a shared recipe carries its tags. Searchable as plain text and filterable; the AI reuses tags already in use (`list_tags`) but is not required to. Descriptive only: never read by allergy or kashrut checks, and a "spicy" tag does not replace the spicy flag that warns guests who can't eat spicy food.
 - **cost**: optional `$` / `$$` / `$$$`, filterable. No prices.

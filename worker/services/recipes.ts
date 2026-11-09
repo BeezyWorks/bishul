@@ -56,7 +56,7 @@ import {
 } from './mappers'
 import { loadEffectivePeople, householdPersonIds, recordReaction, requirePerson } from './people'
 import { getPrefs } from './prefs'
-import { normalizeTags, tagKey } from './tags'
+import { foldDishFlags, isLegacyDishFlag, normalizeTags, tagKey } from './tags'
 import { wordVariants } from './translit'
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -456,7 +456,9 @@ function versionPatch(
     })
   if (input.flags !== undefined)
     p.flags = Object.fromEntries(
-      Object.entries(input.flags).map(([k, v]) => [slugOf(k), { value: v, source }]),
+      Object.entries(input.flags)
+        .filter(([k]) => !isLegacyDishFlag(slugOf(k)))
+        .map(([k, v]) => [slugOf(k), { value: v, source }]),
     )
   if (typeof p.cost === 'number' && (p.cost < 1 || p.cost > 3))
     throw invalid('cost is 1, 2 or 3 ($, $$, $$$)')
@@ -848,9 +850,11 @@ export async function saveRecipe(
   const source: s.FlagSource = actor.via === 'web' ? 'user' : 'ai'
   const catalog = await loadCatalog(db, actor.householdId)
   const patch = versionPatch(input, source)
+  if (!input.versionId) input = foldDishFlags(input)
 
   if (input.versionId) {
     const cur = await requireVersion(db, actor, input.versionId)
+    input = foldDishFlags(input, cur.tags.map((t) => t.tag))
     if (input.servings === null) throw invalid(NEEDS_SERVINGS)
     if (input.nutrition !== undefined)
       patch.nutrition = storedNutrition(input.nutrition, input.servings ?? cur.version.servings)
@@ -1045,6 +1049,7 @@ export async function saveVariation(
   input: SaveVariationInput,
 ): Promise<SaveRecipeResult> {
   const src = await requireVersion(db, actor, input.fromVersionId)
+  input = foldDishFlags(input, src.tags.map((t) => t.tag))
   const sourceKind: s.FlagSource = actor.via === 'web' ? 'user' : 'ai'
   const catalog = await loadCatalog(db, actor.householdId)
   const patch = versionPatch(input, sourceKind)

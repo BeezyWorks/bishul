@@ -17,6 +17,7 @@ import {
 
 import * as s from '../db/schema'
 import { invalid, slugOf } from './ctx'
+import { KID_FRIENDLY_KEY, SPICY_KEY, isLegacyDishFlag } from './tags'
 import { PERIOD_ALIASES, normalizeTag } from './translit'
 
 export type ConstraintRow = typeof s.constraints.$inferSelect
@@ -177,8 +178,11 @@ export function versionKashrut(v: LoadedVersion): MeatDairy {
 
 export function toDishVersion(v: LoadedVersion): DishVersion {
   const flags = Object.entries(v.version.flags ?? {})
-    .filter(([, f]) => f?.value)
+    .filter(([k, f]) => f?.value && !isLegacyDishFlag(k))
     .map(([k]) => k)
+  // The planner reads two tags as dish flags: spicy, and kid friendly.
+  if (v.tags.some((t) => t.key === SPICY_KEY)) flags.push('spicy')
+  if (v.tags.some((t) => t.key === KID_FRIENDLY_KEY)) flags.push('kid_friendly')
   return {
     id: v.version.id,
     recipeId: v.recipe.id,
