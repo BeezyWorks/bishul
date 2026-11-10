@@ -109,18 +109,6 @@ export function RecipesScreen() {
         placeholder="Search recipes, ingredients, versions"
       />
 
-      <View style={styles.wrapRow}>
-        <Pill label="All" selected={activeCount === 0} onPress={() => setFilters({})} />
-        {(collections.data ?? []).map((c) => (
-          <Pill
-            key={c.id}
-            label={c.name}
-            selected={activeCount > 0 && same(filters, c.filters)}
-            onPress={() => setFilters({ ...c.filters })}
-          />
-        ))}
-      </View>
-
       <View style={styles.sortRow}>
         <Text variant="small">Sort by</Text>
         <Segmented
@@ -154,6 +142,21 @@ export function RecipesScreen() {
             </Pressable>
           ) : null}
         </View>
+        {(collections.data ?? []).length ? (
+          <View style={styles.savedRow}>
+            <Text variant="label">Saved</Text>
+            <View style={styles.wrapRow}>
+              {(collections.data ?? []).map((c) => (
+                <Pill
+                  key={c.id}
+                  label={c.name}
+                  selected={activeCount > 0 && same(filters, c.filters)}
+                  onPress={() => setFilters({ ...c.filters, sort: filters.sort })}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
         <Collapsible open={showFilters}>
           <>
             <View style={styles.filterBody}>
@@ -302,8 +305,8 @@ export function RecipesScreen() {
                   </View>
                   <Text variant="small">
                     {savedName
-                      ? `Saved. “${savedName}” is now a chip at the top of the page.`
-                      : 'Adds a chip at the top of the page so you can come back to these filters in one tap.'}
+                      ? `Saved. “${savedName}” is now in the Saved row.`
+                      : 'Adds it to the Saved row so you can switch these filters back on in one tap.'}
                   </Text>
                 </View>
               ) : null}
@@ -491,5 +494,12 @@ const styles = StyleSheet.create({
   },
   sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   saveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
+  savedRow: {
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 })
