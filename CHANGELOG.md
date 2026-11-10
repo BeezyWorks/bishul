@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/BeezyWorks/tavshil/compare/v2.8.0...v2.9.0) (2026-11-10)
+
+
+### Features
+
+* **app:** edit several original-recipe links per version, with video links labelled ([0a74845](https://github.com/BeezyWorks/tavshil/commit/0a74845bb5d9d3adddc2fde02bc5bdeb2dbbfa67))
+
 # [2.8.0](https://github.com/BeezyWorks/tavshil/compare/v2.7.0...v2.8.0) (2026-11-10)
 
 
