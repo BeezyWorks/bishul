@@ -31,6 +31,9 @@ import { COURSE_LABEL } from '@/lib/strings'
 import { formatAmount, portionLabel } from '@/lib/units'
 import { colors, space, type Tone } from '@/theme/tokens'
 
+const isVideo = (u: string) =>
+  /(youtube\.com|youtu\.be|vimeo\.com|tiktok\.com|instagram\.com\/(reel|tv))/i.test(u)
+
 const SCALES = [0.5, 1, 2, 3]
 const FIT_TONE: Record<Fit, Tone> = { fine: 'muted', good: 'info', 'especially suited': 'accent' }
 const SKIP_TEXT: Record<SkipImpact, { text: string; tone: Tone }> = {
@@ -251,17 +254,18 @@ function VersionView({
         {v.occasionFit.map((f) => (
           <Badge key={f.dimension} label={`${f.dimension}: ${f.fit}`} tone={FIT_TONE[f.fit]} />
         ))}
-        {v.source ? (
+        {v.sources.map((s) => (
           <Pressable
+            key={s.url}
             accessibilityRole="link"
-            onPress={() => Linking.openURL(v.source!.url)}
+            onPress={() => Linking.openURL(s.url)}
             style={styles.link}
           >
             <Text variant="small" color={colors.info}>
-              Source: {v.source.label} {'↗'}
+              {isVideo(s.url) ? 'Video' : 'Source'}: {s.label} {'↗'}
             </Text>
           </Pressable>
-        ) : null}
+        ))}
       </View>
 
       <View style={[styles.cols, wide && styles.colsWide]}>

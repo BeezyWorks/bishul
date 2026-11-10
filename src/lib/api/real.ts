@@ -96,6 +96,7 @@ function versionBody(e: VersionEdit) {
     ...(e.nutrition !== undefined && { nutrition: e.nutrition }),
     ...(e.flags !== undefined && { flags: e.flags }),
     ...(e.tags !== undefined && { tags: e.tags }),
+    ...(e.sources !== undefined && { sourceLinks: e.sources }),
     ...(e.description !== undefined && { description: e.description }),
     ...(e.ingredients && {
       ingredients: e.ingredients

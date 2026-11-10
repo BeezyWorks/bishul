@@ -47,6 +47,17 @@ const parseTags = (text: string) => {
     })
 }
 
+/** One link per line: "https://..." or "Label | https://...". Lines without a web address are dropped. */
+const parseSources = (text: string) =>
+  text.split('\n').flatMap((line) => {
+    const [a, b] = line.includes('|') ? line.split('|', 2) : ['', line]
+    const url = b.trim()
+    if (!/^https?:\/\/\S+$/i.test(url)) return []
+    return [{ url, ...(a.trim() && { label: a.trim() }) }]
+  })
+const sourcesText = (v: RecipeVersion) =>
+  v.sources.map((s) => (s.label && s.label !== s.url ? `${s.label} | ${s.url}` : s.url)).join('\n')
+
 const num = (t: string) => (t.trim() === '' ? undefined : Math.max(0, Math.round(Number(t))))
 
 /**
@@ -95,6 +106,7 @@ export function EditVersion({
       ) as Record<NutritionKey, string>,
   )
   const [tags, setTags] = useState(version.tags.join(', '))
+  const [sources, setSources] = useState(sourcesText(version))
   const knownTags = useTags()
   const [wholeRecipe, setWholeRecipe] = useState(version.nutrition?.perServing === false)
 
@@ -129,6 +141,11 @@ export function EditVersion({
       ...(num(total) !== undefined && num(total) !== version.totalMin && { totalMin: num(total) }),
       ...(description !== version.description && { description }),
       ...(!sameTags(parseTags(tags), version.tags) && { tags: parseTags(tags) }),
+      ...(sourcesText({
+        sources: parseSources(sources).map((s) => ({ label: s.label ?? s.url, url: s.url })),
+      } as RecipeVersion) !== sourcesText(version) && {
+        sources: parseSources(sources),
+      }),
       // Only rewrite the lists when they changed, so skip-impact and substitutions are kept otherwise.
       ...(!sameLines(ing, startIngredients) && { ingredients: ing }),
       ...(!sameLines(st, startSteps) && {
@@ -258,6 +275,16 @@ export function EditVersion({
             ))}
         </View>
       </View>
+      <TextField
+        label="Original recipe links"
+        value={sources}
+        onChangeText={setSources}
+        lines={2}
+        placeholder="https://example.com/recipe"
+        hint={
+          'One per line: a website or a video. Add a name first if you like: “Savta’s video | https://…”.'
+        }
+      />
       <TextField
         label="Ingredients, one per line"
         value={ingredients}

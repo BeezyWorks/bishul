@@ -224,7 +224,8 @@ export interface RecipeVersion {
   occasionFit: OccasionFit[]
   /** Free-form keywords ("spicy", "italian"), as typed. */
   tags: string[]
-  source?: { label: string; url: string }
+  /** Where the recipe came from: a website, a video. */
+  sources: { label: string; url: string }[]
   pesachFriendly: boolean
   /** Pesach-friendly only for those who eat kitniyot. */
   pesachKitniyot?: boolean
@@ -598,6 +599,8 @@ export interface VersionEdit {
   flags?: Record<string, boolean>
   /** Free-form keywords. Send the full list; it replaces the old one. */
   tags?: string[]
+  /** Original recipe links. Send the full list; it replaces the old one. */
+  sources?: { label?: string; url: string }[]
   description?: string
   ingredients?: { text: string; section?: string }[]
   steps?: {

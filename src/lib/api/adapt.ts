@@ -803,9 +803,7 @@ export function adaptVersion(
       dimension: d.name,
       fit: FIT_FROM[d.fit] ?? 'fine',
     })),
-    source: v.sourceLinks[0]
-      ? { label: v.sourceLinks[0].label ?? v.sourceLinks[0].url, url: v.sourceLinks[0].url }
-      : undefined,
+    sources: (v.sourceLinks ?? []).map((l) => ({ label: l.label ?? l.url, url: l.url })),
     pesachFriendly: v.pesach.friendly,
     pesachKitniyot: v.pesach.friendly && !!v.pesach.kitniyot?.length,
     ingredients,

@@ -291,7 +291,7 @@ function version(recipeId: Id, s: VSpec): RecipeVersion {
     cost: s.cost ?? '$',
     occasionFit: (s.fit ?? []).map(([dimension, fit]) => ({ dimension, fit })),
     tags: s.tags ?? [],
-    source: s.source,
+    sources: s.source ? [s.source] : [],
     pesachFriendly: s.pesach ?? false,
     ingredients,
     steps: s.steps.map(([text, timerMin, uses], i) => ({

@@ -326,7 +326,16 @@ export const useCreateContactHousehold = () =>
  * (it structures them), so only the plain fields change here; the refetch after the save fills in the rest.
  */
 export function applyVersionEdit(old: Recipe, versionId: Id, edit: VersionEdit): Recipe {
-  const { recipeTitle, course, flags, nutrition, ingredients: _i, steps: _s, ...plain } = edit
+  const {
+    recipeTitle,
+    course,
+    flags,
+    nutrition,
+    sources,
+    ingredients: _i,
+    steps: _s,
+    ...plain
+  } = edit
   return {
     ...old,
     ...(recipeTitle !== undefined && { title: recipeTitle }),
@@ -339,6 +348,9 @@ export function applyVersionEdit(old: Recipe, versionId: Id, edit: VersionEdit):
             ...plain,
             ...(flags && { flags: Object.keys(flags).filter((f) => flags[f]) }),
             ...(nutrition !== undefined && { nutrition: nutrition ?? undefined }),
+            ...(sources && {
+              sources: sources.map((l) => ({ label: l.label ?? l.url, url: l.url })),
+            }),
           },
     ),
   }
