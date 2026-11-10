@@ -1,3 +1,10 @@
+# [2.11.0](https://github.com/BeezyWorks/tavshil/compare/v2.10.0...v2.11.0) (2026-11-10)
+
+
+### Features
+
+* **app:** click a selected saved filter to clear it; edit and delete saved filters ([e9ebc3b](https://github.com/BeezyWorks/tavshil/commit/e9ebc3b592f6bdbae2fe5c978a7052b96780e2f1))
+
 # [2.10.0](https://github.com/BeezyWorks/tavshil/compare/v2.9.1...v2.10.0) (2026-11-10)
 
 
