@@ -28,6 +28,20 @@ export const colors = {
   cookAlertSoft: '#8A6A2A',
 } as const
 
+/** The app-icon pot, drawn in code for the loader. Illustration colours, not UI colours. */
+export const pot = {
+  body: '#C23B2E',
+  sheen: '#D9564A',
+  rim: '#9E2C24',
+  mouth: '#4A1612',
+  stew: '#6E3B1F',
+  stewShine: '#7E4626',
+  bubble: '#8A5530',
+  bubbleRing: '#E6D3AA',
+  chunk: '#D6A85E',
+  chunkShine: '#E7C27F',
+} as const
+
 /** Third-party sign-in branding; fixed by Apple's and Google's guidelines, not themeable. */
 export const brand = {
   appleBg: '#000000',

@@ -6,6 +6,7 @@ import type { Kind } from '@/lib/api/types'
 import { colors, space } from '@/theme/tokens'
 
 import { Badge } from './Pill'
+import { PotLoader } from './PotLoader'
 import { Text } from './Text'
 
 /** Meat / dairy / parve as a text label (never colour alone). */
@@ -27,7 +28,8 @@ export function Disclaimer() {
 
 export function Loading({ label = 'Loading...' }: { label?: string }) {
   return (
-    <View style={styles.state}>
+    <View style={styles.state} accessibilityRole="progressbar" accessibilityLabel={label}>
+      <PotLoader />
       <Text color={colors.muted}>{label}</Text>
     </View>
   )
@@ -66,5 +68,5 @@ export function Row({
 
 const styles = StyleSheet.create({
   box: { backgroundColor: colors.infoSoft, borderRadius: 10, padding: space.md },
-  state: { paddingVertical: space.xl, alignItems: 'center' },
+  state: { paddingVertical: space.xl, alignItems: 'center', gap: space.xs },
 })
