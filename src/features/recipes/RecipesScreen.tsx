@@ -130,15 +130,17 @@ export function RecipesScreen() {
       </View>
 
       <Card padded={false}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showFilters }}
-          onPress={() => setShowFilters(!showFilters)}
-          style={styles.filterHeader}
-        >
-          <Text variant="label">Filters</Text>
-          {activeCount ? <Badge label={`${activeCount} on`} tone="info" /> : null}
-          <View style={{ flex: 1 }} />
+        <View style={styles.filterHeader}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showFilters }}
+            onPress={() => setShowFilters(!showFilters)}
+            style={styles.filterToggle}
+          >
+            <Text variant="label">Filters</Text>
+            <View style={{ flex: 1 }} />
+            <Text variant="small">{showFilters ? '▴' : '▾'}</Text>
+          </Pressable>
           {activeCount && !showFilters ? (
             <Pressable
               accessibilityRole="button"
@@ -150,8 +152,7 @@ export function RecipesScreen() {
               </Text>
             </Pressable>
           ) : null}
-          <Text variant="small">{showFilters ? '▴' : '▾'}</Text>
-        </Pressable>
+        </View>
         <Collapsible open={showFilters}>
           <>
             <View style={styles.filterBody}>
@@ -457,8 +458,15 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'flex-end' },
   filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingRight: space.lg,
+  },
+  filterToggle: {
+    flex: 1,
     minHeight: 48,
-    paddingHorizontal: space.lg,
+    paddingLeft: space.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
