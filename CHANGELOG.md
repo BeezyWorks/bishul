@@ -1,3 +1,29 @@
+# [2.10.0](https://github.com/BeezyWorks/tavshil/compare/v2.9.1...v2.10.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **app:** drop the active-count chip from the recipe filters header ([368a089](https://github.com/BeezyWorks/tavshil/commit/368a0899c0581dc95413eb615519ef7a65010a67))
+* **app:** keep the recipe Filters chip from stretching full width ([8ba3583](https://github.com/BeezyWorks/tavshil/commit/8ba3583937aaf67d7c20994d9ceba523c32c07cb))
+* **app:** one header for saving a recipe filter; segmented control scrolls on small screens ([fddbf54](https://github.com/BeezyWorks/tavshil/commit/fddbf54caf912ea8bea9e2f656b332e97d223543))
+* **app:** wrap page action buttons on phones, clearer back link, שבת as the weekday ([f35706e](https://github.com/BeezyWorks/tavshil/commit/f35706ee087afac58cb14c17d344c7d1117db914))
+
+
+### Features
+
+* **app:** group menus as main, sides and dessert, with drag and drop, icons and square buttons ([176baf0](https://github.com/BeezyWorks/tavshil/commit/176baf050b1738b1ebc1f378012ee9bcbef6b819))
+* **app:** make recipe filters a collapsible header ([14c8bdf](https://github.com/BeezyWorks/tavshil/commit/14c8bdf161f0cce013b8ee38080dcb20d28531f2))
+* **app:** quick edits on the recipe page, equipment add, optimistic reactions ([192986e](https://github.com/BeezyWorks/tavshil/commit/192986e8993aff4c2d17ee78f7d26019386cf4ae))
+* **app:** say what saving a recipe filter does and confirm it ([4950ceb](https://github.com/BeezyWorks/tavshil/commit/4950cebe060a2fea091b4e70c36c7d585f4ed78e))
+* **app:** show saved recipe filters in a labelled row inside the Filters card ([ddf2954](https://github.com/BeezyWorks/tavshil/commit/ddf29547e2514cf4b3b3d41d3ede79ceecc0305e))
+* **app:** tidy the host plan page and parse loose meal times ([e493170](https://github.com/BeezyWorks/tavshil/commit/e4931709b037cc8e8ddfb1102efe85856506b6d3))
+* **app:** unfold and fold the recipe filters panel ([32234d3](https://github.com/BeezyWorks/tavshil/commit/32234d3518ba0d6744ce11fa8c3b18badf8ef96c))
+
+
+### Performance Improvements
+
+* **app:** show plan menu and guest edits at once ([064f14d](https://github.com/BeezyWorks/tavshil/commit/064f14dc492254cf24f3c6c02763638e5589b3a9))
+
 ## [2.9.1](https://github.com/BeezyWorks/tavshil/compare/v2.9.0...v2.9.1) (2026-11-10)
 
 
