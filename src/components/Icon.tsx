@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg'
 
 export type IconName =
   | 'edit'
+  | 'back'
   | 'share'
   | 'link'
   | 'plus'
@@ -21,6 +22,7 @@ export type IconName =
 
 // 24x24 stroke icons (Feather-style), drawn in the current text colour.
 const paths: Record<IconName, string[]> = {
+  back: ['M15 18l-6-6 6-6'],
   edit: ['M12 20h9', 'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'],
   share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
   link: [

@@ -3,8 +3,9 @@ import React from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { colors, size, space } from '@/theme/tokens'
+import { colors, fonts, size, space } from '@/theme/tokens'
 
+import { Icon } from './Icon'
 import { Text } from './Text'
 import { useLayout } from './useLayout'
 
@@ -40,10 +41,12 @@ export function Screen({ title, subtitle, eyebrow, back, actions, children }: Pr
             onPress={() => router.push(back.href as Href)}
             style={styles.back}
           >
-            <Text variant="small" color={colors.accent}>
-              {'‹ '}
-              {back.label}
-            </Text>
+            <View style={styles.backInner}>
+              <Icon name="back" size={16} color={colors.accent} />
+              <Text variant="small" color={colors.accent} style={styles.backText}>
+                {back.label}
+              </Text>
+            </View>
           </Pressable>
         ) : null}
         {title ? (
@@ -55,7 +58,7 @@ export function Screen({ title, subtitle, eyebrow, back, actions, children }: Pr
               </Text>
               {subtitle ? <Text color={colors.muted}>{subtitle}</Text> : null}
             </View>
-            {actions}
+            {actions ? <View style={styles.actions}>{actions}</View> : null}
           </View>
         ) : null}
         {children}
@@ -74,6 +77,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.md,
   },
+  // Without a cap, a wrapping row of buttons sizes to its content and runs off a narrow screen.
+  actions: { maxWidth: '100%' },
   headText: { flexShrink: 1, gap: 4 },
+  backInner: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: { fontFamily: fonts.bodySemiBold },
   back: { minHeight: size.touch, justifyContent: 'center', marginBottom: -space.lg },
 })

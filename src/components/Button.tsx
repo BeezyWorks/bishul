@@ -17,6 +17,8 @@ interface Props {
   href?: string
   variant?: ButtonVariant
   small?: boolean
+  /** Shows only the icon (the label becomes its accessibility label). */
+  iconOnly?: boolean
   disabled?: boolean
   loading?: boolean
   full?: boolean
@@ -40,6 +42,7 @@ export function Button({
   href,
   variant = 'primary',
   small,
+  iconOnly,
   disabled,
   loading,
   full,
@@ -61,6 +64,7 @@ export function Button({
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.base,
         small && styles.small,
+        iconOnly && styles.iconOnly,
         full && styles.full,
         { backgroundColor: p.bg, borderColor: p.border },
         (pressed || hovered) && !off && styles.active,
@@ -69,15 +73,17 @@ export function Button({
       ]}
     >
       {icon && !loading ? <Icon name={icon} size={small ? 15 : 18} color={p.fg} /> : null}
-      <Text
-        style={{
-          fontFamily: fonts.bodySemiBold,
-          fontSize: small ? fontSize.sm : fontSize.md,
-          color: p.fg,
-        }}
-      >
-        {loading ? 'Working...' : label}
-      </Text>
+      {iconOnly && icon ? null : (
+        <Text
+          style={{
+            fontFamily: fonts.bodySemiBold,
+            fontSize: small ? fontSize.sm : fontSize.md,
+            color: p.fg,
+          }}
+        >
+          {loading ? 'Working...' : label}
+        </Text>
+      )}
     </Pressable>
   )
 }
@@ -95,6 +101,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   small: { paddingHorizontal: space.lg },
+  iconOnly: { width: size.touch, paddingHorizontal: 0 },
   full: { alignSelf: 'stretch' },
   active: { opacity: 0.85 },
   off: { opacity: 0.45 },

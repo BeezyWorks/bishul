@@ -1,7 +1,7 @@
 /** Date helpers. Dates are ISO `YYYY-MM-DD` strings in the household's time zone; math is done in UTC. */
 import type { ISODate } from '@/lib/api/types'
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbat']
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'שבת']
 const MONTHS = [
   'January',
   'February',
@@ -36,7 +36,7 @@ export function weekday(iso: ISODate): number {
 }
 export function weekdayName(iso: ISODate, short = false): string {
   const n = DAYS[weekday(iso)]
-  return short && n !== 'Shabbat' ? n.slice(0, 3) : n
+  return short && n !== 'שבת' ? n.slice(0, 3) : n
 }
 export function monthName(m: number): string {
   return MONTHS[m]

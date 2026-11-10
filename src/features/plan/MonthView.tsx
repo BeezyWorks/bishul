@@ -9,7 +9,7 @@ import { colors, fontSize, fonts, space } from '@/theme/tokens'
 
 import { PlanHeader } from './PlanHeader'
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Shabbat']
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'שבת']
 
 /** The month grid with meals; clicking a day opens that week. */
 export function MonthView({

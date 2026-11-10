@@ -40,7 +40,7 @@ export function MealScreen() {
 
   if (meal.error)
     return (
-      <Screen title="Meal not found" back={{ label: 'Plan', href: planHref() }}>
+      <Screen title="Meal not found" back={{ label: 'Back to week', href: planHref() }}>
         <Text>We could not find that meal.</Text>
       </Screen>
     )
@@ -71,7 +71,7 @@ export function MealScreen() {
 
   return (
     <Screen
-      back={{ label: 'Plan', href: planHref() }}
+      back={{ label: 'Back to week', href: planHref() }}
       eyebrow={crumb || undefined}
       title={`Plan ${m.name}`}
     >
