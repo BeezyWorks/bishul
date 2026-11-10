@@ -1,3 +1,16 @@
+# [2.7.0](https://github.com/BeezyWorks/tavshil/compare/v2.6.0...v2.7.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **app:** resolve expo-keep-awake peers in the lockfile ([5d77793](https://github.com/BeezyWorks/tavshil/commit/5d7779300c36112ed833d057c138d4cb746e707b))
+
+
+### Features
+
+* **app:** cook-mode timer redesign, looping alarm with chosen sound, keep-awake setting ([a16f336](https://github.com/BeezyWorks/tavshil/commit/a16f336d6af35f822b922c27a388f54d23f27139))
+* **worker:** public recipes with search, ratings, save-a-copy and anonymous authors ([17256e7](https://github.com/BeezyWorks/tavshil/commit/17256e7fed5ab4bdb53119a12432f71d19eb0f6a))
+
 # [2.6.0](https://github.com/BeezyWorks/tavshil/compare/v2.5.0...v2.6.0) (2026-11-09)
 
 
