@@ -152,8 +152,8 @@ export function RecipesScreen() {
           ) : null}
           <Text variant="small">{showFilters ? '▴' : '▾'}</Text>
         </Pressable>
-        {showFilters ? (
-          <Reveal>
+        <Collapsible open={showFilters}>
+          <>
             <View style={styles.filterBody}>
               <FilterGroup label="Course">
                 <Single
@@ -291,8 +291,8 @@ export function RecipesScreen() {
                 </FilterGroup>
               ) : null}
             </View>
-          </Reveal>
-        ) : null}
+          </>
+        </Collapsible>
       </Card>
 
       {recipes.isLoading || !recipes.data ? (
@@ -390,25 +390,33 @@ function FirstRun() {
   )
 }
 
-/** Fades and slides its content in, so an opening panel reads as a response to the tap. */
-function Reveal({ children }: { children: React.ReactNode }) {
-  const t = useRef(new Animated.Value(0)).current
+/** Grows open and shrinks shut, so the panel visibly unfolds from its header. */
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const t = useRef(new Animated.Value(open ? 1 : 0)).current
+  const [height, setHeight] = useState(0)
   useEffect(() => {
     Animated.timing(t, {
-      toValue: 1,
-      duration: 180,
-      easing: Easing.out(Easing.cubic),
+      toValue: open ? 1 : 0,
+      duration: 380,
+      easing: Easing.inOut(Easing.cubic),
       useNativeDriver: false,
     }).start()
-  }, [t])
+  }, [open, t])
   return (
     <Animated.View
+      pointerEvents={open ? 'auto' : 'none'}
       style={{
-        opacity: t,
-        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+        overflow: 'hidden',
+        height: t.interpolate({ inputRange: [0, 1], outputRange: [0, height] }),
+        opacity: t.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.6, 1] }),
       }}
     >
-      {children}
+      <View
+        style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
+        onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
+      >
+        {children}
+      </View>
     </Animated.View>
   )
 }
