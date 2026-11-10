@@ -73,7 +73,9 @@ function register(app: App, base: '/api' | '/v1', auth: (c: Ctx) => Promise<Auth
   for (const op of operations) {
     if (base === '/v1' && op.webOnly) continue
     const handler = async (c: Ctx) => {
-      const a = op.public ? null : await auth(c)
+      // A public operation with optional auth uses the credentials when they are sent (and rejects bad ones).
+      const a =
+        !op.public || (op.optionalAuth && c.req.header('authorization')) ? await auth(c) : null
       const hasBody = op.method === 'post' || op.method === 'put' || op.method === 'patch'
       const raw = {
         ...Object.fromEntries(new URL(c.req.url).searchParams),

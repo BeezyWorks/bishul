@@ -56,7 +56,7 @@ import {
 } from './mappers'
 import { loadEffectivePeople, householdPersonIds, recordReaction, requirePerson } from './people'
 import { getPrefs } from './prefs'
-import { originalOf, syncPublic } from './publicRecipes'
+import { originalOf } from './publicRecipes'
 import { foldDishFlags, isLegacyDishFlag, normalizeTags, tagKey } from './tags'
 import { wordVariants } from './translit'
 
@@ -84,6 +84,30 @@ export async function loadVersions(
       ),
   )
   return hydrate(db, householdId, rows)
+}
+
+/**
+ * Live versions by id from any household, for public recipes (BRIEF §10), where the recipe is readable by everyone.
+ * Everything else uses `loadVersions`, which stays inside one household.
+ */
+export async function loadPublicVersions(
+  db: Db,
+  versionIds: string[],
+): Promise<Map<string, LoadedVersion>> {
+  const rows = await inChunks(versionIds, (part) =>
+    db
+      .select({ version: s.recipeVersions, recipe: s.recipes })
+      .from(s.recipeVersions)
+      .innerJoin(s.recipes, eq(s.recipes.id, s.recipeVersions.recipeId))
+      .where(
+        and(
+          inArray(s.recipeVersions.id, part),
+          isNull(s.recipeVersions.deletedAt),
+          isNull(s.recipes.deletedAt),
+        ),
+      ),
+  )
+  return hydrate(db, '', rows)
 }
 
 async function hydrate(
@@ -956,7 +980,6 @@ export async function saveRecipe(
       ...(linesChanged && { ingredients: { before: linesBefore, after: linesAfter } }),
       ...extra,
     })
-    await syncPublic(db, cur.recipe.id)
     const fresh = await requireVersion(db, actor, cur.version.id)
     return {
       created: false,
@@ -1014,7 +1037,6 @@ export async function saveRecipe(
   })
   await replaceChildren(db, actor, versionId, input, built)
   await writeEdit(db, actor, versionId, 'Created', { created: true })
-  await syncPublic(db, recipeId)
   const fresh = await requireVersion(db, actor, versionId)
   return {
     created: true,
@@ -1038,7 +1060,6 @@ export async function deleteVersion(db: Db, actor: Actor, versionId: string) {
     stmts.push(db.update(s.recipes).set({ deletedAt: now }).where(eq(s.recipes.id, v.recipe.id)))
   await db.batch(stmts as never)
   await writeEdit(db, actor, versionId, 'Deleted', { deleted: true })
-  await syncPublic(db, v.recipe.id)
   return { deleted: true }
 }
 
@@ -1140,7 +1161,6 @@ export async function saveVariation(
   }
   await replaceChildren(db, actor, versionId, children, built)
   await writeEdit(db, actor, versionId, `Variation of "${base.title}"`, { forkedFrom: base.id })
-  await syncPublic(db, src.recipe.id)
   const fresh = await requireVersion(db, actor, versionId)
   return {
     created: true,
@@ -1869,11 +1889,9 @@ export async function setRecipeFit(
   dimension: string,
   fit: string | null,
 ) {
-  const v = await requireVersion(db, actor, versionId)
+  await requireVersion(db, actor, versionId)
   if (fit !== null) fitFromInput(fit)
-  const res = await setVersionFit(db, actor, versionId, dimension, fit, { createIfMissing: true })
-  await syncPublic(db, v.recipe.id)
-  return res
+  return setVersionFit(db, actor, versionId, dimension, fit, { createIfMissing: true })
 }
 
 // ---------------------------------------------------------------------------------------------------------------

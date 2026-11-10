@@ -347,13 +347,14 @@ export const versionTags = sqliteTable(
 )
 
 /**
- * The public copy of a recipe (BRIEF §10). One row per published recipe (a dish with all its versions), holding a
- * snapshot of the content as the author has it, rebuilt by `syncPublic` on every write to the private recipe, so the
- * author does one edit and the service does both writes. Unpublishing soft-deletes the row (ratings are kept and come
- * back if it is published again). The list columns are copied from the lead version so browsing and filtering run in
- * SQL. `author_name` is null when `anonymous`; the owner's id is never returned to anyone else.
+ * The publication record of a recipe (BRIEF §10): that the recipe is public, how it is shown, and its ratings and
+ * saves. It holds no recipe content: the public read, search and summaries come live from the private recipe, so
+ * nothing is written here when the recipe is edited. A record is listed only while it is not deleted, the recipe is
+ * live and the recipe still has a live version. Unpublishing soft-deletes the row (ratings are kept and come back if
+ * it is published again). The author's name is never stored: it is read from the owner's profile, and is hidden when
+ * `anonymous` or the owner's account is gone. `owner_user_id` is never returned to anyone but the owner.
+ * `save_count` is the number of distinct households that ever saved a copy, recomputed from `recipes`.
  */
-export type PublicSnapshot = { versions: unknown[] }
 export const publicRecipes = sqliteTable(
   'public_recipes',
   {
@@ -363,16 +364,6 @@ export const publicRecipes = sqliteTable(
       .references(() => recipes.id),
     ownerUserId: text('owner_user_id').notNull(),
     anonymous: integer('anonymous', { mode: 'boolean' }).notNull().default(false),
-    authorName: text('author_name'),
-    title: text('title').notNull(),
-    snapshot: text('snapshot', { mode: 'json' }).$type<PublicSnapshot>().notNull(),
-    course: text('course'),
-    category: text('category', { enum: dishCategory }),
-    difficulty: text('difficulty', { enum: ['easy', 'average', 'a_pain'] }),
-    cost: integer('cost'),
-    totalMinutes: integer('total_minutes'),
-    /** Folded tag keys, written `|spicy|one pot|` so a tag is matched with LIKE '%|key|%'. */
-    tagKeys: text('tag_keys').notNull().default('|'),
     ratingCount: integer('rating_count').notNull().default(0),
     ratingSum: integer('rating_sum').notNull().default(0),
     saveCount: integer('save_count').notNull().default(0),

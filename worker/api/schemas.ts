@@ -427,6 +427,7 @@ export const publicSearchInput = z.object({
   difficulty: difficulty.optional(),
   maxCost: int.optional(),
   maxMinutes: int.optional(),
+  ...nutritionSearchFields,
   tags: searchInput.shape.tags,
   sort: z
     .enum(['relevance', 'popular', 'top_rated', 'newest', 'a_z', 'quickest'])

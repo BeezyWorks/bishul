@@ -57,6 +57,8 @@ function operationObject(op: Operation): Json {
     ...(parameters.length && { parameters }),
     ...(requestBody && { requestBody }),
     ...(!op.public && { security: [{ apiKey: [] }] }),
+    // Optional auth: works anonymously, and a key adds the caller's own rating and saved copy.
+    ...(op.public && op.optionalAuth && { security: [{}, { apiKey: [] }] }),
     'x-scope': op.public
       ? 'public'
       : op.needsWrite
@@ -68,7 +70,7 @@ function operationObject(op: Operation): Json {
         content: { 'application/json': { schema: { type: 'object', additionalProperties: true } } },
       },
       '400': { $ref: '#/components/responses/Error' },
-      ...(!op.public && { '401': { $ref: '#/components/responses/Error' } }),
+      ...((!op.public || op.optionalAuth) && { '401': { $ref: '#/components/responses/Error' } }),
       ...(op.scope === 'write' && { '403': { $ref: '#/components/responses/Error' } }),
       '404': { $ref: '#/components/responses/Error' },
     },

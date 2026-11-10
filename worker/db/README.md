@@ -21,7 +21,7 @@ all migrations to the test D1 (`vitest.config.mts` reads them, `test/setup.ts` a
 - **Kitchen:** `pantry_items`, `equipment`, `shopping_list` (order, checked and manual lines only; holds and totals
   are computed).
 - **Access:** `share_links` (snapshot JSON, `revoked_at`), `api_keys` (hashed, `read|write`).
-- **Public recipes:** `public_recipes` (one projection per published dish: JSON snapshot, list columns from the lead version, rating and save totals, `anonymous`), `public_recipe_ratings` (one per user), `public_recipe_fts` (FTS5, written by `syncPublic` in the same batch, no triggers). `recipes.source_public_recipe_id` links a saved copy back.
+- **Public recipes:** `public_recipes` (the publication record only: recipe, owner, `anonymous`, rating and save totals; content and search come live from the private recipe and `recipe_fts`, and the author name from the owner's `persons` row), `public_recipe_ratings` (one per user, soft-deletable). `save_count` is `count(DISTINCT household_id)` over `recipes.source_public_recipe_id`, which links a saved copy back.
 - **Tags:** `version_tags` (`tag` as typed, `key` folded for matching; no owner or vocabulary table).
 - **Search:** `recipe_fts` (FTS5, one row per live version: recipe and version title, description, ingredient text
   with catalog names and aliases, and tags; rebuilt in `0010_fts_tags.sql`). Triggers on `versions`, `ingredient_lines`, `recipes` and `ingredients` keep it in

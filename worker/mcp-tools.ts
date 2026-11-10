@@ -775,37 +775,48 @@ export const TOOLS: Tool[] = [
     name: 'publish_recipe',
     title: 'Make a recipe public',
     description:
-      'Make one of the host’s own recipes (recipeId; only the person who wrote it) public, or unpublish it (unpublish: true). A public copy with all its versions is created; anyone can find, rate and save it. It is kept in step automatically when the recipe is edited, so one edit updates both. Ask the host whether to show their name or stay anonymous (anonymous: true hides it) and what name to show (authorName). Sending it again changes those. Saved copies other people made stay with them. Confirm with the host first: this publishes the recipe to everyone.',
-    input: z.object({
-      recipeId: S.id,
-      anonymous: z.boolean().optional(),
-      authorName: z.string().max(80).optional(),
-      unpublish: z.boolean().optional(),
-    }),
+      'Make one of the host’s own recipes (recipeId; only the person who wrote it) public, or change how it is shown (send it again with anonymous). Nothing is copied: the public recipe is the host’s recipe as it is now, with all its versions, so to update its content just edit the private recipe (save_recipe, save_variation, ...) and the public one follows. Anyone can find, rate and save it. The author shown is the host’s profile name; ask the host whether to show it or stay anonymous (anonymous: true hides it). Saved copies other people made stay with them. Take it down with unpublish_recipe. Confirm with the host first: this publishes the recipe to everyone.',
+    input: z.object({ recipeId: S.id, anonymous: z.boolean().optional() }),
     destructive: true,
-    run: async (c, a) => {
-      if (a.unpublish)
-        return ok(
-          'Recipe is no longer public.',
-          await publicRecipes.unpublishRecipe(c.db, c.actor, a.recipeId),
-        )
-      return ok('Recipe is public.', await publicRecipes.publishRecipe(c.db, c.actor, a))
-    },
+    run: async (c, a) =>
+      ok('Recipe is public.', await publicRecipes.publishRecipe(c.db, c.actor, a)),
+  }),
+  tool({
+    name: 'unpublish_recipe',
+    title: 'Take a recipe off the public list',
+    description:
+      'Take one of the host’s recipes (recipeId) off the public list: it is no longer found, read, rated or saved by others. Copies other people saved stay with them; ratings are kept and come back if it is published again. The private recipe is untouched. Confirm with the host first.',
+    input: z.object({ recipeId: S.id }),
+    destructive: true,
+    run: async (c, a) =>
+      ok(
+        'Recipe is no longer public.',
+        await publicRecipes.unpublishRecipe(c.db, c.actor, a.recipeId),
+      ),
+  }),
+  tool({
+    name: 'list_my_public_recipes',
+    title: 'List my public recipes',
+    description:
+      'The host’s own recipes that are public right now, with their rating, saves and whether the name is hidden. A recipe whose private recipe was deleted is not listed.',
+    input: z.object({}),
+    readOnly: true,
+    run: async (c) => ok('Your public recipes.', await publicRecipes.listMyPublic(c.db, c.actor)),
   }),
   tool({
     name: 'search_public_recipes',
     title: 'Search public recipes',
     description:
-      'Search recipes other people made public (not the host’s own: use search_recipes for those). Text works like search_recipes, with the same spellings. Filters: course, kashrut, difficulty, maxCost, maxMinutes, tags. Sort: popular (default without text), top_rated, newest, a_z, quickest, relevance. Pass a result’s id to get_public_recipe to read it. No allergy checks: public recipes are unchecked and ingredient data may be AI-filled, so say so.',
+      'Search recipes other people made public (not the host’s own: use search_recipes for those). Text works like search_recipes, with the same spellings. Filters (applied to a recipe’s first version): course, kashrut, difficulty, maxCost, maxMinutes, tags, and the nutrition goals per serving (nutrition, minProteinG, minFiberG, maxCalories, maxCarbsG, maxSodiumMg, maxSugarG; recipes without figures are left out and counted). Sort: popular (default without text), top_rated, newest, a_z, quickest, relevance. Pass a result’s id to get_public_recipe to read it. No allergy checks: public recipes are unchecked and ingredient data may be AI-filled, so say so.',
     input: S.publicSearchInput,
     readOnly: true,
-    run: async (c, a) => ok('Public recipes.', await publicRecipes.searchPublic(c.db, a)),
+    run: async (c, a) => ok('Public recipes.', await publicRecipes.searchPublic(c.db, a, c.actor)),
   }),
   tool({
     name: 'get_public_recipe',
     title: 'Read a public recipe',
     description:
-      'A public recipe with all its versions, rating, saves and author (null when the author is anonymous). Shows your own rating and whether you saved a copy.',
+      'A public recipe with all its versions, rating, saves and author (null when the author is anonymous or gone). Shows the host’s own rating and whether they saved a copy.',
     input: z.object({ id: S.id }),
     readOnly: true,
     run: async (c, a) =>
@@ -828,6 +839,15 @@ export const TOOLS: Tool[] = [
     input: z.object({ id: S.id, stars: z.number().int().min(1).max(5).nullable() }),
     run: async (c, a) =>
       ok('Rating saved.', await publicRecipes.ratePublicRecipe(c.db, c.actor, a.id, a.stars)),
+  }),
+  tool({
+    name: 'list_my_ratings',
+    title: 'List my ratings',
+    description:
+      'The public recipes the host has rated, with their stars, newest first. Recipes that are not public right now are left out.',
+    input: z.object({}),
+    readOnly: true,
+    run: async (c) => ok('Your ratings.', await publicRecipes.listMyRatings(c.db, c.actor)),
   }),
   // ---------------------------------------------------------------------------------------------------------------
   // Sharing

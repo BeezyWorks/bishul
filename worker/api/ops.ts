@@ -37,6 +37,11 @@ export interface Operation {
   webOnly?: boolean
   /** No sign-in needed. */
   public?: boolean
+  /**
+   * For a public operation: if the request carries credentials they must be valid (else 401) and the actor is that
+   * user; with none the operation runs anonymously (`actor.userId` is empty).
+   */
+  optionalAuth?: boolean
   input: z.ZodType
   /** Some operations only change data in certain cases (scaling with `saveAs`, `suggest-menu` with `apply`). */
   needsWrite?: (input: never) => boolean
@@ -1253,14 +1258,10 @@ export const operations: Operation[] = [
     tag: 'Public recipes',
     scope: 'write',
     summary:
-      'Make your recipe public (or change how it is shown). A separate public copy is created and kept in step with the recipe automatically; anyone can find, rate and save it. Set anonymous to hide your name.',
+      'Make your recipe public (or change how it is shown). Nothing is copied: the public recipe is your recipe as it is now, so edits reach it automatically. Anyone can find, rate and save it. Your profile name is shown as the author; set anonymous to hide it.',
     input: z.object({ id: S.id, anonymous: z.boolean().optional() }),
     run: (c, i) =>
-      publicRecipes.publishRecipe(c.db, c.actor, {
-        recipeId: i.id,
-        anonymous: i.anonymous,
-        authorName: c.user.name ?? null,
-      }),
+      publicRecipes.publishRecipe(c.db, c.actor, { recipeId: i.id, anonymous: i.anonymous }),
   }),
   op({
     id: 'unpublishRecipe',
@@ -1289,10 +1290,11 @@ export const operations: Operation[] = [
     tag: 'Public recipes',
     scope: 'read',
     public: true,
+    optionalAuth: true,
     summary:
-      'Search public recipes (no sign-in needed). Text search works like your own; sort by popular, top_rated, newest, a_z or quickest',
+      'Search public recipes (no sign-in needed; with a key or token, results also show your rating and saved copy). Text search works like your own; filters apply to the lead version; sort by popular, top_rated, newest, a_z or quickest',
     input: S.publicSearchInput,
-    run: (c, i) => publicRecipes.searchPublic(c.db, i),
+    run: (c, i) => publicRecipes.searchPublic(c.db, i, c.actor),
   }),
   op({
     id: 'getPublicRecipe',
@@ -1301,10 +1303,11 @@ export const operations: Operation[] = [
     tag: 'Public recipes',
     scope: 'read',
     public: true,
+    optionalAuth: true,
     summary:
-      'Read a public recipe with all its versions, its rating and its author (unless anonymous)',
+      'Read a public recipe with all its versions, its rating and its author (unless anonymous). No sign-in needed; with a key or token it also shows your rating, your saved copy and whether it is yours',
     input: idParam,
-    run: (c, i) => publicRecipes.getPublicRecipe(c.db, i.id),
+    run: (c, i) => publicRecipes.getPublicRecipe(c.db, i.id, c.actor),
   }),
   op({
     id: 'savePublicRecipe',
@@ -1328,6 +1331,18 @@ export const operations: Operation[] = [
       'Rate a public recipe 1-5 stars (replaces your rating; null removes it). Not your own recipe.',
     input: z.object({ id: S.id, stars: z.number().int().min(1).max(5).nullable() }),
     run: (c, i) => publicRecipes.ratePublicRecipe(c.db, c.actor, i.id, i.stars),
+  }),
+
+  op({
+    id: 'listMyPublicRatings',
+    method: 'get',
+    path: '/public-recipes/ratings/mine',
+    tag: 'Public recipes',
+    scope: 'read',
+    summary:
+      'The public recipes you have rated, with your stars (recipes that are not public right now are left out)',
+    input: none,
+    run: (c) => publicRecipes.listMyRatings(c.db, c.actor),
   }),
 
   // ---- API keys (session only) ----

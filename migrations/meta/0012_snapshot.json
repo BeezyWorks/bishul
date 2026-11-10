@@ -81,16 +81,12 @@
       "indexes": {
         "api_keys_hash_uq": {
           "name": "api_keys_hash_uq",
-          "columns": [
-            "hashed_key"
-          ],
+          "columns": ["hashed_key"],
           "isUnique": true
         },
         "api_keys_user_idx": {
           "name": "api_keys_user_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -155,9 +151,7 @@
       "indexes": {
         "collections_household_idx": {
           "name": "collections_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         }
       },
@@ -166,12 +160,8 @@
           "name": "collections_household_id_households_id_fk",
           "tableFrom": "collections",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -278,16 +268,12 @@
       "indexes": {
         "constraints_person_idx": {
           "name": "constraints_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         },
         "constraints_layer_idx": {
           "name": "constraints_layer_idx",
-          "columns": [
-            "layer_household_id"
-          ],
+          "columns": ["layer_household_id"],
           "isUnique": false
         }
       },
@@ -296,12 +282,8 @@
           "name": "constraints_person_id_persons_id_fk",
           "tableFrom": "constraints",
           "tableTo": "persons",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -309,12 +291,8 @@
           "name": "constraints_layer_household_id_households_id_fk",
           "tableFrom": "constraints",
           "tableTo": "households",
-          "columnsFrom": [
-            "layer_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["layer_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -379,9 +357,7 @@
       "indexes": {
         "dimensions_household_idx": {
           "name": "dimensions_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         }
       },
@@ -390,12 +366,8 @@
           "name": "dimensions_household_id_households_id_fk",
           "tableFrom": "dimensions",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -468,9 +440,7 @@
       "indexes": {
         "equipment_household_idx": {
           "name": "equipment_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         }
       },
@@ -479,12 +449,8 @@
           "name": "equipment_household_id_households_id_fk",
           "tableFrom": "equipment",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -577,16 +543,12 @@
       "indexes": {
         "household_invites_token_uq": {
           "name": "household_invites_token_uq",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "household_invites_household_idx": {
           "name": "household_invites_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         }
       },
@@ -595,12 +557,8 @@
           "name": "household_invites_household_id_households_id_fk",
           "tableFrom": "household_invites",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -665,17 +623,12 @@
       "indexes": {
         "household_members_household_user_uq": {
           "name": "household_members_household_user_uq",
-          "columns": [
-            "household_id",
-            "user_id"
-          ],
+          "columns": ["household_id", "user_id"],
           "isUnique": true
         },
         "household_members_user_idx": {
           "name": "household_members_user_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -684,12 +637,8 @@
           "name": "household_members_household_id_households_id_fk",
           "tableFrom": "household_members",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -769,16 +718,12 @@
       "indexes": {
         "households_owner_idx": {
           "name": "households_owner_idx",
-          "columns": [
-            "owner_user_id"
-          ],
+          "columns": ["owner_user_id"],
           "isUnique": false
         },
         "households_ghost_of_idx": {
           "name": "households_ghost_of_idx",
-          "columns": [
-            "ghost_of_household_id"
-          ],
+          "columns": ["ghost_of_household_id"],
           "isUnique": false
         }
       },
@@ -787,12 +732,8 @@
           "name": "households_ghost_of_household_id_households_id_fk",
           "tableFrom": "households",
           "tableTo": "households",
-          "columnsFrom": [
-            "ghost_of_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ghost_of_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -907,17 +848,12 @@
       "indexes": {
         "ingredient_lines_version_idx": {
           "name": "ingredient_lines_version_idx",
-          "columns": [
-            "version_id",
-            "position"
-          ],
+          "columns": ["version_id", "position"],
           "isUnique": false
         },
         "ingredient_lines_ingredient_idx": {
           "name": "ingredient_lines_ingredient_idx",
-          "columns": [
-            "ingredient_id"
-          ],
+          "columns": ["ingredient_id"],
           "isUnique": false
         }
       },
@@ -926,12 +862,8 @@
           "name": "ingredient_lines_version_id_versions_id_fk",
           "tableFrom": "ingredient_lines",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -939,12 +871,8 @@
           "name": "ingredient_lines_ingredient_id_ingredients_id_fk",
           "tableFrom": "ingredient_lines",
           "tableTo": "ingredients",
-          "columnsFrom": [
-            "ingredient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ingredient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1051,16 +979,12 @@
       "indexes": {
         "ingredients_household_idx": {
           "name": "ingredients_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         },
         "ingredients_name_idx": {
           "name": "ingredients_name_idx",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": false
         }
       },
@@ -1069,12 +993,8 @@
           "name": "ingredients_household_id_households_id_fk",
           "tableFrom": "ingredients",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1132,17 +1052,12 @@
       "indexes": {
         "meal_attendees_uq": {
           "name": "meal_attendees_uq",
-          "columns": [
-            "meal_id",
-            "person_id"
-          ],
+          "columns": ["meal_id", "person_id"],
           "isUnique": true
         },
         "meal_attendees_person_idx": {
           "name": "meal_attendees_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         }
       },
@@ -1151,12 +1066,8 @@
           "name": "meal_attendees_meal_id_meals_id_fk",
           "tableFrom": "meal_attendees",
           "tableTo": "meals",
-          "columnsFrom": [
-            "meal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["meal_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1164,12 +1075,8 @@
           "name": "meal_attendees_person_id_persons_id_fk",
           "tableFrom": "meal_attendees",
           "tableTo": "persons",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1227,10 +1134,7 @@
       "indexes": {
         "meal_households_uq": {
           "name": "meal_households_uq",
-          "columns": [
-            "meal_id",
-            "household_id"
-          ],
+          "columns": ["meal_id", "household_id"],
           "isUnique": true
         }
       },
@@ -1239,12 +1143,8 @@
           "name": "meal_households_meal_id_meals_id_fk",
           "tableFrom": "meal_households",
           "tableTo": "meals",
-          "columnsFrom": [
-            "meal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["meal_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1252,12 +1152,8 @@
           "name": "meal_households_household_id_households_id_fk",
           "tableFrom": "meal_households",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1372,17 +1268,12 @@
       "indexes": {
         "meal_items_meal_idx": {
           "name": "meal_items_meal_idx",
-          "columns": [
-            "meal_id",
-            "position"
-          ],
+          "columns": ["meal_id", "position"],
           "isUnique": false
         },
         "meal_items_version_idx": {
           "name": "meal_items_version_idx",
-          "columns": [
-            "version_id"
-          ],
+          "columns": ["version_id"],
           "isUnique": false
         }
       },
@@ -1391,12 +1282,8 @@
           "name": "meal_items_meal_id_meals_id_fk",
           "tableFrom": "meal_items",
           "tableTo": "meals",
-          "columnsFrom": [
-            "meal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["meal_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1404,12 +1291,8 @@
           "name": "meal_items_version_id_versions_id_fk",
           "tableFrom": "meal_items",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1534,10 +1417,7 @@
       "indexes": {
         "meals_household_date_idx": {
           "name": "meals_household_date_idx",
-          "columns": [
-            "household_id",
-            "date"
-          ],
+          "columns": ["household_id", "date"],
           "isUnique": false
         }
       },
@@ -1546,12 +1426,8 @@
           "name": "meals_household_id_households_id_fk",
           "tableFrom": "meals",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1616,10 +1492,7 @@
       "indexes": {
         "notes_person_idx": {
           "name": "notes_person_idx",
-          "columns": [
-            "about_person_id",
-            "author_household_id"
-          ],
+          "columns": ["about_person_id", "author_household_id"],
           "isUnique": false
         }
       },
@@ -1628,12 +1501,8 @@
           "name": "notes_author_household_id_households_id_fk",
           "tableFrom": "notes",
           "tableTo": "households",
-          "columnsFrom": [
-            "author_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1641,12 +1510,8 @@
           "name": "notes_about_person_id_persons_id_fk",
           "tableFrom": "notes",
           "tableTo": "persons",
-          "columnsFrom": [
-            "about_person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["about_person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1732,16 +1597,12 @@
       "indexes": {
         "pantry_household_idx": {
           "name": "pantry_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         },
         "pantry_ingredient_idx": {
           "name": "pantry_ingredient_idx",
-          "columns": [
-            "ingredient_id"
-          ],
+          "columns": ["ingredient_id"],
           "isUnique": false
         }
       },
@@ -1750,12 +1611,8 @@
           "name": "pantry_items_household_id_households_id_fk",
           "tableFrom": "pantry_items",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1763,12 +1620,8 @@
           "name": "pantry_items_ingredient_id_ingredients_id_fk",
           "tableFrom": "pantry_items",
           "tableTo": "ingredients",
-          "columnsFrom": [
-            "ingredient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ingredient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1840,16 +1693,12 @@
       "indexes": {
         "person_links_ghost_uq": {
           "name": "person_links_ghost_uq",
-          "columns": [
-            "ghost_person_id"
-          ],
+          "columns": ["ghost_person_id"],
           "isUnique": true
         },
         "person_links_real_idx": {
           "name": "person_links_real_idx",
-          "columns": [
-            "real_person_id"
-          ],
+          "columns": ["real_person_id"],
           "isUnique": false
         }
       },
@@ -1858,12 +1707,8 @@
           "name": "person_links_ghost_person_id_persons_id_fk",
           "tableFrom": "person_links",
           "tableTo": "persons",
-          "columnsFrom": [
-            "ghost_person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ghost_person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1871,12 +1716,8 @@
           "name": "person_links_real_person_id_persons_id_fk",
           "tableFrom": "person_links",
           "tableTo": "persons",
-          "columnsFrom": [
-            "real_person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["real_person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1941,9 +1782,7 @@
       "indexes": {
         "person_rules_person_idx": {
           "name": "person_rules_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         }
       },
@@ -1952,12 +1791,8 @@
           "name": "person_rules_person_id_persons_id_fk",
           "tableFrom": "person_rules",
           "tableTo": "persons",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1965,12 +1800,8 @@
           "name": "person_rules_layer_household_id_households_id_fk",
           "tableFrom": "person_rules",
           "tableTo": "households",
-          "columnsFrom": [
-            "layer_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["layer_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2065,16 +1896,12 @@
       "indexes": {
         "persons_household_idx": {
           "name": "persons_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         },
         "persons_user_idx": {
           "name": "persons_user_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -2083,12 +1910,8 @@
           "name": "persons_household_id_households_id_fk",
           "tableFrom": "persons",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2153,10 +1976,7 @@
       "indexes": {
         "public_recipe_ratings_uq": {
           "name": "public_recipe_ratings_uq",
-          "columns": [
-            "public_recipe_id",
-            "user_id"
-          ],
+          "columns": ["public_recipe_id", "user_id"],
           "isUnique": true
         }
       },
@@ -2165,12 +1985,8 @@
           "name": "public_recipe_ratings_public_recipe_id_public_recipes_id_fk",
           "tableFrom": "public_recipe_ratings",
           "tableTo": "public_recipes",
-          "columnsFrom": [
-            "public_recipe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["public_recipe_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2331,23 +2147,17 @@
       "indexes": {
         "public_recipes_recipe_uq": {
           "name": "public_recipes_recipe_uq",
-          "columns": [
-            "recipe_id"
-          ],
+          "columns": ["recipe_id"],
           "isUnique": true
         },
         "public_recipes_owner_idx": {
           "name": "public_recipes_owner_idx",
-          "columns": [
-            "owner_user_id"
-          ],
+          "columns": ["owner_user_id"],
           "isUnique": false
         },
         "public_recipes_published_idx": {
           "name": "public_recipes_published_idx",
-          "columns": [
-            "published_at"
-          ],
+          "columns": ["published_at"],
           "isUnique": false
         }
       },
@@ -2356,12 +2166,8 @@
           "name": "public_recipes_recipe_id_recipes_id_fk",
           "tableFrom": "public_recipes",
           "tableTo": "recipes",
-          "columnsFrom": [
-            "recipe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recipe_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2447,16 +2253,12 @@
       "indexes": {
         "reactions_person_idx": {
           "name": "reactions_person_idx",
-          "columns": [
-            "person_id"
-          ],
+          "columns": ["person_id"],
           "isUnique": false
         },
         "reactions_version_idx": {
           "name": "reactions_version_idx",
-          "columns": [
-            "version_id"
-          ],
+          "columns": ["version_id"],
           "isUnique": false
         }
       },
@@ -2465,12 +2267,8 @@
           "name": "reactions_person_id_persons_id_fk",
           "tableFrom": "reactions",
           "tableTo": "persons",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2478,12 +2276,8 @@
           "name": "reactions_version_id_versions_id_fk",
           "tableFrom": "reactions",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2491,12 +2285,8 @@
           "name": "reactions_layer_household_id_households_id_fk",
           "tableFrom": "reactions",
           "tableTo": "households",
-          "columnsFrom": [
-            "layer_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["layer_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2694,30 +2484,22 @@
       "indexes": {
         "versions_recipe_idx": {
           "name": "versions_recipe_idx",
-          "columns": [
-            "recipe_id"
-          ],
+          "columns": ["recipe_id"],
           "isUnique": false
         },
         "versions_lineage_idx": {
           "name": "versions_lineage_idx",
-          "columns": [
-            "lineage_id"
-          ],
+          "columns": ["lineage_id"],
           "isUnique": false
         },
         "versions_hash_idx": {
           "name": "versions_hash_idx",
-          "columns": [
-            "content_hash"
-          ],
+          "columns": ["content_hash"],
           "isUnique": false
         },
         "versions_parent_idx": {
           "name": "versions_parent_idx",
-          "columns": [
-            "parent_version_id"
-          ],
+          "columns": ["parent_version_id"],
           "isUnique": false
         }
       },
@@ -2726,12 +2508,8 @@
           "name": "versions_recipe_id_recipes_id_fk",
           "tableFrom": "versions",
           "tableTo": "recipes",
-          "columnsFrom": [
-            "recipe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recipe_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2739,12 +2517,8 @@
           "name": "versions_parent_version_id_versions_id_fk",
           "tableFrom": "versions",
           "tableTo": "versions",
-          "columnsFrom": [
-            "parent_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2816,23 +2590,17 @@
       "indexes": {
         "recipes_household_idx": {
           "name": "recipes_household_idx",
-          "columns": [
-            "household_id"
-          ],
+          "columns": ["household_id"],
           "isUnique": false
         },
         "recipes_owner_idx": {
           "name": "recipes_owner_idx",
-          "columns": [
-            "owner_user_id"
-          ],
+          "columns": ["owner_user_id"],
           "isUnique": false
         },
         "recipes_source_public_idx": {
           "name": "recipes_source_public_idx",
-          "columns": [
-            "source_public_recipe_id"
-          ],
+          "columns": ["source_public_recipe_id"],
           "isUnique": false
         }
       },
@@ -2841,12 +2609,8 @@
           "name": "recipes_household_id_households_id_fk",
           "tableFrom": "recipes",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2925,26 +2689,17 @@
       "indexes": {
         "served_log_person_idx": {
           "name": "served_log_person_idx",
-          "columns": [
-            "person_id",
-            "served_on"
-          ],
+          "columns": ["person_id", "served_on"],
           "isUnique": false
         },
         "served_log_version_idx": {
           "name": "served_log_version_idx",
-          "columns": [
-            "version_id"
-          ],
+          "columns": ["version_id"],
           "isUnique": false
         },
         "served_log_uq": {
           "name": "served_log_uq",
-          "columns": [
-            "meal_id",
-            "version_id",
-            "person_id"
-          ],
+          "columns": ["meal_id", "version_id", "person_id"],
           "isUnique": true
         }
       },
@@ -2953,12 +2708,8 @@
           "name": "served_log_person_id_persons_id_fk",
           "tableFrom": "served_log",
           "tableTo": "persons",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2966,12 +2717,8 @@
           "name": "served_log_version_id_versions_id_fk",
           "tableFrom": "served_log",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2979,12 +2726,8 @@
           "name": "served_log_meal_id_meals_id_fk",
           "tableFrom": "served_log",
           "tableTo": "meals",
-          "columnsFrom": [
-            "meal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["meal_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2992,12 +2735,8 @@
           "name": "served_log_layer_household_id_households_id_fk",
           "tableFrom": "served_log",
           "tableTo": "households",
-          "columnsFrom": [
-            "layer_household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["layer_household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3083,24 +2822,17 @@
       "indexes": {
         "share_links_token_uq": {
           "name": "share_links_token_uq",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "share_links_creator_idx": {
           "name": "share_links_creator_idx",
-          "columns": [
-            "created_by"
-          ],
+          "columns": ["created_by"],
           "isUnique": false
         },
         "share_links_target_idx": {
           "name": "share_links_target_idx",
-          "columns": [
-            "kind",
-            "target_id"
-          ],
+          "columns": ["kind", "target_id"],
           "isUnique": false
         }
       },
@@ -3187,17 +2919,12 @@
       "indexes": {
         "shopping_household_idx": {
           "name": "shopping_household_idx",
-          "columns": [
-            "household_id",
-            "position"
-          ],
+          "columns": ["household_id", "position"],
           "isUnique": false
         },
         "shopping_ingredient_idx": {
           "name": "shopping_ingredient_idx",
-          "columns": [
-            "ingredient_id"
-          ],
+          "columns": ["ingredient_id"],
           "isUnique": false
         }
       },
@@ -3206,12 +2933,8 @@
           "name": "shopping_list_household_id_households_id_fk",
           "tableFrom": "shopping_list",
           "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["household_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3219,12 +2942,8 @@
           "name": "shopping_list_ingredient_id_ingredients_id_fk",
           "tableFrom": "shopping_list",
           "tableTo": "ingredients",
-          "columnsFrom": [
-            "ingredient_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ingredient_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3290,9 +3009,7 @@
       "indexes": {
         "user_prefs_user_uq": {
           "name": "user_prefs_user_uq",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": true
         }
       },
@@ -3357,17 +3074,12 @@
       "indexes": {
         "version_dimensions_uq": {
           "name": "version_dimensions_uq",
-          "columns": [
-            "version_id",
-            "dimension_id"
-          ],
+          "columns": ["version_id", "dimension_id"],
           "isUnique": true
         },
         "version_dimensions_dim_idx": {
           "name": "version_dimensions_dim_idx",
-          "columns": [
-            "dimension_id"
-          ],
+          "columns": ["dimension_id"],
           "isUnique": false
         }
       },
@@ -3376,12 +3088,8 @@
           "name": "version_dimensions_version_id_versions_id_fk",
           "tableFrom": "version_dimensions",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3389,12 +3097,8 @@
           "name": "version_dimensions_dimension_id_dimensions_id_fk",
           "tableFrom": "version_dimensions",
           "tableTo": "dimensions",
-          "columnsFrom": [
-            "dimension_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["dimension_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3473,10 +3177,7 @@
       "indexes": {
         "version_edits_version_idx": {
           "name": "version_edits_version_idx",
-          "columns": [
-            "version_id",
-            "at"
-          ],
+          "columns": ["version_id", "at"],
           "isUnique": false
         }
       },
@@ -3485,12 +3186,8 @@
           "name": "version_edits_version_id_versions_id_fk",
           "tableFrom": "version_edits",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3555,9 +3252,7 @@
       "indexes": {
         "version_equipment_version_idx": {
           "name": "version_equipment_version_idx",
-          "columns": [
-            "version_id"
-          ],
+          "columns": ["version_id"],
           "isUnique": false
         }
       },
@@ -3566,12 +3261,8 @@
           "name": "version_equipment_version_id_versions_id_fk",
           "tableFrom": "version_equipment",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3636,16 +3327,12 @@
       "indexes": {
         "version_tags_version_idx": {
           "name": "version_tags_version_idx",
-          "columns": [
-            "version_id"
-          ],
+          "columns": ["version_id"],
           "isUnique": false
         },
         "version_tags_key_idx": {
           "name": "version_tags_key_idx",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": false
         }
       },
@@ -3654,12 +3341,8 @@
           "name": "version_tags_version_id_versions_id_fk",
           "tableFrom": "version_tags",
           "tableTo": "versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

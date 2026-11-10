@@ -163,7 +163,7 @@ export async function recipeSnapshot(
     .select({ id: s.recipeVersions.id, parent: s.recipeVersions.parentVersionId })
     .from(s.recipeVersions)
     .where(and(eq(s.recipeVersions.recipeId, recipe.id), isNull(s.recipeVersions.deletedAt)))
-    .orderBy(s.recipeVersions.createdAt)
+    .orderBy(s.recipeVersions.createdAt, s.recipeVersions.id)
   const loaded = await loadVersions(
     db,
     householdId,

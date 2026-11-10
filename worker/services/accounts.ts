@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm'
 
 import * as s from '../db/schema'
 import { chunks, type Db } from './ctx'
@@ -10,7 +10,8 @@ import { eraseUserProfile } from './people'
  * - A household with other members stays with them. If the user owned it, ownership passes to the member who has
  *   been there longest. Recipes the user wrote stay with the household (it has full access to every member's
  *   recipes); everything else already belongs to the household.
- * - A household of one goes with its owner: its contacts, recipes, collections and invites are retired too.
+ * - A household of one goes with its owner: its contacts, recipes, collections and invites are retired too, except
+ *   recipes that are public (BRIEF §10): those stay, and show their author as anonymous.
  * Also revokes API keys, drops display preferences and revokes the links and invites they created.
  * Rows are soft-deleted (sync-friendly). Safe to run again.
  */
@@ -133,10 +134,24 @@ async function retireHousehold(db: Db, householdId: string, now: number) {
       ])
     }
     await db.batch([
+      // Recipes that are public stay (readable, searchable, saveable); their author's profile is gone, so they
+      // show as anonymous.
       db
         .update(s.recipes)
         .set({ deletedAt: now })
-        .where(and(inArray(s.recipes.householdId, part), isNull(s.recipes.deletedAt))),
+        .where(
+          and(
+            inArray(s.recipes.householdId, part),
+            isNull(s.recipes.deletedAt),
+            notInArray(
+              s.recipes.id,
+              db
+                .select({ id: s.publicRecipes.recipeId })
+                .from(s.publicRecipes)
+                .where(isNull(s.publicRecipes.deletedAt)),
+            ),
+          ),
+        ),
       db
         .update(s.collections)
         .set({ deletedAt: now })
