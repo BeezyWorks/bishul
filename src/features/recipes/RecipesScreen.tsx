@@ -426,7 +426,7 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 
 const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'flex-end' },
-  toolbar: { gap: space.sm },
+  toolbar: { gap: space.sm, alignItems: 'flex-start' },
   sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 })
