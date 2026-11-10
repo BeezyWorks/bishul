@@ -14,7 +14,7 @@ import { api } from './client'
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
 /** Bump when the shape of cached data changes, so old caches are dropped instead of misread. */
-const CACHE_VERSION = '1'
+const CACHE_VERSION = '2'
 
 export function createQueryClient() {
   return new QueryClient({

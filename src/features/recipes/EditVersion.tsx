@@ -56,7 +56,9 @@ const parseSources = (text: string) =>
     return [{ url, ...(a.trim() && { label: a.trim() }) }]
   })
 const sourcesText = (v: RecipeVersion) =>
-  v.sources.map((s) => (s.label && s.label !== s.url ? `${s.label} | ${s.url}` : s.url)).join('\n')
+  (v.sources ?? [])
+    .map((s) => (s.label && s.label !== s.url ? `${s.label} | ${s.url}` : s.url))
+    .join('\n')
 
 const num = (t: string) => (t.trim() === '' ? undefined : Math.max(0, Math.round(Number(t))))
 

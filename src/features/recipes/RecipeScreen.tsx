@@ -254,7 +254,7 @@ function VersionView({
         {v.occasionFit.map((f) => (
           <Badge key={f.dimension} label={`${f.dimension}: ${f.fit}`} tone={FIT_TONE[f.fit]} />
         ))}
-        {v.sources.map((s) => (
+        {(v.sources ?? []).map((s) => (
           <Pressable
             key={s.url}
             accessibilityRole="link"
