@@ -1,3 +1,10 @@
+# [2.8.0](https://github.com/BeezyWorks/tavshil/compare/v2.7.0...v2.8.0) (2026-11-10)
+
+
+### Features
+
+* **worker:** live public recipes, author from profile, MCP coverage ([70e1681](https://github.com/BeezyWorks/tavshil/commit/70e16810bb2efb8a1c25655b59187ddefe0a40ec))
+
 # [2.7.0](https://github.com/BeezyWorks/tavshil/compare/v2.6.0...v2.7.0) (2026-11-10)
 
 
