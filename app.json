@@ -5,10 +5,7 @@
     "version": "0.1.0",
     "scheme": "tavshil",
     "userInterfaceStyle": "light",
-    "platforms": [
-      "ios",
-      "web"
-    ],
+    "platforms": ["ios", "web"],
     "web": {
       "output": "single",
       "bundler": "metro",
@@ -20,9 +17,16 @@
       [
         "expo-notifications",
         {
-          "color": "#2E6A4E"
+          "color": "#2E6A4E",
+          "sounds": [
+            "./assets/sounds/alarm-bell.wav",
+            "./assets/sounds/alarm-chimes.wav",
+            "./assets/sounds/alarm-marimba.wav",
+            "./assets/sounds/alarm-beeps.wav"
+          ]
         }
       ],
+      "expo-audio",
       "expo-secure-store",
       "expo-widgets"
     ],
@@ -35,6 +39,9 @@
     "ios": {
       "bundleIdentifier": "com.beezyworks.tavshil",
       "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true

@@ -24,6 +24,8 @@ export const colors = {
   cookMuted: '#A9AFA5',
   cookAccent: '#7FC8A0',
   cookAlert: '#F2B84B',
+  cookDanger: '#F27B6E',
+  cookAlertSoft: '#8A6A2A',
 } as const
 
 /** Third-party sign-in branding; fixed by Apple's and Google's guidelines, not themeable. */

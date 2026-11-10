@@ -1,7 +1,20 @@
 import React from 'react'
+import { Platform } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 
-export type IconName = 'edit' | 'share' | 'link' | 'plus' | 'play' | 'trash'
+export type IconName =
+  | 'edit'
+  | 'share'
+  | 'link'
+  | 'plus'
+  | 'play'
+  | 'trash'
+  | 'pause'
+  | 'reset'
+  | 'bellOff'
+  | 'close'
+  | 'minus'
+  | 'more'
 
 // 24x24 stroke icons (Feather-style), drawn in the current text colour.
 const paths: Record<IconName, string[]> = {
@@ -13,6 +26,18 @@ const paths: Record<IconName, string[]> = {
   ],
   plus: ['M12 5v14', 'M5 12h14'],
   play: ['M6 4l14 8-14 8z'],
+  pause: ['M7 4h3v16H7z', 'M14 4h3v16h-3z'],
+  reset: ['M1 4v6h6', 'M3.51 15a9 9 0 1 0 2.13-9.36L1 10'],
+  bellOff: [
+    'M13.73 21a2 2 0 0 1-3.46 0',
+    'M18.63 13A17.89 17.89 0 0 1 18 8',
+    'M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14',
+    'M18 8a6 6 0 0 0-9.33-5',
+    'M1 1l22 22',
+  ],
+  minus: ['M5 12h14'],
+  more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
+  close: ['M6 6l12 12', 'M18 6L6 18'],
   trash: [
     'M3 6h18',
     'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
@@ -22,18 +47,24 @@ const paths: Record<IconName, string[]> = {
   ],
 }
 
+// Decorative: hidden from screen readers. The iOS prop is not a DOM attribute, so the web uses aria.
+const hidden =
+  Platform.OS === 'web'
+    ? ({ 'aria-hidden': true } as const)
+    : ({ accessibilityElementsHidden: true } as const)
+
 export function Icon({ name, size = 18, color }: { name: IconName; size?: number; color: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...hidden}>
       {paths[name].map((d) => (
         <Path
           key={d}
           d={d}
           stroke={color}
-          strokeWidth={2}
+          strokeWidth={name === 'more' ? 4 : 2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          fill={name === 'play' ? color : 'none'}
+          fill={name === 'play' || name === 'pause' ? color : 'none'}
         />
       ))}
     </Svg>

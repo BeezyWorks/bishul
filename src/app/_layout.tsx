@@ -12,15 +12,22 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import { refreshAccount, useAccount } from '@/features/account/store'
 import { configureNotifications, useTimerTapRouting } from '@/features/cook/notifications'
+import { AlarmBanner } from '@/features/cook/AlarmBanner'
+import { timerActions, useTimerAlarm } from '@/features/cook/timers'
 import { createQueryClient, persistOptions, useOfflineWarmup } from '@/lib/api/offline'
 import { colors } from '@/theme/tokens'
 
 configureNotifications()
 
-/** Sends a tapped timer notification to its step; mounted after the Stack so navigation is ready. */
+/**
+ * Timer plumbing that must live above every screen: routes a tapped notification to its step, plays
+ * the alarm and shows its banner. Mounted after the Stack so navigation is ready.
+ */
 function TimerTapRouting() {
-  useTimerTapRouting()
-  return null
+  // Tapping the notification is as good as silencing: you are looking at the timer now.
+  useTimerTapRouting(timerActions.silence)
+  const ringing = useTimerAlarm()
+  return <AlarmBanner entry={ringing} />
 }
 
 export default function RootLayout() {

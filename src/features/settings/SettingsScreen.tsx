@@ -17,7 +17,9 @@ import { api } from '@/lib/api/client'
 import { stale, useApiKeys, useApiMutation, useHouseholdInfo, usePrefs } from '@/lib/api/hooks'
 import type { CreatedApiKey } from '@/lib/api/types'
 import { MCP_URL, OPENAPI_URL, REST_URL } from '@/lib/config'
-import { setUnits } from '@/lib/prefs'
+import { previewAlarm, stopAlarm } from '@/features/cook/alarm'
+import { ALARM_SOUNDS } from '@/features/cook/sounds'
+import { ALARM_SOUND_IDS, setUnits, useAlarmSound, useKeepAwakePref } from '@/lib/prefs'
 import { colors, radius, space } from '@/theme/tokens'
 
 async function copy(text: string): Promise<boolean> {
@@ -49,6 +51,7 @@ export function SettingsScreen() {
     <Screen title="Settings" subtitle="Your household, how amounts are shown, and your AI.">
       <HouseholdCard />
       <UnitsCard />
+      <CookingCard />
       <ConnectCard />
       <KeysCard />
       <AccountCard />
@@ -211,6 +214,43 @@ function UnitsCard() {
           set.mutate(system)
         }}
       />
+    </Card>
+  )
+}
+
+// ---- Cooking mode (this device) ----
+
+function CookingCard() {
+  const [sound, setSound] = useAlarmSound()
+  const [awake, setAwake] = useKeepAwakePref()
+  useEffect(() => stopAlarm, [])
+  return (
+    <Card>
+      <SectionHeader title="Cooking mode" hint="These apply to this device only." />
+      <Segmented
+        options={[
+          { value: 'on', label: 'Keep screen on' },
+          { value: 'off', label: 'Let it sleep' },
+        ]}
+        value={awake ? 'on' : 'off'}
+        onChange={(v) => setAwake(v === 'on')}
+      />
+      <Text variant="bodyStrong">Timer alarm</Text>
+      <View style={styles.row}>
+        <Segmented
+          options={ALARM_SOUND_IDS.map((id) => ({ value: id, label: ALARM_SOUNDS[id].label }))}
+          value={sound}
+          onChange={(id) => {
+            setSound(id)
+            previewAlarm(id)
+          }}
+        />
+        <Button label="Stop" variant="secondary" small onPress={stopAlarm} />
+      </View>
+      <Text variant="small">
+        Choosing a sound plays it once. The alarm keeps ringing in the app until you tap its banner.
+        With the app closed, the notification plays the sound for about 20 seconds.
+      </Text>
     </Card>
   )
 }
