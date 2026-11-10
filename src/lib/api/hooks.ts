@@ -10,6 +10,8 @@ import {
 import { api } from './client'
 import type {
   AddDishInput,
+  HostedMeal,
+  HostedPage,
   Id,
   ISODate,
   MealPatch,
@@ -260,6 +262,70 @@ export function useOptimisticMutation<A, R, T>(opts: {
   })
 }
 
+/** Replaces one meal inside a cached hosted page, or a cached single meal. */
+function patchMeal(qc: QueryClient, mealId: Id, edit: (m: HostedMeal) => HostedMeal) {
+  qc.setQueriesData<HostedPage>({ queryKey: ['hosted'] }, (old) =>
+    old
+      ? {
+          ...old,
+          days: old.days.map((d) => ({
+            ...d,
+            meals: d.meals.map((m) => (m.id === mealId ? edit(m) : m)),
+          })),
+        }
+      : old,
+  )
+  qc.setQueriesData<HostedMeal>({ queryKey: ['hostedMeal', mealId] }, (old) =>
+    old ? edit(old) : old,
+  )
+}
+
+/**
+ * A change to one meal that shows at once. `apply` edits the cached meal before the request goes out (omit
+ * it where the result cannot be guessed); the server's answer is the whole meal, so that replaces it and the
+ * pages that show it need no refetch. Everything else that depends on the menu (the page's list of things
+ * to fix, shopping, prep) refreshes in the background, so nothing waits on it.
+ */
+function useMealMutation<A extends { mealId: Id }>(
+  fn: (arg: A) => Promise<HostedMeal>,
+  apply?: (meal: HostedMeal, arg: A) => HostedMeal,
+) {
+  const qc = useQueryClient()
+  const mutationKey = ['mealEdit']
+  const last = () => qc.isMutating({ mutationKey }) <= 1
+  return useMutation({
+    mutationKey,
+    mutationFn: fn,
+    onMutate: async (arg: A) => {
+      if (!apply) return
+      await qc.cancelQueries({ queryKey: ['hosted'] })
+      await qc.cancelQueries({ queryKey: ['hostedMeal', arg.mealId] })
+      patchMeal(qc, arg.mealId, (m) => apply(m, arg))
+    },
+    onSuccess: (meal, arg) => {
+      if (last()) patchMeal(qc, arg.mealId, () => meal)
+    },
+    onError: () => {
+      void invalidate(qc, [['hosted'], ['hostedMeal']])
+    },
+    onSettled: () => {
+      if (!last()) return
+      void invalidate(qc, [
+        ['plan'],
+        ['hosted'],
+        ['mealRecipes'],
+        ['meal'],
+        ['calendar'],
+        ['upcoming'],
+        ['suggestions'],
+        ['shopping'],
+        ['prep'],
+        ['pantry'],
+      ])
+    },
+  })
+}
+
 // ---- Plan tab mutations. Each returns the changed meal as a hosted row, where the server sends one. ----
 
 /** Create a meal in a slot (name optional, hosted optional, guest households optional). */
@@ -285,37 +351,42 @@ export const useDeletePlanMeal = () =>
   useApiMutation((mealId: Id) => api.deleteMeal(mealId), stale.planMenu)
 
 export const useAddMealHousehold = () =>
-  useApiMutation(
-    (a: { mealId: Id; householdId: Id }) => api.addMealHousehold(a.mealId, a.householdId),
-    stale.planMenu,
+  useMealMutation((a: { mealId: Id; householdId: Id }) =>
+    api.addMealHousehold(a.mealId, a.householdId),
   )
 export const useRemoveMealHousehold = () =>
-  useApiMutation(
+  useMealMutation(
     (a: { mealId: Id; householdId: Id }) => api.removeMealHousehold(a.mealId, a.householdId),
-    stale.planMenu,
+    (m, a) => ({ ...m, households: m.households.filter((h) => h.householdId !== a.householdId) }),
   )
 /** A member chip: `present` true is coming. */
 export const useSetMealPerson = () =>
-  useApiMutation(
+  useMealMutation(
     (a: { mealId: Id; personId: Id; present: boolean }) =>
       api.setMealPerson(a.mealId, a.personId, a.present),
-    stale.planMenu,
+    (m, a) => ({
+      ...m,
+      households: m.households.map((h) => ({
+        ...h,
+        members: h.members.map((p) =>
+          p.personId === a.personId ? { ...p, present: a.present } : p,
+        ),
+      })),
+    }),
   )
 export const useAddMealDish = () =>
-  useApiMutation(
-    (a: { mealId: Id; dish: AddDishInput }) => api.addMealDish(a.mealId, a.dish),
-    stale.planMenu,
-  )
+  useMealMutation((a: { mealId: Id; dish: AddDishInput }) => api.addMealDish(a.mealId, a.dish))
 export const useRemoveMealDish = () =>
-  useApiMutation(
+  useMealMutation(
     (a: { mealId: Id; itemId: Id }) => api.removeMealDish(a.mealId, a.itemId),
-    stale.planMenu,
+    (m, a) => ({
+      ...m,
+      menu: m.menu.map((c) => ({ ...c, items: c.items.filter((i) => i.itemId !== a.itemId) })),
+    }),
   )
 export const useMoveMealDish = () =>
-  useApiMutation(
-    (a: { mealId: Id; itemId: Id; course: string; beforeItemId?: Id }) =>
-      api.moveMealDish(a.mealId, a.itemId, { course: a.course, beforeItemId: a.beforeItemId }),
-    stale.planMenu,
+  useMealMutation((a: { mealId: Id; itemId: Id; course: string; beforeItemId?: Id }) =>
+    api.moveMealDish(a.mealId, a.itemId, { course: a.course, beforeItemId: a.beforeItemId }),
   )
 /** A new empty contact household, for the last row of the household search. */
 export const useCreateContactHousehold = () =>
