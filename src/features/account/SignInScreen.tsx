@@ -104,9 +104,7 @@ export function SignInScreen({
               ? 'Create your account'
               : 'Reset password'}
         </Text>
-        <Text variant="small">
-          With your Tavshil account.
-        </Text>
+        <Text variant="small">With your Tavshil account.</Text>
         {mode !== 'forgot' ? (
           <View style={styles.providers}>
             <ProviderButton provider="apple" onPress={() => social('apple')} />

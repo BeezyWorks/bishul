@@ -87,7 +87,12 @@ export function TimerEditor({
           </Pressable>
         </View>
         <Text color={colors.muted}>min</Text>
-        <Button label="Remove" variant="ghost" small onPress={() => onChange({ ...value, min: 0 })} />
+        <Button
+          label="Remove"
+          variant="ghost"
+          small
+          onPress={() => onChange({ ...value, min: 0 })}
+        />
       </View>
       <TextInput
         accessibilityLabel="Timer label (optional)"
