@@ -1,3 +1,10 @@
+## [2.9.1](https://github.com/BeezyWorks/tavshil/compare/v2.9.0...v2.9.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **app:** stop recipes crashing on cached data without source links ([55851b7](https://github.com/BeezyWorks/tavshil/commit/55851b7614cad20264647dd8ab39780a988ec3ee))
+
 # [2.9.0](https://github.com/BeezyWorks/tavshil/compare/v2.8.0...v2.9.0) (2026-11-10)
 
 
