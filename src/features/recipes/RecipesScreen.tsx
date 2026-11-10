@@ -271,24 +271,29 @@ export function RecipesScreen() {
                 onPress={() => setFilters({ sort: filters.sort })}
               />
               {activeCount > 0 ? (
-                <FilterGroup label="Save these filters as a collection">
-                  <TextField
-                    label="Collection name"
-                    value={newName}
-                    onChangeText={setNewName}
-                    placeholder="e.g. Sheva brachot"
-                  />
-                  <Button
-                    label="Save collection"
-                    variant="secondary"
-                    disabled={!newName.trim()}
-                    loading={saveCollection.isPending}
-                    onPress={async () => {
-                      await saveCollection.mutateAsync(newName.trim())
-                      setNewName('')
-                    }}
-                  />
-                </FilterGroup>
+                <View style={{ gap: space.sm }}>
+                  <Text variant="label">Filter name</Text>
+                  <View style={styles.saveRow}>
+                    <View style={{ flex: 1, minWidth: 180 }}>
+                      <TextField
+                        accessibilityLabel="Filter name"
+                        value={newName}
+                        onChangeText={setNewName}
+                        placeholder="e.g. Sheva brachot"
+                      />
+                    </View>
+                    <Button
+                      label="Save filter"
+                      variant="secondary"
+                      disabled={!newName.trim()}
+                      loading={saveCollection.isPending}
+                      onPress={async () => {
+                        await saveCollection.mutateAsync(newName.trim())
+                        setNewName('')
+                      }}
+                    />
+                  </View>
+                </View>
               ) : null}
             </View>
           </>
@@ -466,5 +471,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
+  saveRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 })
