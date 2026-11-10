@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/BeezyWorks/tavshil/compare/v2.11.0...v2.12.0) (2026-11-10)
+
+
+### Features
+
+* **app:** animated pot loader ([4fdee0f](https://github.com/BeezyWorks/tavshil/commit/4fdee0f9c2ae7b0589ea1670da9f973f4c2c091e))
+
 # [2.11.0](https://github.com/BeezyWorks/tavshil/compare/v2.10.0...v2.11.0) (2026-11-10)
 
 
