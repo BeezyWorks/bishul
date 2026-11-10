@@ -245,15 +245,6 @@ export function RecipesScreen() {
                     }}
                   />
                 ))}
-                <TextField
-                  label="Protein at least (g)"
-                  value={filters.minProteinG ? String(filters.minProteinG) : ''}
-                  keyboardType="numeric"
-                  onChangeText={(t) => {
-                    const n = Number(t)
-                    set({ minProteinG: t.trim() && n > 0 ? n : undefined })
-                  }}
-                />
               </FilterGroup>
               <FilterGroup label="Difficulty">
                 <Single
