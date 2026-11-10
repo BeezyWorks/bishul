@@ -72,14 +72,19 @@ function HostedBody({ page }: { page: HostedPage }) {
       }`}
       actions={
         <View style={styles.actions}>
-          <Button label="Print menu" variant="secondary" small href={printHref(page.key)} />
-          <Button label="Shopping list" variant="secondary" small href="/shopping" />
-          <Button label="Prep schedule" variant="secondary" small href="/prep" />
+          <Button
+            label="Print menu"
+            icon="print"
+            variant="secondary"
+            small
+            href={printHref(page.key)}
+          />
+          <Button label="Shopping list" icon="cart" variant="secondary" small href="/shopping" />
+          <Button label="Prep schedule" icon="calendar" variant="secondary" small href="/prep" />
         </View>
       }
     >
       <View style={styles.filters} accessibilityRole="tablist">
-        <Text variant="label">Show</Text>
         {filters.map((f) => (
           <Pill
             key={f.value}
@@ -110,17 +115,9 @@ function WideView({ page, filter }: { page: HostedPage; filter: Filter }) {
   if (!days.length) return <Empty>No meals match this filter.</Empty>
   return (
     <View style={{ gap: space.xl }}>
-      <View style={styles.cols}>
-        <Text variant="label" style={{ flex: 3 }}>
-          Menu
-        </Text>
-        <Text variant="label" style={{ flex: 2 }}>
-          Attending
-        </Text>
-      </View>
       {days.map((d) => (
         <View key={d.date} style={{ gap: space.md }}>
-          {d.label ? (
+          {d.label && page.days.length > 1 ? (
             <Text variant="h2" accessibilityRole="header">
               {d.label}
             </Text>
@@ -178,7 +175,7 @@ function PhoneView({
   if (!entries.length) return <Empty>No meals match this filter.</Empty>
   const current = entries.find((e) => e.id === selected) ?? entries[0]
   const label = (e: (typeof entries)[number]) =>
-    [e.meal.name, e.day.label].filter(Boolean).join(' · ')
+    [e.meal.name, page.days.length > 1 ? e.day.label : ''].filter(Boolean).join(' · ')
   const m = current.meal
   return (
     <View style={{ gap: space.md }}>
@@ -236,7 +233,6 @@ function PhoneView({
 const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   filters: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
-  cols: { flexDirection: 'row', gap: space.xl, paddingHorizontal: space.lg },
   row: {
     gap: space.md,
     padding: space.lg,

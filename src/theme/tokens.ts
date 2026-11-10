@@ -54,7 +54,7 @@ export const fonts = {
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, huge: 48 } as const
 
-export const radius = { card: 14, input: 12, pill: 999, tile: 12 } as const
+export const radius = { card: 14, input: 12, pill: 999, tile: 12, button: 6 } as const
 
 export const size = {
   touch: 44,

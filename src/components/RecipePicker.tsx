@@ -11,7 +11,7 @@ import { Text } from './Text'
 export interface RecipePickerProps {
   /** The meal the dish is for: its attendees' constraints decide what fits. */
   mealId?: Id
-  /** Only recipes of this course (`main`, `dessert`, `starter`…). */
+  /** Only recipes of this course (`main`, `side`, `dessert`…). */
   course?: string
   /** Text to start with, e.g. "vegetarian" from "Find a vegetarian main". */
   initialQuery?: string

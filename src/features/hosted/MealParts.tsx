@@ -1,6 +1,6 @@
 import { useRouter, type Href } from 'expo-router'
-import React, { useState } from 'react'
-import { Pressable, StyleSheet, TextInput, View } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
+import { Platform, Pressable, StyleSheet, TextInput, View, type ViewStyle } from 'react-native'
 
 import { Button, HouseholdGuests, HouseholdSearch, RecipePicker, Text } from '@/components'
 import {
@@ -10,6 +10,7 @@ import {
   useDeletePlanMeal,
   useEnsureRunMeal,
   useGuestPool,
+  useMoveMealDish,
   useRemoveMealDish,
   useRemoveMealHousehold,
   useSetMealPerson,
@@ -187,6 +188,89 @@ function flagLabel(item: HostedMenuItem): string {
   return p.personName ? `${what} · ${p.personName}` : what
 }
 
+// Drag and drop (web): drag a dish to another course, or onto a dish to put it before that one.
+// Dishes sort themselves into courses from their recipe; dragging overrides that.
+const dragged: { itemId: string | null } = { itemId: null }
+
+function DragSource({ itemId, children }: { itemId: string; children: React.ReactNode }) {
+  const ref = useRef<View>(null)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return
+    const el = ref.current as any
+    if (!el?.addEventListener) return
+    el.draggable = true
+    const start = (e: any) => {
+      dragged.itemId = itemId
+      e.dataTransfer?.setData('text/plain', itemId)
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+    }
+    const end = () => {
+      dragged.itemId = null
+    }
+    el.addEventListener('dragstart', start)
+    el.addEventListener('dragend', end)
+    return () => {
+      el.removeEventListener('dragstart', start)
+      el.removeEventListener('dragend', end)
+    }
+  }, [itemId])
+  return <View ref={ref}>{children}</View>
+}
+
+function DropTarget({
+  onDrop,
+  activeStyle,
+  style,
+  children,
+}: {
+  onDrop: (itemId: string) => void
+  activeStyle: ViewStyle
+  style?: ViewStyle
+  children: React.ReactNode
+}) {
+  const ref = useRef<View>(null)
+  const [over, setOver] = useState(false)
+  const latest = useRef(onDrop)
+  latest.current = onDrop
+  useEffect(() => {
+    if (Platform.OS !== 'web') return
+    const el = ref.current as any
+    if (!el?.addEventListener) return
+    const enter = (e: any) => {
+      if (!dragged.itemId) return
+      e.preventDefault()
+      e.stopPropagation()
+      setOver(true)
+    }
+    const leave = (e: any) => {
+      if (!el.contains(e.relatedTarget)) setOver(false)
+    }
+    const drop = (e: any) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setOver(false)
+      const id = dragged.itemId
+      dragged.itemId = null
+      if (id) latest.current(id)
+    }
+    el.addEventListener('dragenter', enter)
+    el.addEventListener('dragover', enter)
+    el.addEventListener('dragleave', leave)
+    el.addEventListener('drop', drop)
+    return () => {
+      el.removeEventListener('dragenter', enter)
+      el.removeEventListener('dragover', enter)
+      el.removeEventListener('dragleave', leave)
+      el.removeEventListener('drop', drop)
+    }
+  }, [])
+  return (
+    <View ref={ref} style={[style, over && activeStyle]}>
+      {children}
+    </View>
+  )
+}
+
 function Dish({
   item,
   onRemove,
@@ -243,7 +327,12 @@ function Dish({
 export function MenuColumn({ meal }: { meal: HostedMeal }) {
   const add = useAddMealDish()
   const remove = useRemoveMealDish()
+  const move = useMoveMealDish()
   const [open, setOpen] = useState<{ course: string; replace?: string } | null>(null)
+  const moveTo = (itemId: string, course: string, beforeItemId?: string) => {
+    if (meal.id && itemId !== beforeItemId)
+      move.mutate({ mealId: meal.id, itemId, course, beforeItemId })
+  }
 
   const pick = async (course: string, dish: { versionId?: Id; description?: string }) => {
     if (!meal.id) return
@@ -256,19 +345,33 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
   return (
     <View style={styles.menu}>
       {visible.map((c) => (
-        <View key={c.course} style={styles.course}>
+        <DropTarget
+          key={c.course}
+          style={styles.course}
+          activeStyle={styles.dropCourse}
+          onDrop={(id) => moveTo(id, c.course)}
+        >
           <Text variant="label" style={styles.courseName}>
             {c.label}
           </Text>
           <View style={styles.dishes}>
             {c.items.map((it) => (
-              <Dish
+              <DropTarget
                 key={it.itemId}
-                item={it}
-                busy={remove.isPending}
-                onRemove={() => meal.id && remove.mutate({ mealId: meal.id, itemId: it.itemId })}
-                onReplace={() => setOpen({ course: c.course, replace: it.itemId })}
-              />
+                activeStyle={styles.dropBefore}
+                onDrop={(id) => moveTo(id, c.course, it.itemId)}
+              >
+                <DragSource itemId={it.itemId}>
+                  <Dish
+                    item={it}
+                    busy={remove.isPending}
+                    onRemove={() =>
+                      meal.id && remove.mutate({ mealId: meal.id, itemId: it.itemId })
+                    }
+                    onReplace={() => setOpen({ course: c.course, replace: it.itemId })}
+                  />
+                </DragSource>
+              </DropTarget>
             ))}
             {open?.course === c.course && meal.id ? (
               <RecipePicker
@@ -285,7 +388,7 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
               />
             )}
           </View>
-        </View>
+        </DropTarget>
       ))}
     </View>
   )
@@ -446,6 +549,8 @@ const styles = StyleSheet.create({
   menu: { gap: space.md, flex: 1 },
   course: { flexDirection: 'row', gap: space.md },
   courseName: { width: 72, paddingTop: 2 },
+  dropCourse: { backgroundColor: colors.accentSoft, borderRadius: radius.input },
+  dropBefore: { borderTopWidth: 2, borderTopColor: colors.accent },
   dishes: { flex: 1, gap: space.xs },
   dish: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
   dishMain: {

@@ -26,9 +26,10 @@ const item = (id: string, position: number, course: string | null, title = id) =
 const title = (i: { title: string }) => i.title
 
 describe('menu groups and tile summary', () => {
-  it('maps recipe courses onto starter / main / dessert', () => {
-    expect(courseGroup('soup')).toBe('starter')
-    expect(courseGroup('side')).toBe('main')
+  it('maps recipe courses onto main / sides (soup, salad, side) / dessert', () => {
+    expect(courseGroup('soup')).toBe('side')
+    expect(courseGroup('starter')).toBe('side')
+    expect(courseGroup('side')).toBe('side')
     expect(courseGroup(null)).toBe('main')
     expect(courseGroup('Dessert')).toBe('dessert')
     expect(courseGroup('kugel')).toBe('kugel')
@@ -43,16 +44,16 @@ describe('menu groups and tile summary', () => {
       item('soup', 5, 'soup'),
     ])
     expect(g.map((x) => [x.course, x.label, x.items.map((i) => i.id)])).toEqual([
-      ['starter', 'Starter', ['fish', 'soup']],
-      ['main', 'Main', ['brisket', 'kugel']],
+      ['main', 'Main', ['brisket']],
+      ['side', 'Sides', ['fish', 'kugel', 'soup']],
       ['dessert', 'Dessert', ['cake']],
     ])
   })
 
   it('adds the default courses when asked, in order', () => {
     expect(groupMenuWithDefaults([item('b', 0, 'main')]).map((g) => g.course)).toEqual([
-      'starter',
       'main',
+      'side',
       'dessert',
     ])
   })

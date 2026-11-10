@@ -1189,7 +1189,7 @@ export async function setMemberPresent(
 // Dishes
 
 export interface AddDishInput {
-  /** The course group to add to: `starter`, `main`, `dessert` or a custom one. */
+  /** The course group to add to: `main`, `side`, `dessert` or a custom one. */
   course: string
   /** A recipe version… */
   versionId?: string

@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   base: {
     minHeight: size.touch,
     paddingHorizontal: space.xl,
-    borderRadius: radius.pill,
+    borderRadius: radius.button,
     borderWidth: 1,
     flexDirection: 'row',
     gap: space.sm,

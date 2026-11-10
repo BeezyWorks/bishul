@@ -252,12 +252,10 @@ describe('the hosted page', () => {
       dishTitle: 'Almond macaroons',
       personName: 'Ari',
     })
-    expect(v.menu.map((c: any) => c.course)).toEqual(['starter', 'main', 'dessert'])
-    expect(v.menu[1].items.map((i: any) => i.title)).toEqual(['Brisket'])
-    expect(v.problems).toMatchObject({ allergies: 1, gaps: 1 })
-    expect(v.problemDetails.problems.find((p: any) => p.kind === 'gap').text).toMatch(
-      /vegetarian main for Miriam/,
-    )
+    expect(v.menu.map((c: any) => c.course)).toEqual(['main', 'side', 'dessert'])
+    expect(v.menu[0].items.map((i: any) => i.title)).toEqual(['Brisket'])
+    // The kugel is a side, which still gives Miriam something to eat, so there is no gap.
+    expect(v.problems).toMatchObject({ allergies: 1, gaps: 0 })
     expect(v.disclaimer).toMatch(/on the host/)
     const kohenRow = v.households.find((h: any) => h.name === 'The Kohens')
     expect(kohenRow.constraints[0]).toMatchObject({ text: 'tree nuts', strictAllergy: true })
@@ -270,7 +268,7 @@ describe('the hosted page', () => {
     expect(page).toMatchObject({ type: 'run', key: 'run-2027-04-22', paper: 'letter' })
     expect(page.totals).toMatchObject({ meals: 6, toPlan: 5, withGuests: 1, withProblems: 1 })
     expect(page.days.map((d: any) => d.label)).toEqual(['Pesach I', 'Pesach II', 'Shabbat'])
-    expect(page.fixes.map((f: any) => f.kind).sort()).toEqual(['allergy', 'gap'])
+    expect(page.fixes.map((f: any) => f.kind).sort()).toEqual(['allergy'])
     expect(page.fixes[0].mealName).toBe('Seder I')
     // Asking for the meal's key gives its run.
     expect((await api(who, 'GET', `/hosted/meal-${id}`)).key).toBe('run-2027-04-22')
@@ -279,7 +277,7 @@ describe('the hosted page', () => {
     const w = await api(who, 'GET', '/week?date=2027-04-22')
     const seder = w.runs[0].holyDays[0].meals[0]
     expect(seder.summary).toEqual(['Brisket'])
-    expect(w.runs[0].problems).toMatchObject({ allergies: 1, gaps: 1 })
+    expect(w.runs[0].problems).toMatchObject({ allergies: 1, gaps: 0 })
 
     // Recipe search for this meal: the macaroons fail for Ari, the vegetable lasagne passes.
     const found = await api(who, 'GET', `/meals/${id}/recipes?q=almond`)
@@ -293,11 +291,11 @@ describe('the hosted page', () => {
     expect(meaty.excluded.map((h: any) => h.title)).toEqual(['Brisket'])
     void lasagne
 
-    // Move the dessert to the starters; add a dish without a recipe; remove one.
+    // Move the dessert to the sides; add a dish without a recipe; remove one.
     const moved = await api(who, 'POST', `/meals/${id}/dishes/${mac.itemId}/move`, {
-      course: 'starter',
+      course: 'side',
     })
-    expect(moved.menu[0].items.map((i: any) => i.title)).toEqual([
+    expect(moved.menu[1].items.map((i: any) => i.title)).toEqual([
       'Potato kugel',
       'Almond macaroons',
     ])
@@ -308,16 +306,16 @@ describe('the hosted page', () => {
       { course: 'main', description: 'Green beans' },
       201,
     )
-    const gb = free.menu[1].items.find((i: any) => i.title === 'Green beans')
+    const gb = free.menu[0].items.find((i: any) => i.title === 'Green beans')
     expect(gb).toMatchObject({ noRecipe: true, recipeId: null })
-    const brisketItem = free.menu[1].items.find((i: any) => i.title === 'Brisket')
+    const brisketItem = free.menu[0].items.find((i: any) => i.title === 'Brisket')
     const reordered = await api(who, 'POST', `/meals/${id}/dishes/${gb.itemId}/move`, {
       course: 'main',
       beforeItemId: brisketItem.itemId,
     })
-    expect(reordered.menu[1].items.map((i: any) => i.title)).toEqual(['Green beans', 'Brisket'])
+    expect(reordered.menu[0].items.map((i: any) => i.title)).toEqual(['Green beans', 'Brisket'])
     const removed = await api(who, 'DELETE', `/meals/${id}/dishes/${gb.itemId}`)
-    expect(removed.menu[1].items.map((i: any) => i.title)).toEqual(['Brisket'])
+    expect(removed.menu[0].items.map((i: any) => i.title)).toEqual(['Brisket'])
   })
 
   it('soft-deleting a default meal does not bring its placeholder back', async () => {

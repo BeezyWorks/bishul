@@ -171,7 +171,7 @@ export const TOOLS: Tool[] = [
     name: 'manage_meal_dishes',
     title: 'Manage a meal’s dishes',
     description:
-      'Add dishes to a course (a recipe version, or a dish without a recipe), remove dishes and move a dish to another course. Courses are starter, main, dessert (soups and salads count as starters, sides as mains). Check search_recipes_for_meal first so the dish fits everyone. Confirm with the host first.',
+      'Add dishes to a course (a recipe version, or a dish without a recipe), remove dishes and move a dish to another course. Courses are main, side, dessert (soups, salads and starters all go under side, shown as "Sides"). Check search_recipes_for_meal first so the dish fits everyone. Confirm with the host first.',
     input: z.object({
       mealId: S.id,
       add: z

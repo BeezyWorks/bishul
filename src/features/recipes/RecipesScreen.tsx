@@ -1,6 +1,6 @@
 import type { NutritionGoal } from '@tavshil/core/src/nutrition'
-import React, { useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
+import { Animated, Easing, StyleSheet, View } from 'react-native'
 
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   Pill,
   Screen,
   SearchField,
+  Segmented,
   Text,
   TextField,
 } from '@/components'
@@ -73,7 +74,6 @@ export function RecipesScreen() {
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<RecipeFilters>({})
   const [showFilters, setShowFilters] = useState(false)
-  const [naming, setNaming] = useState(false)
   const [newName, setNewName] = useState('')
   const recipes = useRecipes(query, filters)
   const collections = useCollections()
@@ -118,181 +118,164 @@ export function RecipesScreen() {
             onPress={() => setFilters({ ...c.filters })}
           />
         ))}
-        <Pill label="+ New" dashed onPress={() => setNaming(!naming)} />
       </View>
 
-      {naming ? (
-        <Card tone="subtle">
-          <Text>Save the current filters as a collection.</Text>
-          <View style={styles.wrapRow}>
-            <TextField
-              label="Collection name"
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="e.g. Sheva brachot"
-            />
-            <Button
-              label="Save"
-              disabled={!newName.trim()}
-              loading={saveCollection.isPending}
-              onPress={async () => {
-                await saveCollection.mutateAsync(newName.trim())
-                setNewName('')
-                setNaming(false)
-              }}
-            />
-          </View>
-        </Card>
-      ) : null}
-
-      <View style={styles.wrapRow}>
-        <Button
-          label={showFilters ? 'Hide filters' : `Filters${activeCount ? ` (${activeCount})` : ''}`}
-          variant="secondary"
-          small
+      <View style={styles.toolbar}>
+        <Pill
+          label={`Filters${activeCount ? ` (${activeCount})` : ''}  ${showFilters ? '▴' : '▾'}`}
+          selected={activeCount > 0}
           onPress={() => setShowFilters(!showFilters)}
         />
-        <Text variant="small">Sort</Text>
-        {SORTS.map((s) => (
-          <Pill
-            key={s.value}
-            label={s.label}
-            selected={(filters.sort ?? 'relevance') === s.value}
-            onPress={() => set({ sort: s.value })}
+        <View style={styles.sortRow}>
+          <Text variant="small">Sort by</Text>
+          <Segmented
+            options={SORTS}
+            value={filters.sort ?? 'relevance'}
+            onChange={(v) => set({ sort: v })}
           />
-        ))}
+        </View>
       </View>
 
       {showFilters ? (
-        <Card>
-          <FilterGroup label="Course">
-            {COURSES.map((c: Course) => (
-              <Pill
-                key={c}
-                label={COURSE_LABEL[c]}
-                selected={filters.course === c}
-                onPress={() => toggle('course', c)}
+        <Reveal>
+          <Card>
+            <FilterGroup label="Course">
+              <Single
+                value={filters.course}
+                options={COURSES.map((c) => ({ value: c, label: COURSE_LABEL[c] }))}
+                onChange={(v) => set({ course: v })}
               />
-            ))}
-          </FilterGroup>
-          <FilterGroup label="Meat, dairy or parve">
-            {KINDS.map((k) => (
-              <Pill
-                key={k}
-                label={KIND_LABEL[k]}
-                selected={filters.kind === k}
-                onPress={() => toggle('kind', k)}
-              />
-            ))}
-          </FilterGroup>
-          {tags.data?.length ? (
-            <FilterGroup label="Tags">
-              {tags.data.slice(0, 30).map((t) => {
-                const on = !!filters.tags?.some((x) => x.toLowerCase() === t.tag.toLowerCase())
-                return (
-                  <Pill
-                    key={t.tag}
-                    label={`${t.tag} (${t.recipes})`}
-                    selected={on}
-                    onPress={() => {
-                      const cur = filters.tags ?? []
-                      set({
-                        tags: on
-                          ? cur.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
-                          : [...cur, t.tag],
-                      })
-                    }}
-                  />
-                )
-              })}
             </FilterGroup>
-          ) : null}
-          <FilterGroup label="Safe for">
-            {people.map((p) => (
-              <Pill
-                key={p.id}
-                label={p.name}
-                selected={safeFor.includes(p.id)}
-                onPress={() =>
-                  set({
-                    safeFor: safeFor.includes(p.id)
-                      ? safeFor.filter((x) => x !== p.id)
-                      : [...safeFor, p.id],
-                  })
-                }
+            <FilterGroup label="Meat, dairy or parve">
+              <Single
+                value={filters.kind}
+                options={KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+                onChange={(v) => set({ kind: v })}
               />
-            ))}
-          </FilterGroup>
-          <FilterGroup label="More">
-            <Pill
-              label="Pesach-friendly"
-              selected={!!filters.pesachFriendly}
-              onPress={() => toggle('pesachFriendly', true)}
-            />
-            <Pill
-              label="Under 45 min"
-              selected={filters.underMinutes === 45}
-              onPress={() => toggle('underMinutes', 45)}
-            />
-            <Pill
-              label="Not served in 4 weeks"
-              selected={filters.notServedWeeks === 4}
-              onPress={() => toggle('notServedWeeks', 4)}
-            />
-          </FilterGroup>
-          <FilterGroup label="Nutrition, per serving">
-            {GOALS.map((g) => (
+            </FilterGroup>
+            {tags.data?.length ? (
+              <FilterGroup label="Tags">
+                {tags.data.slice(0, 30).map((t) => {
+                  const on = !!filters.tags?.some((x) => x.toLowerCase() === t.tag.toLowerCase())
+                  return (
+                    <Pill
+                      key={t.tag}
+                      label={`${t.tag} (${t.recipes})`}
+                      selected={on}
+                      onPress={() => {
+                        const cur = filters.tags ?? []
+                        set({
+                          tags: on
+                            ? cur.filter((x) => x.toLowerCase() !== t.tag.toLowerCase())
+                            : [...cur, t.tag],
+                        })
+                      }}
+                    />
+                  )
+                })}
+              </FilterGroup>
+            ) : null}
+            <FilterGroup label="Safe for">
+              {people.map((p) => (
+                <Pill
+                  key={p.id}
+                  label={p.name}
+                  selected={safeFor.includes(p.id)}
+                  onPress={() =>
+                    set({
+                      safeFor: safeFor.includes(p.id)
+                        ? safeFor.filter((x) => x !== p.id)
+                        : [...safeFor, p.id],
+                    })
+                  }
+                />
+              ))}
+            </FilterGroup>
+            <FilterGroup label="More">
               <Pill
-                key={g.value}
-                label={g.label}
-                selected={!!filters.nutrition?.includes(g.value)}
-                onPress={() => {
-                  const cur = filters.nutrition ?? []
-                  set({
-                    nutrition: cur.includes(g.value)
-                      ? cur.filter((x) => x !== g.value)
-                      : [...cur, g.value],
-                  })
+                label="Pesach-friendly"
+                selected={!!filters.pesachFriendly}
+                onPress={() => toggle('pesachFriendly', true)}
+              />
+              <Pill
+                label="Under 45 min"
+                selected={filters.underMinutes === 45}
+                onPress={() => toggle('underMinutes', 45)}
+              />
+              <Pill
+                label="Not served in 4 weeks"
+                selected={filters.notServedWeeks === 4}
+                onPress={() => toggle('notServedWeeks', 4)}
+              />
+            </FilterGroup>
+            <FilterGroup label="Nutrition, per serving">
+              {GOALS.map((g) => (
+                <Pill
+                  key={g.value}
+                  label={g.label}
+                  selected={!!filters.nutrition?.includes(g.value)}
+                  onPress={() => {
+                    const cur = filters.nutrition ?? []
+                    set({
+                      nutrition: cur.includes(g.value)
+                        ? cur.filter((x) => x !== g.value)
+                        : [...cur, g.value],
+                    })
+                  }}
+                />
+              ))}
+              <TextField
+                label="Protein at least (g)"
+                value={filters.minProteinG ? String(filters.minProteinG) : ''}
+                keyboardType="numeric"
+                onChangeText={(t) => {
+                  const n = Number(t)
+                  set({ minProteinG: t.trim() && n > 0 ? n : undefined })
                 }}
               />
-            ))}
-            <TextField
-              label="Protein at least (g)"
-              value={filters.minProteinG ? String(filters.minProteinG) : ''}
-              keyboardType="numeric"
-              onChangeText={(t) => {
-                const n = Number(t)
-                set({ minProteinG: t.trim() && n > 0 ? n : undefined })
-              }}
+            </FilterGroup>
+            <FilterGroup label="Difficulty">
+              <Single
+                value={filters.difficulty}
+                options={DIFFS.map((d) => ({ value: d, label: d }))}
+                onChange={(v) => set({ difficulty: v })}
+              />
+            </FilterGroup>
+            <FilterGroup label="Cost">
+              <Single
+                value={filters.cost}
+                options={COSTS.map((c) => ({ value: c, label: c }))}
+                onChange={(v) => set({ cost: v })}
+              />
+            </FilterGroup>
+            <Button
+              label="Clear filters"
+              variant="ghost"
+              small
+              onPress={() => setFilters({ sort: filters.sort })}
             />
-          </FilterGroup>
-          <FilterGroup label="Difficulty">
-            {DIFFS.map((d) => (
-              <Pill
-                key={d}
-                label={d}
-                selected={filters.difficulty === d}
-                onPress={() => toggle('difficulty', d)}
-              />
-            ))}
-          </FilterGroup>
-          <FilterGroup label="Cost">
-            {COSTS.map((c) => (
-              <Pill
-                key={c}
-                label={c}
-                selected={filters.cost === c}
-                onPress={() => toggle('cost', c)}
-              />
-            ))}
-          </FilterGroup>
-          <Button
-            label="Clear filters"
-            variant="ghost"
-            small
-            onPress={() => setFilters({ sort: filters.sort })}
-          />
-        </Card>
+            {activeCount > 0 ? (
+              <FilterGroup label="Save these filters as a collection">
+                <TextField
+                  label="Collection name"
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="e.g. Sheva brachot"
+                />
+                <Button
+                  label="Save collection"
+                  variant="secondary"
+                  disabled={!newName.trim()}
+                  loading={saveCollection.isPending}
+                  onPress={async () => {
+                    await saveCollection.mutateAsync(newName.trim())
+                    setNewName('')
+                  }}
+                />
+              </FilterGroup>
+            ) : null}
+          </Card>
+        </Reveal>
       ) : null}
 
       {recipes.isLoading || !recipes.data ? (
@@ -390,6 +373,48 @@ function FirstRun() {
   )
 }
 
+/** Fades and slides its content in, so an opening panel reads as a response to the tap. */
+function Reveal({ children }: { children: React.ReactNode }) {
+  const t = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.timing(t, {
+      toValue: 1,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start()
+  }, [t])
+  return (
+    <Animated.View
+      style={{
+        opacity: t,
+        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
+}
+
+/** Pick one, or "Any" for no restriction. Multi-select groups stay as toggle chips. */
+function Single<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T | undefined
+  options: { value: T; label: string }[]
+  onChange: (v: T | undefined) => void
+}) {
+  return (
+    <Segmented<T | 'any'>
+      options={[{ value: 'any', label: 'Any' }, ...options]}
+      value={value ?? 'any'}
+      onChange={(v) => onChange(v === 'any' ? undefined : v)}
+    />
+  )
+}
+
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: space.sm }}>
@@ -401,5 +426,7 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 
 const styles = StyleSheet.create({
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'flex-end' },
+  toolbar: { gap: space.sm },
+  sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 })

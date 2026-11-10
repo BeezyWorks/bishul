@@ -63,6 +63,8 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
+    flexWrap: 'wrap',
+    maxWidth: '100%',
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,

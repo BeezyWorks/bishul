@@ -221,13 +221,13 @@ function guestViews(m: MockMeal): GuestHousehold[] {
 }
 
 function groups(m: MockMeal): HostedCourse[] {
-  const base = ['starter', 'main', 'dessert']
+  const base = ['main', 'side', 'dessert']
   const rank = (c: string) => (base.includes(c) ? base.indexOf(c) : 1.5)
   return [...new Set([...base, ...m.items.map((i) => i.course)])]
     .sort((a, b) => rank(a) - rank(b))
     .map((course) => ({
       course,
-      label: course.charAt(0).toUpperCase() + course.slice(1),
+      label: course === 'side' ? 'Sides' : course.charAt(0).toUpperCase() + course.slice(1),
       items: m.items
         .filter((i) => i.course === course)
         .map((i, position) => ({

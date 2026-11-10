@@ -101,7 +101,8 @@ export function buildSheet(page: HostedPage, opts: SheetOptions): Sheet {
         note: opts.foodNotes ? (m.foodNotes ?? []).map(sentence).filter(Boolean).join(' ') : '',
       })
     }
-    if (meals.length) days.push({ label: d.label, meals })
+    // The day name only tells days of a multi-day chag apart, so a single day goes without it.
+    if (meals.length) days.push({ label: page.days.length > 1 ? d.label : '', meals })
   }
   return {
     title: page.title,

@@ -5,25 +5,26 @@ import type { Constraint, ConstraintTag, SourcingStandard } from './types'
 // ---------------------------------------------------------------------------
 // Courses
 
-/** The courses a new hosted meal starts with (the "Courses: Starter, main, dessert" line). */
-export const DEFAULT_COURSES = ['starter', 'main', 'dessert'] as const
+/** The courses a new hosted meal starts with: main, sides (soups and salads too) and dessert. */
+export const DEFAULT_COURSES = ['main', 'side', 'dessert'] as const
 
 const COURSE_ALIASES: Record<string, string> = {
-  appetizer: 'starter',
-  appetiser: 'starter',
-  first: 'starter',
-  soup: 'starter',
-  salad: 'starter',
+  appetizer: 'side',
+  appetiser: 'side',
+  first: 'side',
+  starter: 'side',
+  soup: 'side',
+  salad: 'side',
+  vegetable: 'side',
+  starch: 'side',
   entree: 'main',
-  side: 'main',
-  vegetable: 'main',
-  starch: 'main',
   sweet: 'dessert',
 }
 
 /**
  * The course group a stored course belongs to. Recipes carry finer courses (soup, salad, side): in the menu view
- * soups and salads sit under Starter and sides under Main, as on the printed menu. Other names stay as they are.
+ * they all sit under Sides, between the main and the dessert, on screen and on the printed menu. Other names stay
+ * as they are.
  */
 export function courseGroup(course: string | null | undefined): string {
   const c = (course ?? '').trim().toLowerCase()
@@ -31,20 +32,23 @@ export function courseGroup(course: string | null | undefined): string {
   return COURSE_ALIASES[c] ?? c
 }
 
-const GROUP_RANK: Record<string, number> = { starter: 0, main: 2, dessert: 9 }
+const GROUP_RANK: Record<string, number> = { main: 0, side: 2, dessert: 9 }
 const rankOf = (g: string): number => GROUP_RANK[g] ?? 5
 
-export const courseLabel = (group: string): string => group.charAt(0).toUpperCase() + group.slice(1)
+const GROUP_LABEL: Record<string, string> = { side: 'Sides' }
+
+export const courseLabel = (group: string): string =>
+  GROUP_LABEL[group] ?? group.charAt(0).toUpperCase() + group.slice(1)
 
 export interface MenuGroup<T> {
-  /** `starter`, `main`, `dessert`, or a custom course. */
+  /** `main`, `side`, `dessert`, or a custom course. */
   course: string
-  /** `Starter`, `Main`, `Dessert`. */
+  /** `Main`, `Sides`, `Dessert`. */
   label: string
   items: T[]
 }
 
-/** Dishes grouped by course, courses in serving order (starter, main, others, dessert), dishes in menu order. */
+/** Dishes grouped by course, courses in serving order (main, sides, others, dessert), dishes in menu order. */
 export function groupMenu<T extends { position: number; course?: string | null }>(
   items: readonly T[],
 ): MenuGroup<T>[] {
@@ -269,7 +273,12 @@ export function mealProblems(brief: DiningBrief, items: readonly MealProblemItem
   }
 
   // Gaps: a main course exists, and for some guest every main is ruled out or ruins it for them.
-  const mains = items.filter((i) => courseGroup(i.course) === 'main')
+  // Sides still count as something to eat (the group also holds soups and salads, which do not).
+  const mains = items.filter(
+    (i) =>
+      courseGroup(i.course) === 'main' ||
+      ['side', 'vegetable', 'starch'].includes((i.course ?? '').trim().toLowerCase()),
+  )
   if (mains.length) {
     const checks = new Map(brief.dishes.map((d) => [d.dishId, d]))
     const people = new Map<string, { name: string; active: ActiveConstraint[] }>()

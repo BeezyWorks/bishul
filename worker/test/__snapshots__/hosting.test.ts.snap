@@ -760,11 +760,6 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": "meat",
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [
                   {
@@ -794,6 +789,11 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                   },
                 ],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Sides",
               },
               {
                 "course": "dessert",
@@ -975,11 +975,6 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": "parve",
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [
                   {
@@ -997,6 +992,11 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                   },
                 ],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Sides",
               },
               {
                 "course": "dessert",
@@ -1104,14 +1104,14 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": null,
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Side",
               },
               {
                 "course": "dessert",
@@ -1200,14 +1200,14 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": null,
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Side",
               },
               {
                 "course": "dessert",
@@ -1304,14 +1304,14 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": null,
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Side",
               },
               {
                 "course": "dessert",
@@ -1400,14 +1400,14 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": null,
             "menu": [
               {
-                "course": "starter",
-                "items": [],
-                "label": "Starter",
-              },
-              {
                 "course": "main",
                 "items": [],
                 "label": "Main",
+              },
+              {
+                "course": "side",
+                "items": [],
+                "label": "Side",
               },
               {
                 "course": "dessert",
@@ -1602,16 +1602,16 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "kind": "parve",
             "menu": [
               {
-                "course": "starter",
+                "course": "main",
                 "items": [],
-                "label": "Starter",
+                "label": "Main",
               },
               {
-                "course": "main",
+                "course": "side",
                 "items": [
                   {
                     "broughtBy": null,
-                    "course": "main",
+                    "course": "side",
                     "itemId": "<id20>",
                     "kashrut": "parve",
                     "noRecipe": false,
@@ -1623,7 +1623,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                     "versionTitle": "Potato kugel",
                   },
                 ],
-                "label": "Main",
+                "label": "Sides",
               },
               {
                 "course": "dessert",

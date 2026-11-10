@@ -15,6 +15,9 @@ export type IconName =
   | 'close'
   | 'minus'
   | 'more'
+  | 'print'
+  | 'cart'
+  | 'calendar'
 
 // 24x24 stroke icons (Feather-style), drawn in the current text colour.
 const paths: Record<IconName, string[]> = {
@@ -34,6 +37,22 @@ const paths: Record<IconName, string[]> = {
     'M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14',
     'M18 8a6 6 0 0 0-9.33-5',
     'M1 1l22 22',
+  ],
+  print: [
+    'M6 9V2h12v7',
+    'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2',
+    'M6 14h12v8H6z',
+  ],
+  cart: [
+    'M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    'M20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+    'M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6',
+  ],
+  calendar: [
+    'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+    'M16 2v4',
+    'M8 2v4',
+    'M3 10h18',
   ],
   minus: ['M5 12h14'],
   more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
