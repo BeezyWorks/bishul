@@ -133,6 +133,8 @@ export interface TavshilApi {
   /** Tags in use, most used first. */
   getTags(): Promise<TagCount[]>
   saveCollection(name: string, filters: RecipeFilters): Promise<Collection>
+  updateCollection(id: Id, name: string, filters: RecipeFilters): Promise<Collection>
+  deleteCollection(id: Id): Promise<void>
   /** Parses pasted text without saving. */
   previewImport(text: string, title?: string): Promise<ImportPreview>
   importRecipe(input: { text: string; title?: string; servings?: number }): Promise<ImportResult>

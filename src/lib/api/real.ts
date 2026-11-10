@@ -412,6 +412,22 @@ export const realApi: TavshilApi = {
     )
   },
 
+  updateCollection: async (id, name, filters) => {
+    const spec = Object.fromEntries(
+      Object.entries(filtersOut(filters)).filter(([k, v]) => v !== undefined && k !== 'sort'),
+    )
+    return adaptCollection(
+      await http.put<Parameters<typeof adaptCollection>[0]>(`/collections/${id}`, {
+        name,
+        filters: spec,
+      }),
+    )
+  },
+
+  deleteCollection: async (id) => {
+    await http.delete(`/collections/${id}`)
+  },
+
   previewImport: async (text, title) => {
     const r = await http.post<{
       parsed: {

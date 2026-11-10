@@ -1068,6 +1068,16 @@ export const mockApi: TavshilApi = {
     return delay(col)
   },
 
+  updateCollection: async (id, name, filters) => {
+    const col = { id, name, filters }
+    collections = collections.map((c) => (c.id === id ? col : c))
+    return delay(col)
+  },
+  deleteCollection: async (id) => {
+    collections = collections.filter((c) => c.id !== id)
+    return delay(undefined)
+  },
+
   getHousehold: () => delay(households.find((h) => h.isOwn)!),
   getContacts: () => delay(households.filter((h) => !h.isOwn)),
   getPerson: async (id) => {

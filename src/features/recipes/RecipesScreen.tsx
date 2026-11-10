@@ -76,6 +76,8 @@ export function RecipesScreen() {
   const [showFilters, setShowFilters] = useState(false)
   const [newName, setNewName] = useState('')
   const [savedName, setSavedName] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
   const recipes = useRecipes(query, filters)
   const collections = useCollections()
   const household = useHousehold()
@@ -86,6 +88,21 @@ export function RecipesScreen() {
     (name: string) => api.saveCollection(name, { ...filters, sort: undefined }),
     stale.collections,
   )
+
+  const updateCollection = useApiMutation(
+    (v: { id: string; name: string }) =>
+      api.updateCollection(v.id, v.name, { ...filters, sort: undefined }),
+    stale.collections,
+  )
+  const deleteCollection = useApiMutation(
+    (id: string) => api.deleteCollection(id),
+    stale.collections,
+  )
+  const clearAll = () => {
+    setFilters({ sort: filters.sort })
+    setSelectedId(null)
+  }
+  const selected = (collections.data ?? []).find((c) => c.id === selectedId)
 
   const set = (patch: Partial<RecipeFilters>) => setFilters((f) => ({ ...f, ...patch }))
   const toggle = <K extends keyof RecipeFilters>(k: K, v: RecipeFilters[K]) =>
@@ -131,11 +148,7 @@ export function RecipesScreen() {
             <Text variant="small">{showFilters ? '▴' : '▾'}</Text>
           </Pressable>
           {activeCount && !showFilters ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setFilters({ sort: filters.sort })}
-              hitSlop={8}
-            >
+            <Pressable accessibilityRole="button" onPress={clearAll} hitSlop={8}>
               <Text variant="small" color={colors.accent}>
                 Clear
               </Text>
@@ -150,8 +163,16 @@ export function RecipesScreen() {
                 <Pill
                   key={c.id}
                   label={c.name}
-                  selected={activeCount > 0 && same(filters, c.filters)}
-                  onPress={() => setFilters({ ...c.filters, sort: filters.sort })}
+                  selected={selectedId === c.id || (activeCount > 0 && same(filters, c.filters))}
+                  onPress={() => {
+                    if (selectedId === c.id || (activeCount > 0 && same(filters, c.filters))) {
+                      clearAll()
+                    } else {
+                      setFilters({ ...c.filters, sort: filters.sort })
+                      setSelectedId(c.id)
+                      setEditName(c.name)
+                    }
+                  }}
                 />
               ))}
             </View>
@@ -260,13 +281,40 @@ export function RecipesScreen() {
                   onChange={(v) => set({ cost: v })}
                 />
               </FilterGroup>
-              <Button
-                label="Clear filters"
-                variant="ghost"
-                small
-                onPress={() => setFilters({ sort: filters.sort })}
-              />
-              {activeCount > 0 ? (
+              <Button label="Clear filters" variant="ghost" small onPress={clearAll} />
+              {selected ? (
+                <View style={{ gap: space.sm }}>
+                  <Text variant="label">Editing saved filter</Text>
+                  <TextField
+                    accessibilityLabel="Saved filter name"
+                    value={editName}
+                    onChangeText={setEditName}
+                  />
+                  <View style={styles.saveRow}>
+                    <Button
+                      label="Save changes"
+                      variant="secondary"
+                      disabled={!editName.trim()}
+                      loading={updateCollection.isPending}
+                      onPress={() =>
+                        updateCollection.mutateAsync({ id: selected.id, name: editName.trim() })
+                      }
+                    />
+                    <Button
+                      label="Delete"
+                      variant="ghost"
+                      loading={deleteCollection.isPending}
+                      onPress={async () => {
+                        await deleteCollection.mutateAsync(selected.id)
+                        clearAll()
+                      }}
+                    />
+                  </View>
+                  <Text variant="small">
+                    Change the filters above, then Save changes to update “{selected.name}”.
+                  </Text>
+                </View>
+              ) : activeCount > 0 ? (
                 <View style={{ gap: space.sm }}>
                   <Text variant="label">Filter name</Text>
                   <View style={styles.saveRow}>
