@@ -75,6 +75,7 @@ export function RecipesScreen() {
   const [filters, setFilters] = useState<RecipeFilters>({})
   const [showFilters, setShowFilters] = useState(false)
   const [newName, setNewName] = useState('')
+  const [savedName, setSavedName] = useState('')
   const recipes = useRecipes(query, filters)
   const collections = useCollections()
   const household = useHousehold()
@@ -279,7 +280,10 @@ export function RecipesScreen() {
                       <TextField
                         accessibilityLabel="Filter name"
                         value={newName}
-                        onChangeText={setNewName}
+                        onChangeText={(t) => {
+                          setNewName(t)
+                          setSavedName('')
+                        }}
                         placeholder="e.g. Sheva brachot"
                       />
                     </View>
@@ -289,11 +293,18 @@ export function RecipesScreen() {
                       disabled={!newName.trim()}
                       loading={saveCollection.isPending}
                       onPress={async () => {
-                        await saveCollection.mutateAsync(newName.trim())
+                        const name = newName.trim()
+                        await saveCollection.mutateAsync(name)
                         setNewName('')
+                        setSavedName(name)
                       }}
                     />
                   </View>
+                  <Text variant="small">
+                    {savedName
+                      ? `Saved. “${savedName}” is now a chip at the top of the page.`
+                      : 'Adds a chip at the top of the page so you can come back to these filters in one tap.'}
+                  </Text>
                 </View>
               ) : null}
             </View>
