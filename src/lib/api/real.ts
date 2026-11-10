@@ -95,6 +95,9 @@ function versionBody(e: VersionEdit) {
     ...(e.holdsOnBlech !== undefined && { holdsOnBlech: e.holdsOnBlech }),
     ...(e.nutrition !== undefined && { nutrition: e.nutrition }),
     ...(e.flags !== undefined && { flags: e.flags }),
+    ...(e.equipment !== undefined && {
+      equipment: e.equipment.map((q) => ({ item: q.name, designation: q.designation })),
+    }),
     ...(e.tags !== undefined && { tags: e.tags }),
     ...(e.sources !== undefined && { sourceLinks: e.sources }),
     ...(e.description !== undefined && { description: e.description }),

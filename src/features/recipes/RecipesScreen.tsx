@@ -106,7 +106,7 @@ export function RecipesScreen() {
       <SearchField
         value={query}
         onChangeText={setQuery}
-        placeholder="Search recipes, ingredients, versions"
+        placeholder="Search recipes, ingredients, variations"
       />
 
       <View style={styles.sortRow}>
@@ -324,7 +324,7 @@ export function RecipesScreen() {
               subtitle={[
                 COURSE_LABEL[r.course],
                 r.form,
-                `${r.versionCount} version${r.versionCount === 1 ? '' : 's'}`,
+                `${r.versionCount} variation${r.versionCount === 1 ? '' : 's'}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}

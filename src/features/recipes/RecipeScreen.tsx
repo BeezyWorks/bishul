@@ -16,9 +16,9 @@ import {
   Text,
   useLayout,
 } from '@/components'
-import { api } from '@/lib/api/client'
-import { stale, useApiMutation, useHousehold, useRecipe } from '@/lib/api/hooks'
+import { useHousehold, useRecipe, useRecordReaction } from '@/lib/api/hooks'
 
+import { AddEquipment } from './AddEquipment'
 import { AddTag } from './AddTag'
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
@@ -46,14 +46,14 @@ const SKIP_TEXT: Record<SkipImpact, { text: string; tone: Tone }> = {
 function VersionReactions({ version }: { version: RecipeVersion }) {
   const household = useHousehold()
   const [personId, setPersonId] = useState<string | null>(null)
-  const react = useApiMutation(
-    (a: { reaction: 'like' | 'dislike' | 'none' }) =>
-      api.recordReaction(personId!, version.id, a.reaction),
-    stale.reactions,
-  )
+  const react = useRecordReaction(version.recipeId)
   const everyone = household.data?.people ?? []
+  const person = everyone.find((p) => p.id === personId)
   if (!everyone.length) return null
   const mine = version.reactions.find((r) => r.personId === personId)
+  const record = (reaction: 'like' | 'dislike' | 'none') =>
+    person &&
+    react.mutate({ personId: person.id, personName: person.name, versionId: version.id, reaction })
   return (
     <View style={{ gap: space.xs }}>
       <Text variant="label">Record a reaction</Text>
@@ -68,28 +68,15 @@ function VersionReactions({ version }: { version: RecipeVersion }) {
         ))}
       </View>
       {personId ? (
-        <View style={styles.wrapRow}>
-          <Button
-            label="Liked it"
-            variant={mine?.kind === 'like' ? 'primary' : 'soft'}
-            small
-            onPress={() => react.mutate({ reaction: 'like' })}
-          />
-          <Button
-            label="Didn’t like it"
-            variant={mine?.kind === 'dislike' ? 'primary' : 'secondary'}
-            small
-            onPress={() => react.mutate({ reaction: 'dislike' })}
-          />
-          {mine ? (
-            <Button
-              label="Clear"
-              variant="secondary"
-              small
-              onPress={() => react.mutate({ reaction: 'none' })}
-            />
-          ) : null}
-        </View>
+        <Segmented
+          options={[
+            { value: 'none', label: 'Not set' },
+            { value: 'like', label: 'Liked it' },
+            { value: 'dislike', label: 'Didn’t like it' },
+          ]}
+          value={mine?.kind ?? 'none'}
+          onChange={record}
+        />
       ) : null}
     </View>
   )
@@ -112,7 +99,9 @@ export function RecipeScreen() {
   const { data: recipe, isLoading } = useRecipe(id)
   const [versionId, setVersionId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
-  const [editing, setEditing] = useState<null | 'edit' | 'variation' | 'link' | 'share'>(null)
+  const [editing, setEditing] = useState<
+    null | 'edit' | 'variation' | 'link' | 'share' | 'steps' | 'ingredients'
+  >(null)
   const [units, setUnits] = useUnits()
   if (isLoading || !recipe)
     return (
@@ -132,24 +121,19 @@ export function RecipeScreen() {
       }
       actions={
         <View style={styles.wrapRow}>
-          <Button label="Edit" icon="edit" variant="secondary" onPress={() => setEditing('edit')} />
+          <Button
+            label="Edit"
+            icon="edit"
+            iconOnly
+            variant="secondary"
+            onPress={() => setEditing('edit')}
+          />
           <Button
             label="Share"
             icon="share"
+            iconOnly
             variant="secondary"
             onPress={() => setEditing('share')}
-          />
-          <Button
-            label="Link ingredients"
-            icon="link"
-            variant="secondary"
-            onPress={() => setEditing('link')}
-          />
-          <Button
-            label="New variation"
-            icon="plus"
-            variant="secondary"
-            onPress={() => setEditing('variation')}
           />
           <Button label="Start cooking" icon="play" href={`/cook/${v.id}?scale=${scale}`} />
         </View>
@@ -160,14 +144,6 @@ export function RecipeScreen() {
           key={`share:${recipe.id}`}
           recipeId={recipe.id}
           onClose={() => setEditing(null)}
-        />
-      ) : null}
-      {editing === 'link' ? (
-        <LinkSteps
-          key={`link:${v.id}`}
-          version={v}
-          onCancel={() => setEditing(null)}
-          onDone={() => setEditing(null)}
         />
       ) : null}
       {editing === 'edit' || editing === 'variation' ? (
@@ -183,17 +159,71 @@ export function RecipeScreen() {
           }}
         />
       ) : null}
-      <View style={styles.wrapRow} accessibilityRole="tablist">
-        {recipe.versions.map((x) => (
-          <Pill
-            key={x.id}
-            label={x.label}
-            selected={x.id === v.id}
-            onPress={() => setVersionId(x.id)}
+      <View style={{ gap: space.xs }}>
+        {recipe.versions.length > 1 ? <Text variant="label">Variation</Text> : null}
+        <View style={styles.wrapRow}>
+          {recipe.versions.length > 1 ? (
+            <Segmented
+              options={recipe.versions.map((x) => ({ value: x.id, label: x.label }))}
+              value={v.id}
+              onChange={setVersionId}
+            />
+          ) : null}
+          <Button
+            label="New variation"
+            icon="plus"
+            variant="ghost"
+            small
+            onPress={() => setEditing('variation')}
           />
-        ))}
+        </View>
       </View>
-      <VersionView v={v} scale={scale} setScale={setScale} units={units} setUnits={setUnits} />
+      <VersionView
+        v={v}
+        scale={scale}
+        setScale={setScale}
+        units={units}
+        setUnits={setUnits}
+        onLink={() => setEditing('link')}
+        onEditSteps={() => setEditing('steps')}
+        onEditIngredients={() => setEditing('ingredients')}
+        ingredientsPanel={
+          editing === 'ingredients' ? (
+            <EditVersion
+              key={`ingredients:${v.id}`}
+              recipe={recipe}
+              version={v}
+              mode="edit"
+              only="ingredients"
+              onCancel={() => setEditing(null)}
+              onDone={() => setEditing(null)}
+            />
+          ) : null
+        }
+        stepsPanel={
+          editing === 'steps' ? (
+            <EditVersion
+              key={`steps:${v.id}`}
+              recipe={recipe}
+              version={v}
+              mode="edit"
+              only="steps"
+              onCancel={() => setEditing(null)}
+              onDone={() => setEditing(null)}
+            />
+          ) : null
+        }
+        linkPanel={
+          editing === 'link' ? (
+            <LinkSteps
+              key={`link:${v.id}`}
+              version={v}
+              onCancel={() => setEditing(null)}
+              onDone={() => setEditing(null)}
+            />
+          ) : null
+        }
+      />
     </Screen>
   )
 }
@@ -204,14 +234,27 @@ function VersionView({
   setScale,
   units,
   setUnits,
+  onLink,
+  onEditSteps,
+  onEditIngredients,
+  ingredientsPanel,
+  stepsPanel,
+  linkPanel,
 }: {
   v: RecipeVersion
   scale: number
   setScale: (n: number) => void
   units: 'metric' | 'us'
   setUnits: (u: 'metric' | 'us') => void
+  onLink: () => void
+  onEditSteps: () => void
+  onEditIngredients: () => void
+  ingredientsPanel: React.ReactNode
+  stepsPanel: React.ReactNode
+  linkPanel: React.ReactNode
 }) {
   const { wide } = useLayout()
+  const [addingEquipment, setAddingEquipment] = useState(false)
   const [measure, setMeasure] = useMeasure()
   return (
     <View style={styles.col}>
@@ -270,100 +313,135 @@ function VersionView({
 
       <View style={[styles.cols, wide && styles.colsWide]}>
         <Card style={wide ? { flex: 3 } : undefined}>
-          <SectionHeader title="Ingredients" />
-          <View style={styles.wrapRow}>
-            <Text variant="small">Scale</Text>
-            {SCALES.map((s) => (
-              <Pill
-                key={s}
-                label={s === 0.5 ? '½×' : `×${s}`}
-                selected={scale === s}
-                onPress={() => setScale(s)}
+          <SectionHeader
+            title="Ingredients"
+            right={
+              <Button
+                label="Edit ingredients"
+                icon="edit"
+                iconOnly
+                variant="ghost"
+                small
+                onPress={onEditIngredients}
               />
-            ))}
-            <Segmented
-              options={[
-                { value: 'metric', label: 'Metric' },
-                { value: 'us', label: 'US' },
-              ]}
-              value={units}
-              onChange={setUnits}
-            />
-            <Segmented
-              options={[
-                { value: 'auto', label: 'Auto' },
-                { value: 'weight', label: 'Weight' },
-                { value: 'volume', label: 'Volume' },
-              ]}
-              value={measure}
-              onChange={setMeasure}
-            />
-          </View>
-          <View style={styles.tableHead}>
-            <Text variant="label" style={styles.cName}>
-              Ingredient
-            </Text>
-            <Text variant="label" style={styles.cAmt}>
-              Amount
-            </Text>
-            <Text variant="label" style={styles.cSkip}>
-              If you skip it
-            </Text>
-          </View>
-          {groupBySection(v.ingredients).map((g, gi, all) => (
-            <View key={gi + g.section}>
-              <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
-              {g.items.map((l) => {
-                const a = formatAmount(l, scale, units, measure)
-                const skip = SKIP_TEXT[l.skipImpact]
-                return (
-                  <View key={l.id} style={styles.tr}>
-                    <View style={styles.cName}>
-                      <Text variant="bodyStrong">{l.name}</Text>
-                      {l.prep ? <Text variant="small">{l.prep}</Text> : null}
-                      {l.unquantified && !isCovered(l.original, [l.name, l.prep]) ? (
-                        <Text variant="small">{l.original}</Text>
-                      ) : null}
-                      {l.allergens.length ? (
-                        <Text variant="small" color={colors.danger}>
-                          Contains {l.allergens.join(', ')}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.cAmt}>
-                      <Text>
-                        {a.approx ? '~' : ''}
-                        {a.text}
-                      </Text>
-                    </View>
-                    <View style={styles.cSkip}>
-                      <Badge label={skip.text} tone={skip.tone} />
-                    </View>
-                  </View>
-                )
-              })}
-            </View>
-          ))}
-          {units === 'us' ? (
-            <Text variant="small">
-              ~ means converted from weight using ingredient density, so approximate.
-            </Text>
-          ) : null}
+            }
+          />
+          {ingredientsPanel}
+          {ingredientsPanel ? null : (
+            <>
+              <View style={styles.wrapRow}>
+                <Text variant="small">Scale</Text>
+                <Segmented
+                  options={SCALES.map((s) => ({
+                    value: String(s),
+                    label: s === 0.5 ? '½×' : `×${s}`,
+                  }))}
+                  value={String(scale)}
+                  onChange={(v) => setScale(Number(v))}
+                />
+                <Segmented
+                  options={[
+                    { value: 'metric', label: 'Metric' },
+                    { value: 'us', label: 'US' },
+                  ]}
+                  value={units}
+                  onChange={setUnits}
+                />
+                <Segmented
+                  options={[
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'weight', label: 'Weight' },
+                    { value: 'volume', label: 'Volume' },
+                  ]}
+                  value={measure}
+                  onChange={setMeasure}
+                />
+              </View>
+              <View style={styles.tableHead}>
+                <Text variant="label" style={styles.cName}>
+                  Ingredient
+                </Text>
+                <Text variant="label" style={styles.cAmt}>
+                  Amount
+                </Text>
+                <Text variant="label" style={styles.cSkip}>
+                  If you skip it
+                </Text>
+              </View>
+              {groupBySection(v.ingredients).map((g, gi, all) => (
+                <View key={gi + g.section}>
+                  <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+                  {g.items.map((l) => {
+                    const a = formatAmount(l, scale, units, measure)
+                    const skip = SKIP_TEXT[l.skipImpact]
+                    return (
+                      <View key={l.id} style={styles.tr}>
+                        <View style={styles.cName}>
+                          <Text variant="bodyStrong">{l.name}</Text>
+                          {l.prep ? <Text variant="small">{l.prep}</Text> : null}
+                          {l.unquantified && !isCovered(l.original, [l.name, l.prep]) ? (
+                            <Text variant="small">{l.original}</Text>
+                          ) : null}
+                          {l.allergens.length ? (
+                            <Text variant="small" color={colors.danger}>
+                              Contains {l.allergens.join(', ')}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.cAmt}>
+                          <Text>
+                            {a.approx ? '~' : ''}
+                            {a.text}
+                          </Text>
+                        </View>
+                        <View style={styles.cSkip}>
+                          <Badge label={skip.text} tone={skip.tone} />
+                        </View>
+                      </View>
+                    )
+                  })}
+                </View>
+              ))}
+              {units === 'us' ? (
+                <Text variant="small">
+                  ~ means converted from weight using ingredient density, so approximate.
+                </Text>
+              ) : null}
+            </>
+          )}
         </Card>
 
         <View style={[styles.col, wide && { flex: 2 }]}>
           <Card>
-            <SectionHeader title="Equipment" />
-            {v.equipment.length === 0 ? <Text color={colors.muted}>Nothing special.</Text> : null}
+            <SectionHeader
+              title="Equipment"
+              right={
+                addingEquipment ? null : (
+                  <Button
+                    label="Add"
+                    icon="plus"
+                    variant="ghost"
+                    small
+                    onPress={() => setAddingEquipment(true)}
+                  />
+                )
+              }
+            />
+            {v.equipment.length === 0 && !addingEquipment ? (
+              <Text color={colors.muted}>Nothing special.</Text>
+            ) : null}
             {v.equipment.map((e) => (
               <View key={e.name} style={styles.wrapRow}>
                 <Text>{e.name}</Text>
                 <Badge label={e.designation} tone="muted" />
               </View>
             ))}
+            {addingEquipment ? (
+              <AddEquipment key={v.id} v={v} onClose={() => setAddingEquipment(false)} />
+            ) : null}
           </Card>
           <Card>
-            <SectionHeader title="Who has had this version" />
+            <SectionHeader title="Who has had this variation" />
             {v.reactions.length === 0 ? (
               <Text color={colors.muted}>No reactions recorded yet.</Text>
             ) : null}
@@ -389,45 +467,64 @@ function VersionView({
       </View>
 
       <Card>
-        <SectionHeader title="Steps" />
-        {groupBySection(v.steps).map((g, gi, all) => (
-          <View key={gi + g.section} style={{ gap: space.md }}>
-            <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
-            {g.items.map((s) => (
-              <View key={s.id} style={styles.step}>
-                <View style={styles.num}>
-                  <Text variant="bodyStrong" color={colors.accent}>
-                    {v.steps.indexOf(s) + 1}
-                  </Text>
-                </View>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text>{s.text}</Text>
-                  {s.ingredientIds.length ? (
-                    <Text variant="small" color={colors.muted}>
-                      Uses:{' '}
-                      {s.ingredientIds
-                        .map((id) => {
-                          const name = v.ingredients.find((l) => l.id === id)?.name ?? ''
-                          const p = s.portions?.[id]
-                          return p ? `${name} (${portionLabel(p)})` : name
-                        })
-                        .join(', ')}
-                    </Text>
-                  ) : null}
-                  {s.timerSec ? (
-                    <Text variant="small">Timer: {Math.round(s.timerSec / 60)} min</Text>
-                  ) : null}
-                </View>
+        <SectionHeader
+          title="Steps"
+          right={
+            <View style={styles.wrapRow}>
+              <Button label="Link ingredients" icon="link" variant="ghost" small onPress={onLink} />
+              <Button
+                label="Edit steps"
+                icon="edit"
+                iconOnly
+                variant="ghost"
+                small
+                onPress={onEditSteps}
+              />
+            </View>
+          }
+        />
+        {linkPanel}
+        {stepsPanel}
+        {stepsPanel
+          ? null
+          : groupBySection(v.steps).map((g, gi, all) => (
+              <View key={gi + g.section} style={{ gap: space.md }}>
+                <PartHeading heading={headingFor(g.path, all[gi - 1]?.path ?? [])} />
+                {g.items.map((s) => (
+                  <View key={s.id} style={styles.step}>
+                    <View style={styles.num}>
+                      <Text variant="bodyStrong" color={colors.accent}>
+                        {v.steps.indexOf(s) + 1}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text>{s.text}</Text>
+                      {s.ingredientIds.length ? (
+                        <Text variant="small" color={colors.muted}>
+                          Uses:{' '}
+                          {s.ingredientIds
+                            .map((id) => {
+                              const name = v.ingredients.find((l) => l.id === id)?.name ?? ''
+                              const p = s.portions?.[id]
+                              return p ? `${name} (${portionLabel(p)})` : name
+                            })
+                            .join(', ')}
+                        </Text>
+                      ) : null}
+                      {s.timerSec ? (
+                        <Text variant="small">Timer: {Math.round(s.timerSec / 60)} min</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
               </View>
             ))}
-          </View>
-        ))}
       </Card>
 
       {v.nutrition ? <NutritionCard n={v.nutrition} servings={v.servings} /> : null}
 
       <Card>
-        <SectionHeader title="Edit history" hint="Versions are mutable; every change is kept." />
+        <SectionHeader title="Edit history" hint="Variations are mutable; every change is kept." />
         {v.history.map((h) => (
           <Text key={h.date + h.summary} variant="small" color={colors.ink}>
             {h.date} {'·'} {h.by} {'·'} {h.summary}

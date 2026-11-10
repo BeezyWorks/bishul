@@ -71,12 +71,15 @@ export function EditVersion({
   recipe,
   version,
   mode,
+  only,
   onDone,
   onCancel,
 }: {
   recipe: Recipe
   version: RecipeVersion
   mode: 'edit' | 'variation'
+  /** `steps` or `ingredients` shows just that box, for a quick fix from its card. */
+  only?: 'steps' | 'ingredients'
   onDone: (versionId: string) => void
   onCancel: () => void
 }) {
@@ -151,7 +154,7 @@ export function EditVersion({
       // Only rewrite the lists when they changed, so skip-impact and substitutions are kept otherwise.
       ...(!sameLines(ing, startIngredients) && { ingredients: ing }),
       ...(!sameLines(st, startSteps) && {
-        // Keep each step's timer when its text is unchanged.
+        // Keep each step's timer when its text is unchanged. Links are kept by the server when `uses` is left out.
         steps: st.map((x) => {
           const was = version.steps.find((o) => o.text === x.text)
           return was?.timerSec
@@ -187,14 +190,58 @@ export function EditVersion({
     }
   }
 
+  if (only === 'steps') {
+    return (
+      <Card tone="subtle">
+        <TextField
+          label="Steps, one per line"
+          value={steps}
+          onChangeText={setSteps}
+          lines={10}
+          hint="Steps can have their own ## headings, such as ## Assembly. Timers stay with a step as long as its text is unchanged, and linked ingredients are kept."
+        />
+        {save.error ? (
+          <Text color={colors.danger} accessibilityRole="alert">
+            {(save.error as Error).message}
+          </Text>
+        ) : null}
+        <View style={styles.row}>
+          <Button label="Save steps" loading={save.isPending} onPress={submit} />
+          <Button label="Cancel" variant="ghost" onPress={onCancel} />
+        </View>
+      </Card>
+    )
+  }
+  if (only === 'ingredients') {
+    return (
+      <Card tone="subtle">
+        <TextField
+          label="Ingredients, one per line"
+          value={ingredients}
+          onChangeText={setIngredients}
+          lines={10}
+          hint="Write them as you would on a card: 2 cups flour, sifted. For a recipe in parts, put a line like ## Cake before each part. Steps keep their linked ingredients."
+        />
+        {save.error ? (
+          <Text color={colors.danger} accessibilityRole="alert">
+            {(save.error as Error).message}
+          </Text>
+        ) : null}
+        <View style={styles.row}>
+          <Button label="Save ingredients" loading={save.isPending} onPress={submit} />
+          <Button label="Cancel" variant="ghost" onPress={onCancel} />
+        </View>
+      </Card>
+    )
+  }
   const ready = (variation ? !!label.trim() : !!recipeTitle.trim()) && (num(servings) ?? 0) > 0
   return (
     <Card tone="subtle">
       <SectionHeader
-        title={variation ? 'New variation' : 'Edit this version'}
+        title={variation ? 'New variation' : 'Edit this variation'}
         hint={
           variation
-            ? 'A copy of this version with your changes. The original stays as it is.'
+            ? 'A copy of this variation with your changes. The original stays as it is.'
             : 'Every change is kept in the edit history.'
         }
       />
@@ -202,7 +249,7 @@ export function EditVersion({
         <TextField label="Recipe name" value={recipeTitle} onChangeText={setRecipeTitle} />
       ) : null}
       <TextField
-        label={variation ? 'Name of the variation' : 'Version name'}
+        label={variation ? 'Name of the variation' : 'Variation name'}
         value={label}
         onChangeText={setLabel}
         placeholder={variation ? 'e.g. Pesach, fudgy, doubled' : 'e.g. Fudgy'}

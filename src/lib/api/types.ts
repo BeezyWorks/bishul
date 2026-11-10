@@ -597,6 +597,8 @@ export interface VersionEdit {
   nutrition?: NutritionInfo | null
   /** Hand-set dish flags (`spicy`, `kid_friendly`). Send the full set; it replaces the old one. */
   flags?: Record<string, boolean>
+  /** Equipment the recipe needs. Send the full list; it replaces the old one. */
+  equipment?: { name: string; designation: Kind | 'pesach' }[]
   /** Free-form keywords. Send the full list; it replaces the old one. */
   tags?: string[]
   /** Original recipe links. Send the full list; it replaces the old one. */

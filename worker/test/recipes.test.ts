@@ -702,6 +702,32 @@ describe('search returns one row per recipe', () => {
   })
 })
 
+describe('equipment on a version', () => {
+  it('replaces the equipment list in place and keeps it in the history', async () => {
+    const who = 'rec-equip'
+    const r = await api(
+      who,
+      'POST',
+      '/recipes/import',
+      { servings: 4, title: 'Kugel', ingredients: ['1 kg potatoes'], steps: ['Bake'] },
+      201,
+    )
+    const id = r.version.id
+    const e = await api(who, 'PUT', `/versions/${id}`, {
+      equipment: [
+        { item: '9x13 pan', designation: 'parve' },
+        { item: 'Stand mixer', designation: 'dairy' },
+      ],
+    })
+    expect(e.version.equipment.map((q: any) => [q.item, q.designation])).toEqual([
+      ['9x13 pan', 'parve'],
+      ['Stand mixer', 'dairy'],
+    ])
+    const again = await api(who, 'PUT', `/versions/${id}`, { description: 'Crispy' })
+    expect(again.version.equipment).toHaveLength(2)
+  })
+})
+
 describe('reactions to a version', () => {
   it('sets, replaces and clears a reaction through the API and MCP', async () => {
     const who = 'rec-13'

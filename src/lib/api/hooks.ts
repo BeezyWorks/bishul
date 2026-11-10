@@ -427,6 +427,48 @@ export function applyVersionEdit(old: Recipe, versionId: Id, edit: VersionEdit):
   }
 }
 
+/**
+ * Records, changes or clears (`none`) what a person thought of a version. The recipe page shows it at once;
+ * the page's other data (suggestions, the person's page) refreshes in the background.
+ */
+export const useRecordReaction = (recipeId: Id) =>
+  useOptimisticMutation({
+    fn: (a: {
+      personId: Id
+      personName: string
+      versionId: Id
+      reaction: 'like' | 'dislike' | 'none'
+    }) => api.recordReaction(a.personId, a.versionId, a.reaction),
+    key: ['recipe', recipeId],
+    apply: (old: Recipe, a) => ({
+      ...old,
+      versions: old.versions.map((v) =>
+        v.id !== a.versionId
+          ? v
+          : {
+              ...v,
+              reactions: [
+                ...v.reactions.filter((r) => r.personId !== a.personId),
+                ...(a.reaction === 'none'
+                  ? []
+                  : [
+                      {
+                        personId: a.personId,
+                        personName: a.personName,
+                        kind: a.reaction,
+                        recordedBy: 'you',
+                        date:
+                          v.reactions.find((r) => r.personId === a.personId)?.date ??
+                          new Date().toISOString().slice(0, 10),
+                      },
+                    ]),
+              ],
+            },
+      ),
+    }),
+    keys: stale.reactions.filter(([k]) => k !== 'recipe'),
+  })
+
 /** Saves an edit to a version of `recipeId`; the recipe page shows it at once. */
 export const useSaveVersion = (recipeId: Id) =>
   useOptimisticMutation({
