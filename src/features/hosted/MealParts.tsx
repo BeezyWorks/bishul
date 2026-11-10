@@ -2,6 +2,7 @@ import { useRouter, type Href } from 'expo-router'
 import React, { useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, StyleSheet, TextInput, View, type ViewStyle } from 'react-native'
 
+import { Icon } from '@/components/Icon'
 import { Button, HouseholdGuests, HouseholdSearch, RecipePicker, Text } from '@/components'
 import {
   useAddMealDish,
@@ -17,7 +18,7 @@ import {
   useUpdatePlanMeal,
 } from '@/lib/api/hooks'
 import type { HostedCourse, HostedMeal, HostedMenuItem, Id } from '@/lib/api/types'
-import { timeLabel, wizardHref } from '@/lib/plan'
+import { parseTime, timeLabel, wizardHref } from '@/lib/plan'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
 /** The id of a meal, creating a virtual default meal first. */
@@ -74,17 +75,15 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const timeOk = time.trim() === '' || /^([01]?\d|2[0-3]):[0-5]\d$/.test(time.trim())
+  const parsed = parseTime(time, meal.slot)
+  const timeOk = parsed !== null
   const save = async () => {
     if (!name.trim() || !timeOk) return
     try {
       const mealId = await getId()
       const patch: { name?: string; time?: string } = {}
       if (name.trim() !== meal.name) patch.name = name.trim()
-      if (time.trim() !== (meal.timeText ?? '')) {
-        const m = /^(\d{1,2}):(\d{2})$/.exec(time.trim())
-        patch.time = m ? `${m[1].padStart(2, '0')}:${m[2]}` : ''
-      }
+      if (parsed !== null && parsed !== (meal.timeText ?? '')) patch.time = parsed
       if (Object.keys(patch).length) await update.mutateAsync({ mealId, patch })
       setEditing(false)
       setError(null)
@@ -113,8 +112,8 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
               onSubmitEditing={save}
             />
             <TextInput
-              accessibilityLabel="Time, 24-hour like 18:30"
-              placeholder="18:30"
+              accessibilityLabel="Time, like 6:30pm or 1830"
+              placeholder="6:30pm"
               placeholderTextColor={colors.muted}
               value={time}
               onChangeText={setTime}
@@ -135,16 +134,26 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
           </View>
         ) : (
           <View style={styles.titleRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit meal name and time"
+              onPress={() => setEditing(true)}
+              hitSlop={6}
+              style={styles.x}
+            >
+              <Icon name="edit" size={16} color={colors.accent} />
+            </Pressable>
             <Text variant="h3" accessibilityRole="header">
               {meal.name}
             </Text>
             {meal.timeText ? <Text variant="small">{timeLabel(meal.timeText)}</Text> : null}
-            <ActionLink label="Edit" onPress={() => setEditing(true)} />
           </View>
         )}
-        {meal.id && !confirm ? (
-          <ActionLink label="Remove meal" danger onPress={() => setConfirm(true)} />
-        ) : null}
+        <View style={styles.headActions}>
+          {meal.id && !confirm ? (
+            <ActionLink label="Remove meal" danger onPress={() => setConfirm(true)} />
+          ) : null}
+        </View>
       </View>
       {error ? (
         <Text variant="small" color={colors.danger}>
@@ -318,7 +327,9 @@ function Dish({
         hitSlop={8}
         style={styles.x}
       >
-        <Text color={colors.muted}>{'×'}</Text>
+        <Text color={colors.muted} style={styles.xText}>
+          {'×'}
+        </Text>
       </Pressable>
     </View>
   )
@@ -344,10 +355,10 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
   const visible: HostedCourse[] = meal.menu
   return (
     <View style={styles.menu}>
-      {visible.map((c) => (
+      {visible.map((c, i) => (
         <DropTarget
           key={c.course}
-          style={styles.course}
+          style={i === 0 ? { ...styles.course, borderTopWidth: 0 } : styles.course}
           activeStyle={styles.dropCourse}
           onDrop={(id) => moveTo(id, c.course)}
         >
@@ -514,7 +525,7 @@ export function FoldedMeal({ meal }: { meal: HostedMeal }) {
 }
 
 const styles = StyleSheet.create({
-  link: { minHeight: 28, justifyContent: 'center', alignSelf: 'flex-start' },
+  link: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start' },
   linkText: { fontFamily: fonts.bodySemiBold },
   headWrap: { gap: space.sm },
   head: {
@@ -524,7 +535,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space.sm,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm, flexWrap: 'wrap' },
+  headActions: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap', flex: 1 },
   input: {
     minHeight: size.touch,
@@ -546,15 +558,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.input,
     backgroundColor: colors.dangerSoft,
   },
-  menu: { gap: space.md, flex: 1 },
-  course: { flexDirection: 'row', gap: space.md },
-  courseName: { width: 72, paddingTop: 2 },
+  menu: { flex: 1 },
+  course: {
+    flexDirection: 'row',
+    gap: space.md,
+    paddingVertical: space.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  courseName: { width: 72, paddingTop: 8 },
   dropCourse: { backgroundColor: colors.accentSoft, borderRadius: radius.input },
   dropBefore: { borderTopWidth: 2, borderTopColor: colors.accent },
-  dishes: { flex: 1, gap: space.xs },
-  dish: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  dishes: { flex: 1 },
+  dish: { flexDirection: 'row', alignItems: 'center', minHeight: 32, gap: space.xs },
   dishMain: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
@@ -567,8 +586,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   flagText: { fontFamily: fonts.bodySemiBold, fontSize: fontSize.xs },
-  x: { paddingHorizontal: space.xs, minWidth: 24, alignItems: 'center' },
-  guests: { gap: space.sm, flex: 1 },
+  x: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  xText: { fontSize: 24, lineHeight: 26 },
+  guests: {
+    gap: space.sm,
+    flex: 1,
+    padding: space.md,
+    borderRadius: radius.input,
+    backgroundColor: colors.subtle,
+  },
   total: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm, paddingTop: space.xs },
   folded: {
     gap: space.sm,

@@ -4,7 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native'
 import { Button, Segmented, Text } from '@/components'
 import { useCreatePlanMeal } from '@/lib/api/hooks'
 import type { DaySlot, HostedHolyDay } from '@/lib/api/types'
-import { PICKABLE_SLOTS, SLOT_LABEL } from '@/lib/plan'
+import { PICKABLE_SLOTS, SLOT_LABEL, parseTime } from '@/lib/plan'
 import { colors, fontSize, fonts, radius, size, space } from '@/theme/tokens'
 
 import { dayBefore } from './dates'
@@ -21,7 +21,8 @@ export function AddMealForm({ day }: { day: HostedHolyDay }) {
   const [time, setTime] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const timeOk = time.trim() === '' || /^([01]?\d|2[0-3]):[0-5]\d$/.test(time.trim())
+  const parsed = parseTime(time, slot)
+  const timeOk = parsed !== null
   const reset = () => {
     setOpen(false)
     setName('')
@@ -31,14 +32,13 @@ export function AddMealForm({ day }: { day: HostedHolyDay }) {
   }
   const submit = async () => {
     if (!timeOk) return
-    const m = /^(\d{1,2}):(\d{2})$/.exec(time.trim())
     try {
       await create.mutateAsync({
         // An evening meal belongs to the holy day that starts the next morning.
         date: day.label && NIGHT.includes(slot) ? dayBefore(day.date) : day.date,
         name: name.trim() || undefined,
         slot,
-        time: m ? `${m[1].padStart(2, '0')}:${m[2]}` : undefined,
+        time: parsed || undefined,
         hosted: true,
       })
       reset()
@@ -76,10 +76,10 @@ export function AddMealForm({ day }: { day: HostedHolyDay }) {
       <View style={styles.field}>
         <Text variant="label">Time (optional)</Text>
         <TextInput
-          accessibilityLabel="Time, 24-hour like 18:30"
+          accessibilityLabel="Time, like 6:30pm or 1830"
           value={time}
           onChangeText={setTime}
-          placeholder="18:30"
+          placeholder="6:30pm"
           placeholderTextColor={colors.muted}
           style={[styles.input, { width: 120 }, !timeOk && { borderColor: colors.danger }]}
         />

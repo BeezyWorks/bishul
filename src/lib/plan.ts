@@ -85,6 +85,33 @@ export function timeLabel(hhmm: string | null | undefined): string {
   return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${h < 12 ? 'am' : 'pm'}`
 }
 
+/**
+ * Understands how people type a time: `1700`, `500`, `5p`, `5:30 pm`, `5.30`, `17`, `noon`. Returns `HH:MM`, `''` for
+ * an empty box, or `null` if it makes no sense. With no am/pm it guesses from the kind of meal: dinner, oneg and seudah
+ * shlishit are evening; breakfast is morning; kiddush, brunch, lunch (and no kind) read 1-6 as afternoon, 7-11 as morning.
+ */
+export function parseTime(text: string, slot?: DaySlot): string | null {
+  const s = text.trim().toLowerCase().replace(/\s+/g, '')
+  if (!s) return ''
+  if (s === 'noon') return '12:00'
+  const m = /^(\d{1,2})(?:[:.]?(\d{2}))?(a|am|p|pm)?$/.exec(s)
+  if (!m) return null
+  let h = +m[1]
+  const min = m[2] ? +m[2] : 0
+  if (min > 59) return null
+  const suffix = m[3]?.[0]
+  if (suffix) {
+    if (h < 1 || h > 12) return null
+    h = suffix === 'p' ? (h % 12) + 12 : h % 12
+  } else {
+    if (h > 23) return null
+    const evening = slot === 'dinner' || slot === 'oneg' || slot === 'seudah_shlishit'
+    const afternoon = evening ? h <= 11 : slot === 'breakfast' ? false : h <= 6
+    if (h >= 1 && afternoon) h += 12
+  }
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
 /** Dish titles as one line: `Brisket, potato kugel` (first word capitalized, the rest as the recipe titles). */
 export function summaryLine(titles: string[]): string {
   return titles.join(', ')

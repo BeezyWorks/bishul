@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { Button, Empty, Loading, Pill, Screen, Segmented, Text, useLayout } from '@/components'
 import { useHosted } from '@/lib/api/hooks'
 import type { HostedHolyDay, HostedMeal, HostedPage } from '@/lib/api/types'
-import { hostedHref, printHref } from '@/lib/plan'
+import { hostedHref, planHref, printHref } from '@/lib/plan'
 import { colors, radius, size, space } from '@/theme/tokens'
 
 import { AddMealForm } from './AddMealForm'
@@ -31,7 +31,7 @@ export function HostedScreen() {
     if (data && data.key !== key) router.replace(hostedHref(data.key) as never)
   }, [data, key, router])
 
-  const back = { label: 'Plan', href: '/' }
+  const back = { label: 'Back to week', href: '/' }
   if (isLoading) {
     return (
       <Screen back={back}>
@@ -65,7 +65,7 @@ function HostedBody({ page }: { page: HostedPage }) {
 
   return (
     <Screen
-      back={{ label: 'Plan', href: '/' }}
+      back={{ label: 'Back to week', href: planHref({ week: page.from }) }}
       title={page.title}
       subtitle={`${dateRange(page.from, page.to)} · ${page.totals.meals} ${
         page.totals.meals === 1 ? 'meal' : 'meals'
@@ -231,7 +231,7 @@ function PhoneView({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, maxWidth: '100%' },
   filters: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   row: {
     gap: space.md,
