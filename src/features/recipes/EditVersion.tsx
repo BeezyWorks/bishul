@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { Button, Card, Pill, SectionHeader, Segmented, Text, TextField } from '@/components'
@@ -74,6 +74,7 @@ export function EditVersion({
   only,
   onDone,
   onCancel,
+  dirtyRef,
 }: {
   recipe: Recipe
   version: RecipeVersion
@@ -82,6 +83,8 @@ export function EditVersion({
   only?: 'steps' | 'ingredients'
   onDone: (versionId: string) => void
   onCancel: () => void
+  /** Kept current with whether anything was changed, so the parent can warn before closing. */
+  dirtyRef?: { current: boolean }
 }) {
   const variation = mode === 'variation'
   const startIngredients = version.ingredients.map((l) => ({
@@ -114,6 +117,24 @@ export function EditVersion({
   const [sources, setSources] = useState(sourcesText(version))
   const knownTags = useTags()
   const [wholeRecipe, setWholeRecipe] = useState(version.nutrition?.perServing === false)
+  const snapshot = JSON.stringify([
+    recipeTitle,
+    label,
+    course,
+    kind,
+    servings,
+    active,
+    total,
+    description,
+    ingredients,
+    steps,
+    nutrition,
+    tags,
+    sources,
+    wholeRecipe,
+  ])
+  const initialSnapshot = useRef(snapshot)
+  if (dirtyRef) dirtyRef.current = snapshot !== initialSnapshot.current
 
   /** Only when a figure or the per-serving choice changed. Whatever a person types is theirs, not an AI estimate. */
   const nutritionEdit = (): { nutrition?: NutritionInfo | null } => {

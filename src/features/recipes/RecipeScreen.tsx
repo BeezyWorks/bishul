@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native'
 
 import {
@@ -23,7 +23,7 @@ import { AddTag } from './AddTag'
 import { EditableTiles } from './EditableTiles'
 import { EditVersion } from './EditVersion'
 import { LinkSteps } from './LinkSteps'
-import { SharePanel } from './SharePanel'
+import { SharePanel, SharingSwitch } from './SharePanel'
 import type { Fit, RecipeVersion, SkipImpact } from '@/lib/api/types'
 import { useMeasure, useUnits } from '@/lib/prefs'
 import { groupBySection, headingFor } from '@/lib/sections'
@@ -105,6 +105,26 @@ export function RecipeScreen() {
   const [units, setUnits] = useUnits()
   const router = useRouter()
   const deleteVersion = useDeleteVersion()
+  const dirty = useRef(false)
+  /** The Edit pen toggles the editor; closing it with unsaved changes asks first. */
+  const toggleEdit = () => {
+    if (editing !== 'edit') {
+      dirty.current = false
+      setEditing('edit')
+      return
+    }
+    const close = () => setEditing(null)
+    if (!dirty.current) return close()
+    const msg = 'Your changes have not been saved. Close the editor and discard them?'
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) close()
+    } else {
+      Alert.alert('Discard changes?', msg, [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: close },
+      ])
+    }
+  }
   /** Deletes the shown variation after asking; the last one takes the whole recipe with it. */
   const removeVariation = (vid: string, label: string, last: boolean) => {
     const msg = last
@@ -145,13 +165,7 @@ export function RecipeScreen() {
       }
       actions={
         <View style={styles.wrapRow}>
-          <Button
-            label="Edit"
-            icon="edit"
-            iconOnly
-            variant="secondary"
-            onPress={() => setEditing('edit')}
-          />
+          <Button label="Edit" icon="edit" iconOnly variant="secondary" onPress={toggleEdit} />
           <Button
             label="Share"
             icon="share"
@@ -167,15 +181,18 @@ export function RecipeScreen() {
         <SharePanel
           key={`share:${recipe.id}`}
           recipeId={recipe.id}
+          title={recipe.title}
           onClose={() => setEditing(null)}
         />
       ) : null}
+      <SharingSwitch recipeId={recipe.id} />
       {editing === 'edit' || editing === 'variation' ? (
         <EditVersion
           key={`${editing}:${v.id}`}
           recipe={recipe}
           version={v}
           mode={editing}
+          dirtyRef={dirty}
           onCancel={() => setEditing(null)}
           onDone={(id) => {
             setVersionId(id)
