@@ -523,6 +523,13 @@ export interface PantryItem {
   expiringSoon?: boolean
 }
 
+export interface KitchenItem {
+  id: Id
+  item: string
+  count: number
+  designation: Kind | 'pesach' | null
+}
+
 export interface PantryList {
   today: ISODate
   items: PantryItem[]
@@ -696,6 +703,8 @@ export interface MealCard {
   kind: Kind | null
   /** Has a full page: flagged, in a run, or has a guest from another household. */
   hosted: boolean
+  /** "the Blochs" when we are guests at their table (the menu is what we bring); null when we host. */
+  guestOf: string | null
   /** `run-2027-04-22` when the meal belongs to a run of Shabbat / Yom Tov days. */
   runKey: string | null
   /** Open `/hosted/${hostedKey}`. */
@@ -906,6 +915,15 @@ export interface MealPatch {
   slot?: DaySlot
   date?: ISODate
   hosted?: boolean
+  /** Guest at someone else's table; null makes it ours to host again. */
+  guestOf?: string | null
+}
+
+export interface UpdateDishInput {
+  /** Name a dish that has no recipe. */
+  description?: string
+  /** Who brings it; null: we do. */
+  broughtBy?: string | null
 }
 
 export interface AddDishInput {

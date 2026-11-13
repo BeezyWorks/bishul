@@ -10,6 +10,7 @@ import {
 import { api } from './client'
 import type {
   AddDishInput,
+  UpdateDishInput,
   HostedMeal,
   HostedPage,
   Id,
@@ -145,6 +146,7 @@ export const usePerson = (id: Id) =>
 export const useShopping = () =>
   useQuery({ queryKey: ['shopping'], queryFn: () => api.getShoppingList() })
 export const usePrep = () => useQuery({ queryKey: ['prep'], queryFn: () => api.getPrepSchedule() })
+export const useKitchen = () => useQuery({ queryKey: ['kitchen'], queryFn: () => api.getKitchen() })
 export const usePantry = () => useQuery({ queryKey: ['pantry'], queryFn: () => api.getPantry() })
 
 export const useHouseholdInfo = () =>
@@ -208,6 +210,7 @@ export const stale = {
   collections: [['collections']],
   shopping: [['shopping']],
   pantry: [['pantry'], ['shopping'], ['suggestions']],
+  kitchen: [['kitchen']],
   settings: [['info'], ['prefs'], ['calendar'], ['upcoming'], ['prep']],
   keys: [['keys']],
 } satisfies Record<string, QueryKey[]>
@@ -382,6 +385,26 @@ export const useSetMealPerson = () =>
   )
 export const useAddMealDish = () =>
   useMealMutation((a: { mealId: Id; dish: AddDishInput }) => api.addMealDish(a.mealId, a.dish))
+export const useUpdateMealDish = () =>
+  useMealMutation(
+    (a: { mealId: Id; itemId: Id; change: UpdateDishInput }) =>
+      api.updateMealDish(a.mealId, a.itemId, a.change),
+    (m, a) => ({
+      ...m,
+      menu: m.menu.map((c) => ({
+        ...c,
+        items: c.items.map((i) =>
+          i.itemId === a.itemId
+            ? {
+                ...i,
+                ...(a.change.description !== undefined && { title: a.change.description }),
+                ...(a.change.broughtBy !== undefined && { broughtBy: a.change.broughtBy }),
+              }
+            : i,
+        ),
+      })),
+    }),
+  )
 export const useRemoveMealDish = () =>
   useMealMutation(
     (a: { mealId: Id; itemId: Id }) => api.removeMealDish(a.mealId, a.itemId),

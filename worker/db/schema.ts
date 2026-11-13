@@ -525,6 +525,11 @@ export const meals = sqliteTable(
      * meal is created as hosted. Shabbat and Yom Tov meals are always hosted whether or not this is set.
      */
     hosted: integer('hosted', { mode: 'boolean' }).notNull().default(false),
+    /**
+     * Set when the household is a guest at someone else's table ("the Blochs"): the meal is theirs, the menu here is
+     * only what we bring. Null for a meal we host.
+     */
+    guestOf: text('guest_of'),
     /** The name was typed by the user: moving the meal to another day does not rename it. */
     nameEdited: integer('name_edited', { mode: 'boolean' }).notNull().default(false),
     status: text('status', { enum: ['draft', 'accepted'] })

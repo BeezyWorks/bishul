@@ -171,6 +171,97 @@ describe('meal planning flow', () => {
     expect(edited.meal.status).toBe('draft')
   })
 
+  it('a guest meal at the Blochs carries the kugel we bring and flags their allergy; a hosted side is just a title', async () => {
+    const who = 'planner-guest'
+    await api(who, 'PATCH', '/household', { location: NY })
+    const r = await importAll(who)
+    const bloch = await api(
+      who,
+      'POST',
+      '/people',
+      { name: 'Dina Bloch', newContactHousehold: 'The Blochs' },
+      201,
+    )
+    await api(who, 'PUT', `/people/${bloch.id}/constraints`, {
+      add: [{ tagType: 'allergen', tag: 'potato', severity: 'strict' }],
+    })
+    const gold = await api(
+      who,
+      'POST',
+      '/people',
+      { name: 'Rena Gold', newContactHousehold: 'The Golds' },
+      201,
+    )
+
+    const friday = await nextFriday(who)
+    const saturday = new Date(Date.parse(`${friday}T12:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+
+    // We are guests at the Blochs for Shabbat lunch and bring our kugel.
+    const guest = await api(
+      who,
+      'POST',
+      '/meals',
+      {
+        date: saturday,
+        slot: 'lunch',
+        guestOf: 'the Blochs',
+        personIds: [bloch.id],
+        items: [{ versionId: r.kugel.id, course: 'side' }],
+      },
+      201,
+    )
+    expect(guest.meal.guestOf).toBe('the Blochs')
+    expect(guest.meal.name).toMatch(/at the Blochs$/)
+    expect(guest.meal.items.map((i: any) => i.title)).toEqual(['Potato kugel'])
+    expect(guest.brief.hardExclusions.length).toBeGreaterThan(0)
+    expect(JSON.stringify(guest.brief.hardExclusions)).toMatch(/potato/i)
+
+    // The same Shabbat lunch hosted: the Golds bring "a side", no recipe, no title needed.
+    const hosted = await api(
+      who,
+      'POST',
+      '/meals',
+      { date: friday, slot: 'dinner', personIds: [gold.id] },
+      201,
+    )
+    expect(hosted.meal.guestOf).toBeNull()
+    const withSide = await api(who, 'PATCH', `/meals/${hosted.meal.id}`, {
+      addItems: [{ brought: { by: 'the Golds', course: 'side' } }],
+    })
+    expect(withSide.meal.items[0]).toMatchObject({
+      type: 'brought',
+      title: 'A side',
+      broughtBy: 'the Golds',
+    })
+    // Naming it later is just an edit.
+    const named = await api(who, 'PATCH', `/meals/${hosted.meal.id}`, {
+      updateItems: [{ id: withSide.meal.items[0].id, description: 'Sweet potato casserole' }],
+    })
+    expect(named.meal.items[0].title).toBe('Sweet potato casserole')
+
+    // The hosted page edits it too, and a recipe dish keeps its recipe's title.
+    const viaPage = await api(
+      who,
+      'PATCH',
+      `/meals/${hosted.meal.id}/dishes/${withSide.meal.items[0].id}`,
+      { broughtBy: 'the Golds (Rena)' },
+    )
+    expect(JSON.stringify(viaPage.menu)).toMatch(/Rena/)
+    await api(
+      who,
+      'PATCH',
+      `/meals/${guest.meal.id}/dishes/${guest.meal.items[0].id}`,
+      { description: 'Renamed' },
+      400,
+    )
+
+    // Back to hosting.
+    const back = await api(who, 'PATCH', `/meals/${guest.meal.id}`, { guestOf: null })
+    expect(back.meal.guestOf).toBeNull()
+  })
+
   it("calendar marks civil holidays apart from Jewish ones and carries each day's cooking", async () => {
     const who = 'planner-cal'
     await api(who, 'PATCH', '/household', { location: NY })

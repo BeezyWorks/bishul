@@ -105,6 +105,8 @@ export interface MealCard {
   kind: 'meat' | 'dairy' | 'parve' | null
   /** A full page: flagged, in a run, or has a guest from another household. */
   hosted: boolean
+  /** Set when we are guests at this meal ("the Blochs"): it is their table, the menu is what we bring. */
+  guestOf: string | null
   /** The run this meal belongs to (`run-2027-04-22`), or null for a weekday meal. */
   runKey: string | null
   /** Where its page lives: `/hosted/${hostedKey}`. */
@@ -507,6 +509,7 @@ function cardOf(
     status: meal.status,
     kind: f.mealKind,
     hosted,
+    guestOf: meal.guestOf,
     runKey: place.runKey,
     hostedKey: hostedKeyFor({ id: meal.id, runKey: place.runKey }),
     holyDate: place.holyDate,
@@ -549,6 +552,7 @@ function virtualCard(
     status: 'draft',
     kind: null,
     hosted: true,
+    guestOf: null,
     runKey: run.key,
     hostedKey: run.key,
     holyDate: hd.date,
@@ -1227,16 +1231,16 @@ export async function addDish(db: Db, actor: Actor, mealId: string, input: AddDi
       servings: input.servings ?? v.version.servings ?? null,
       broughtBy: input.broughtBy ?? null,
     })
-  } else if (input.description?.trim()) {
+  } else if (input.description?.trim() || input.broughtBy?.trim()) {
     await db.insert(s.mealItems).values({
       mealId,
       position,
       course,
-      description: input.description.trim(),
+      description: input.description?.trim() || `A ${course}`,
       broughtBy: input.broughtBy ?? null,
       kashrut: input.kashrut ?? null,
     })
-  } else throw invalid('A dish needs a versionId or a description')
+  } else throw invalid('A dish needs a versionId, a description or someone bringing it')
   await reopenIfAccepted(db, meal)
   return getHostedMeal(db, actor, mealId)
 }
@@ -1256,6 +1260,42 @@ export async function removeDish(db: Db, actor: Actor, mealId: string, itemId: s
  * Moves a dish to a course, before another dish of that course (`beforeItemId`) or at its end. Positions are
  * renumbered 0..n over the whole meal; a dish stays in menu order within its course.
  */
+export interface UpdateDishInput {
+  /** Rename a dish without a recipe ("Sweet potato casserole" for "A side"). */
+  description?: string
+  /** Who is bringing it; null makes it ours again. */
+  broughtBy?: string | null
+  kashrut?: 'meat' | 'dairy' | 'parve' | null
+}
+
+/** Edit a typed-in or brought dish: its title, who brings it, its kind. A recipe dish keeps its recipe's title. */
+export async function updateDish(
+  db: Db,
+  actor: Actor,
+  mealId: string,
+  itemId: string,
+  input: UpdateDishInput,
+) {
+  const meal = await requireMeal(db, actor, mealId)
+  if (meal.settledAt) throw conflict('That meal has already happened; its menu is now history.')
+  const item = ((await itemsOfMeals(db, [mealId])).get(mealId) ?? []).find((i) => i.id === itemId)
+  if (!item) throw notFound('Dish')
+  if (input.description !== undefined && item.versionId)
+    throw invalid('A recipe dish takes its name from the recipe')
+  if (input.description !== undefined && !input.description.trim())
+    throw invalid('A dish needs a name')
+  await db
+    .update(s.mealItems)
+    .set({
+      ...(input.description !== undefined && { description: input.description.trim() }),
+      ...(input.broughtBy !== undefined && { broughtBy: input.broughtBy?.trim() || null }),
+      ...(input.kashrut !== undefined && { kashrut: input.kashrut }),
+    })
+    .where(and(eq(s.mealItems.id, itemId), eq(s.mealItems.mealId, mealId)))
+  await reopenIfAccepted(db, meal)
+  return getHostedMeal(db, actor, mealId)
+}
+
 export async function moveDish(
   db: Db,
   actor: Actor,

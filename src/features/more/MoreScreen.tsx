@@ -13,6 +13,11 @@ export function MoreScreen() {
         />
         <ListRow title="Use soon" subtitle="What to use up before it goes bad" href="/use-soon" />
         <ListRow
+          title="Kitchen equipment"
+          subtitle="Pots, pans and appliances, and what each is kept for"
+          href="/kitchen"
+        />
+        <ListRow
           title="Settings"
           subtitle="Household, units, API keys and connecting your AI"
           href="/settings"

@@ -15,6 +15,7 @@ import {
   useRemoveMealDish,
   useRemoveMealHousehold,
   useSetMealPerson,
+  useUpdateMealDish,
   useUpdatePlanMeal,
 } from '@/lib/api/hooks'
 import type { HostedCourse, HostedMeal, HostedMenuItem, Id } from '@/lib/api/types'
@@ -72,6 +73,7 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(meal.name)
   const [time, setTime] = useState(timeToText(meal.timeText))
+  const [guestOf, setGuestOf] = useState(meal.guestOf ?? '')
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -81,7 +83,8 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
     if (!name.trim() || !timeOk) return
     try {
       const mealId = await getId()
-      const patch: { name?: string; time?: string } = {}
+      const patch: { name?: string; time?: string; guestOf?: string | null } = {}
+      if (guestOf.trim() !== (meal.guestOf ?? '')) patch.guestOf = guestOf.trim() || null
       if (name.trim() !== meal.name) patch.name = name.trim()
       if (parsed !== null && parsed !== (meal.timeText ?? '')) patch.time = parsed
       if (Object.keys(patch).length) await update.mutateAsync({ mealId, patch })
@@ -120,6 +123,15 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
               style={[styles.input, { width: 90 }, !timeOk && { borderColor: colors.danger }]}
               onSubmitEditing={save}
             />
+            <TextInput
+              accessibilityLabel="Whose table, if you are a guest (like the Blochs)"
+              placeholder="Guest at… (the Blochs)"
+              placeholderTextColor={colors.muted}
+              value={guestOf}
+              onChangeText={setGuestOf}
+              style={[styles.input, { minWidth: 160 }]}
+              onSubmitEditing={save}
+            />
             <Button label="Save" small onPress={save} loading={update.isPending} />
             <Button
               label="Cancel"
@@ -129,6 +141,7 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
                 setEditing(false)
                 setName(meal.name)
                 setTime(timeToText(meal.timeText))
+                setGuestOf(meal.guestOf ?? '')
               }}
             />
           </View>
@@ -147,6 +160,11 @@ export function MealHeading({ meal }: { meal: HostedMeal }) {
               {meal.name}
             </Text>
             {meal.timeText ? <Text variant="small">{timeLabel(meal.timeText)}</Text> : null}
+            {meal.guestOf ? (
+              <Text variant="small" color={colors.accent}>
+                Guest at {meal.guestOf}: you bring what is listed here
+              </Text>
+            ) : null}
           </View>
         )}
         <View style={styles.headActions}>
@@ -282,18 +300,63 @@ function DropTarget({
 
 function Dish({
   item,
+  mealId,
   onRemove,
   onReplace,
   busy,
 }: {
   item: HostedMenuItem
+  mealId: Id | null
   onRemove: () => void
   onReplace: () => void
   busy: boolean
 }) {
   const router = useRouter()
+  const update = useUpdateMealDish()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(item.title)
+  const [by, setBy] = useState(item.broughtBy ?? '')
   const flagged = item.problems.length > 0
   const color = flagged ? colors.danger : colors.ink
+  // A dish with no recipe, or one a guest brings, can be renamed and re-assigned in place.
+  const editable = !!mealId && (item.noRecipe || !!item.broughtBy)
+  const save = async () => {
+    if (!mealId || !title.trim()) return
+    const change: { description?: string; broughtBy?: string | null } = {}
+    if (item.noRecipe && title.trim() !== item.title) change.description = title.trim()
+    if (by.trim() !== (item.broughtBy ?? '')) change.broughtBy = by.trim() || null
+    if (Object.keys(change).length)
+      await update.mutateAsync({ mealId, itemId: item.itemId, change })
+    setEditing(false)
+  }
+  if (editing)
+    return (
+      <View style={styles.editRow}>
+        {item.noRecipe ? (
+          <TextInput
+            accessibilityLabel="Dish name"
+            value={title}
+            onChangeText={setTitle}
+            style={[styles.input, { flexGrow: 1, minWidth: 140 }]}
+            autoFocus
+            onSubmitEditing={save}
+          />
+        ) : (
+          <Text>{item.title}</Text>
+        )}
+        <TextInput
+          accessibilityLabel="Who is bringing it"
+          placeholder="Brought by (empty: us)"
+          placeholderTextColor={colors.muted}
+          value={by}
+          onChangeText={setBy}
+          style={[styles.input, { minWidth: 140 }]}
+          onSubmitEditing={save}
+        />
+        <Button label="Save" small onPress={save} loading={update.isPending} />
+        <Button label="Cancel" small variant="ghost" onPress={() => setEditing(false)} />
+      </View>
+    )
   return (
     <View style={styles.dish}>
       <View style={styles.dishMain}>
@@ -319,6 +382,21 @@ function Dish({
         ) : null}
       </View>
       {flagged ? <ActionLink label="Replace" onPress={onReplace} /> : null}
+      {editable ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${item.title}`}
+          onPress={() => {
+            setTitle(item.title)
+            setBy(item.broughtBy ?? '')
+            setEditing(true)
+          }}
+          hitSlop={8}
+          style={styles.x}
+        >
+          <Icon name="edit" size={14} color={colors.accent} />
+        </Pressable>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Remove ${item.title}`}
@@ -340,6 +418,9 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
   const remove = useRemoveMealDish()
   const move = useMoveMealDish()
   const [open, setOpen] = useState<{ course: string; replace?: string } | null>(null)
+  const [bringing, setBringing] = useState<string | null>(null)
+  const [bringer, setBringer] = useState('')
+  const [bringTitle, setBringTitle] = useState('')
   const moveTo = (itemId: string, course: string, beforeItemId?: string) => {
     if (meal.id && itemId !== beforeItemId)
       move.mutate({ mealId: meal.id, itemId, course, beforeItemId })
@@ -375,6 +456,7 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
                 <DragSource itemId={it.itemId}>
                   <Dish
                     item={it}
+                    mealId={meal.id}
                     busy={remove.isPending}
                     onRemove={() =>
                       meal.id && remove.mutate({ mealId: meal.id, itemId: it.itemId })
@@ -392,11 +474,57 @@ export function MenuColumn({ meal }: { meal: HostedMeal }) {
                 onAddWithoutRecipe={(text) => pick(c.course, { description: text })}
                 onClose={() => setOpen(null)}
               />
+            ) : bringing === c.course && meal.id ? (
+              <View style={styles.editRow}>
+                <TextInput
+                  accessibilityLabel="Who is bringing it"
+                  placeholder="Who (the Golds)"
+                  placeholderTextColor={colors.muted}
+                  value={bringer}
+                  onChangeText={setBringer}
+                  style={[styles.input, { minWidth: 140 }]}
+                  autoFocus
+                />
+                <TextInput
+                  accessibilityLabel="What, if you know"
+                  placeholder="What? (optional)"
+                  placeholderTextColor={colors.muted}
+                  value={bringTitle}
+                  onChangeText={setBringTitle}
+                  style={[styles.input, { flexGrow: 1, minWidth: 140 }]}
+                />
+                <Button
+                  label="Add"
+                  small
+                  loading={add.isPending}
+                  onPress={async () => {
+                    if (!bringer.trim() || !meal.id) return
+                    await add.mutateAsync({
+                      mealId: meal.id,
+                      dish: {
+                        course: c.course,
+                        broughtBy: bringer.trim(),
+                        ...(bringTitle.trim() && { description: bringTitle.trim() }),
+                      },
+                    })
+                    setBringing(null)
+                    setBringer('')
+                    setBringTitle('')
+                  }}
+                />
+                <Button label="Cancel" small variant="ghost" onPress={() => setBringing(null)} />
+              </View>
             ) : (
-              <ActionLink
-                label={`+ Add to ${c.label.toLowerCase()}`}
-                onPress={() => setOpen({ course: c.course })}
-              />
+              <View style={{ flexDirection: 'row', gap: space.md, flexWrap: 'wrap' }}>
+                <ActionLink
+                  label={`+ Add to ${c.label.toLowerCase()}`}
+                  onPress={() => setOpen({ course: c.course })}
+                />
+                <ActionLink
+                  label="+ Someone is bringing it"
+                  onPress={() => setBringing(c.course)}
+                />
+              </View>
             )}
           </View>
         </DropTarget>

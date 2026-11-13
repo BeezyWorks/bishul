@@ -835,6 +835,22 @@ export const operations: Operation[] = [
     run: (c, i) => hosting.removeDish(c.db, c.actor, i.id, i.itemId),
   }),
   op({
+    id: 'updateMealDish',
+    method: 'patch',
+    path: '/meals/:id/dishes/:itemId',
+    tag: 'Planning',
+    scope: 'write',
+    summary:
+      'Edit a dish without a recipe or one a guest brings: its title (description), who is bringing it (broughtBy; null clears) and its kind',
+    input: idParam.extend({
+      itemId: S.id,
+      description: z.string().min(1).max(200).optional(),
+      broughtBy: z.string().min(1).max(100).nullable().optional(),
+      kashrut: S.kashrut.nullable().optional(),
+    }),
+    run: (c, { id, itemId, ...rest }) => hosting.updateDish(c.db, c.actor, id, itemId, rest),
+  }),
+  op({
     id: 'moveMealDish',
     method: 'post',
     path: '/meals/:id/dishes/:itemId/move',

@@ -339,7 +339,12 @@ export const mealItem = z.object({
   servings: z.number().int().positive().optional(),
   brought: z
     .object({
-      description: z.string().min(1).max(200),
+      description: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('What it is. Leave out for "a side" when the bringer has not said'),
       by: z.string().min(1).max(100),
       kashrut: kashrut.optional(),
       course: z.string().optional(),
@@ -374,6 +379,14 @@ export const createMealInput = z.object({
     .boolean()
     .optional()
     .describe('A hosted meal has a full page; inviting a guest makes it hosted'),
+  guestOf: z
+    .string()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      'Set when we are guests at someone else’s table ("the Blochs"); the menu is then only what we bring',
+    ),
   householdIds: ids
     .optional()
     .describe('Guest households (contacts) to invite: all their members come'),
@@ -391,6 +404,7 @@ export const updateMealInput = z.object({
   date: date.optional(),
   slot: daySlot.optional(),
   hosted: z.boolean().optional(),
+  guestOf: z.string().min(1).max(100).nullable().optional().describe('Null: we host it again'),
   time: time.nullable().optional(),
   kind: kashrut.nullable().optional(),
   personIds: z.array(id).optional().describe('Replace the whole guest list'),

@@ -1,0 +1,1 @@
+ALTER TABLE `meals` ADD `guest_of` text;

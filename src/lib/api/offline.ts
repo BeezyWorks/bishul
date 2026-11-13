@@ -71,6 +71,7 @@ export async function warmOfflineCache(qc: QueryClient) {
     get(['shopping'], () => api.getShoppingList()),
     get(['prep'], () => api.getPrepSchedule()),
     get(['pantry'], () => api.getPantry()),
+    get(['kitchen'], () => api.getKitchen()),
     get(['plan', 'week', 'today'], () => api.getWeek(undefined)),
     get(['recipes', '', {}], () => api.searchRecipes('', {})),
   ])

@@ -8,6 +8,7 @@ import { USE_MOCK } from '@/lib/config'
 import { realApi } from './real'
 import type {
   AddDishInput,
+  UpdateDishInput,
   ApiKey,
   CalendarDay,
   Collection,
@@ -26,6 +27,7 @@ import type {
   ImportResult,
   ISODate,
   Kind,
+  KitchenItem,
   Meal,
   MealDetail,
   MealPatch,
@@ -110,6 +112,8 @@ export interface TavshilApi {
   setMealPerson(mealId: Id, personId: Id, present: boolean): Promise<HostedMeal>
   addMealDish(mealId: Id, dish: AddDishInput): Promise<HostedMeal>
   removeMealDish(mealId: Id, itemId: Id): Promise<HostedMeal>
+  /** Rename a dish without a recipe, or change who is bringing it. */
+  updateMealDish(mealId: Id, itemId: Id, change: UpdateDishInput): Promise<HostedMeal>
   /** To a course, before another dish of it (`beforeItemId`) or at the end. */
   moveMealDish(
     mealId: Id,
@@ -148,9 +152,9 @@ export interface TavshilApi {
   /** The recipe's public link (the same one if it is already shared). */
   shareRecipe(recipeId: Id): Promise<RecipeShare>
   stopSharing(shareId: Id): Promise<void>
-  /** Public: no sign-in needed. The recipe as the author has it now. */
   /** The signed-in user's active recipe links. */
   getRecipeShares(): Promise<RecipeShare[]>
+  /** Public: no sign-in needed. The recipe as the author has it now. */
   getShared(token: string): Promise<SharedRecipe>
   /** Copies the recipe, as it is now, into the signed-in user's cookbook. */
   saveShared(token: string): Promise<{ recipeId: Id }>
@@ -197,6 +201,18 @@ export interface TavshilApi {
   addPantryItem(item: { name: string; quantity: string; expires?: ISODate }): Promise<void>
   updatePantryItem(itemId: Id, patch: { quantity?: string; expires?: ISODate }): Promise<void>
   removePantryItem(itemId: Id): Promise<void>
+  /** The household's kitchen equipment. */
+  getKitchen(): Promise<KitchenItem[]>
+  addEquipment(e: {
+    item: string
+    count: number
+    designation: KitchenItem['designation']
+  }): Promise<void>
+  updateEquipment(
+    id: Id,
+    patch: { item?: string; count?: number; designation?: KitchenItem['designation'] },
+  ): Promise<void>
+  removeEquipment(id: Id): Promise<void>
 }
 
 // The mock (and its fixtures) is only bundled when the demo build asks for it.

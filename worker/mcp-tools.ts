@@ -171,7 +171,7 @@ export const TOOLS: Tool[] = [
     name: 'manage_meal_dishes',
     title: 'Manage a meal’s dishes',
     description:
-      'Add dishes to a course (a recipe version, or a dish without a recipe), remove dishes and move a dish to another course. Courses are main, side, dessert (soups, salads and starters all go under side, shown as "Sides"). Check search_recipes_for_meal first so the dish fits everyone. Confirm with the host first.',
+      'Add dishes to a course (a recipe version, a dish without a recipe, or a side someone is bringing: broughtBy alone is enough, e.g. {course: "side", broughtBy: "the Golds"} shows "A side"), remove dishes, rename or re-assign a typed-in or brought dish (update: "the Golds are bringing sweet potato casserole") and move a dish to another course. Courses are main, side, dessert (soups, salads and starters all go under side, shown as "Sides"). Check search_recipes_for_meal first so the dish fits everyone. Confirm with the host first.',
     input: z.object({
       mealId: S.id,
       add: z
@@ -187,6 +187,16 @@ export const TOOLS: Tool[] = [
         )
         .optional(),
       removeItemIds: z.array(S.id).optional(),
+      update: z
+        .array(
+          z.object({
+            itemId: S.id,
+            description: z.string().min(1).optional().describe('Name a dish that has no recipe'),
+            broughtBy: z.string().nullable().optional().describe('Who brings it; null: we do'),
+            kashrut: S.kashrut.nullable().optional(),
+          }),
+        )
+        .optional(),
       move: z
         .array(z.object({ itemId: S.id, course: z.string().min(1), beforeItemId: S.id.optional() }))
         .optional(),
@@ -196,6 +206,8 @@ export const TOOLS: Tool[] = [
       for (const d of a.add ?? []) view = await hosting.addDish(c.db, c.actor, a.mealId, d)
       for (const id of a.removeItemIds ?? [])
         view = await hosting.removeDish(c.db, c.actor, a.mealId, id)
+      for (const { itemId, ...u } of a.update ?? [])
+        view = await hosting.updateDish(c.db, c.actor, a.mealId, itemId, u)
       for (const m of a.move ?? [])
         view = await hosting.moveDish(c.db, c.actor, a.mealId, m.itemId, m)
       return ok('Menu updated.', view ?? (await hosting.getHostedMeal(c.db, c.actor, a.mealId)))
@@ -255,7 +267,7 @@ export const TOOLS: Tool[] = [
     name: 'plan_meal',
     title: 'Plan a meal',
     description:
-      'Create a meal on a date, optionally with a name (leave it out and it is named after its day: a holiday, "Tuesday dinner"), slot (breakfast, kiddush, brunch, lunch, seudah_shlishit, dinner, oneg), time, kind (meat, dairy, parve), whether it is hosted, who is coming and first items. The household is in by default; pass householdIds to invite whole contact households, personIds for single contacts and excludePersonIds for household members who are not coming. A guest makes the meal hosted; Shabbat and Yom Tov meals always are. Get the date from get_calendar and confirm with the host first. Returns the meal with its dining brief.',
+      'Create a meal on a date. When we are guests at someone else\'s table ("we\'re going to the Blochs for Shabbos lunch, they asked us to bring a side, I\'ll bring potato kugel"): get_calendar for the date, find the Blochs with get_people, then plan_meal with guestOf "the Blochs", the slot, householdIds or personIds for the Blochs (so their constraints are checked against what we bring, and tell the host the allergy disclaimer) and items [{versionId of the saved recipe from search_recipes, course "side"}]; if the Blochs are not saved as contacts, say their allergies cannot be checked. When someone is bringing something to our meal ("the Golds are bringing a side"), do not make a recipe: add an item {brought: {by: "the Golds", course: "side"}} with a description only if the host says what it is. Optionally with a name (leave it out and it is named after its day: a holiday, "Tuesday dinner"), slot (breakfast, kiddush, brunch, lunch, seudah_shlishit, dinner, oneg), time, kind (meat, dairy, parve), whether it is hosted, who is coming and first items. The household is in by default; pass householdIds to invite whole contact households, personIds for single contacts and excludePersonIds for household members who are not coming. A guest makes the meal hosted; Shabbat and Yom Tov meals always are. Get the date from get_calendar and confirm with the host first. Returns the meal with its dining brief.',
     input: S.createMealInput,
     run: async (c, a) =>
       ok(
@@ -267,7 +279,7 @@ export const TOOLS: Tool[] = [
     name: 'update_meal',
     title: 'Update a meal',
     description:
-      'Change a meal: name, date, slot, time (e.g. 18:30; null clears it), kind, hosted, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes"), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
+      'Change a meal: name, date, slot, time (e.g. 18:30; null clears it), kind, hosted, who is coming (personIds, addPersonIds, removePersonIds), and its items: addItems (a recipe version with scale or servings, or a brought dish such as "Ruth is bringing potatoes" or just {by, course} for "the Golds are bringing a side"), guestOf ("the Blochs" when we are guests at their table; null when we host), removeItemIds, updateItems, order. Changing the menu or the people of an accepted meal turns it back into a draft for review. Confirm with the host first.',
     input: S.updateMealInput.extend({ mealId: S.id }),
     run: async (c, { mealId, ...rest }) =>
       ok('Meal updated.', await planning.updateMeal(c.db, c.actor, mealId, rest as never)),

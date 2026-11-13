@@ -8,6 +8,7 @@ import { addDays, hebrewDate, rangeDays, weekday } from '@/lib/dates'
 import { holidaysOn, parashaOn, TODAY } from './mock-data'
 import type {
   AddDishInput,
+  UpdateDishInput,
   DaySlot,
   GuestHousehold,
   HostedCourse,
@@ -111,6 +112,7 @@ interface MockItem {
   course: string
   title: string
   recipeId: Id | null
+  broughtBy?: string
 }
 interface MockMeal {
   id: Id
@@ -120,6 +122,7 @@ interface MockMeal {
   nameEdited: boolean
   time: string | null
   hosted: boolean
+  guestOf?: string
   /** Household id to the person ids present. A household with no entry for itself means everyone (the host). */
   guests: Record<Id, Id[]>
   items: MockItem[]
@@ -240,7 +243,7 @@ function groups(m: MockMeal): HostedCourse[] {
           versionTitle: null,
           kashrut: null,
           noRecipe: !i.recipeId,
-          broughtBy: null,
+          broughtBy: i.broughtBy ?? null,
           problems: [],
         })),
     }))
@@ -270,6 +273,7 @@ function card(m: MockMeal): MealCard {
     status: 'draft',
     kind: null,
     hosted: m.hosted || !!holy || guests.length > 0,
+    guestOf: m.guestOf ?? null,
     runKey: holy?.run.key ?? null,
     hostedKey: holy?.run.key ?? `meal-${m.id}`,
     holyDate: holy?.day.date ?? null,
@@ -318,6 +322,7 @@ function virtualCard(run: Run, d: Run['days'][number], part: 'night' | 'day'): M
     status: 'draft',
     kind: null,
     hosted: true,
+    guestOf: null,
     runKey: run.key,
     hostedKey: run.key,
     holyDate: d.date,
@@ -578,6 +583,7 @@ export const mockPlan = {
     if (patch.slot) m.slot = patch.slot
     if (patch.date) m.date = patch.date
     if (patch.hosted !== undefined) m.hosted = patch.hosted
+    if (patch.guestOf !== undefined) m.guestOf = patch.guestOf?.trim() || undefined
     if (!m.nameEdited && !holyOf(m)) m.name = m.hosted ? autoName(m) : LABEL[m.slot]
     return hostedMeal(m)
   },
@@ -614,9 +620,19 @@ export const mockPlan = {
     m.items.push({
       id: nid('pi'),
       course: dish.course,
-      title: dish.description ?? 'Recipe',
+      title: dish.description ?? (dish.broughtBy ? `A ${dish.course}` : 'Recipe'),
       recipeId: dish.versionId ?? null,
+      broughtBy: dish.broughtBy,
     })
+    return hostedMeal(m)
+  },
+  updateMealDish: (id: Id, itemId: Id, change: UpdateDishInput) => {
+    const m = find(id)
+    const it = m.items.find((i) => i.id === itemId)
+    if (it) {
+      if (change.description !== undefined) it.title = change.description
+      if (change.broughtBy !== undefined) it.broughtBy = change.broughtBy ?? undefined
+    }
     return hostedMeal(m)
   },
   removeMealDish: (id: Id, itemId: Id) => {

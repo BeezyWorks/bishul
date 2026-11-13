@@ -33,6 +33,7 @@ import type {
   HouseholdInfo,
   Id,
   Kind,
+  KitchenItem,
   MealDetail,
   MealRecipeSearch,
   PlanView,
@@ -177,7 +178,6 @@ export const realApi: TavshilApi = {
     })
     return { id: r.id, url: r.url }
   },
-  stopSharing: async (shareId) => {
   getRecipeShares: async () => {
     const r =
       await http.get<{ id: string; kind: string; targetId: string; url: string }[]>('/shares')
@@ -185,6 +185,7 @@ export const realApi: TavshilApi = {
       .filter((x) => x.kind === 'dish')
       .map((x) => ({ id: x.id, url: x.url, recipeId: x.targetId }))
   },
+  stopSharing: async (shareId) => {
     await http.delete(`/shares/${shareId}`)
   },
   getShared: async (token) => {
@@ -521,6 +522,8 @@ export const realApi: TavshilApi = {
   setMealPerson: (id, personId, present) =>
     http.put<HostedMeal>(`/meals/${id}/people/${personId}`, { present }),
   addMealDish: (id, dish) => http.post<HostedMeal>(`/meals/${id}/dishes`, dish),
+  updateMealDish: (id, itemId, change) =>
+    http.patch<HostedMeal>(`/meals/${id}/dishes/${itemId}`, change),
   removeMealDish: (id, itemId) => http.delete<HostedMeal>(`/meals/${id}/dishes/${itemId}`),
   moveMealDish: (id, itemId, to) => http.post<HostedMeal>(`/meals/${id}/dishes/${itemId}/move`, to),
   searchRecipesForMeal: (id, query) => http.get<MealRecipeSearch>(`/meals/${id}/recipes`, query),
@@ -631,5 +634,16 @@ export const realApi: TavshilApi = {
 
   removePantryItem: async (id) => {
     await http.delete(`/pantry/${id}`)
+  },
+
+  getKitchen: async () => (await http.get<{ equipment: KitchenItem[] }>('/equipment')).equipment,
+  addEquipment: async (e) => {
+    await http.post('/equipment', e)
+  },
+  updateEquipment: async (id, patch) => {
+    await http.patch(`/equipment/${id}`, patch)
+  },
+  removeEquipment: async (id) => {
+    await http.delete(`/equipment/${id}`)
   },
 }

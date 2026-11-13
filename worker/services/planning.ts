@@ -423,6 +423,7 @@ async function mealView(db: Db, actor: Actor, ctx: MealContext) {
     kind: meal.kind,
     slot: meal.slot,
     hosted: meal.hosted,
+    guestOf: meal.guestOf,
     nameEdited: meal.nameEdited,
     status: meal.status,
     acceptedAt: meal.acceptedAt,
@@ -649,7 +650,8 @@ export interface MealItemInput {
   servings?: number
   /** …or a dish someone is bringing. */
   brought?: {
-    description: string
+    /** Left out: "A side" (from the course); a title is enough, no recipe needed. */
+    description?: string
     by: string
     kashrut?: 'meat' | 'dairy' | 'parve'
     course?: string
@@ -665,6 +667,8 @@ export interface CreateMealInput {
   slot?: DaySlot
   /** A hosted meal has a full page. Inviting a guest makes a meal hosted too; Shabbat and Yom Tov meals always are. */
   hosted?: boolean
+  /** We are guests at someone else's table ("the Blochs"): the menu here is only what we bring. */
+  guestOf?: string
   /** Whole guest households to invite (all their members come). */
   householdIds?: string[]
   /** `18:30` or minutes since midnight. */
@@ -725,7 +729,8 @@ async function addItems(db: Db, actor: Actor, mealId: string, items: MealItemInp
         position: pos++,
         course: it.course ?? it.brought.course ?? null,
         broughtBy: it.brought.by,
-        description: it.brought.description,
+        description:
+          it.brought.description?.trim() || `A ${it.course ?? it.brought.course ?? 'dish'}`,
         kashrut: it.brought.kashrut ?? null,
       })
     } else throw invalid('Each item needs a versionId or a brought dish')
@@ -790,18 +795,18 @@ export async function createMeal(db: Db, actor: Actor, input: CreateMealInput) {
     : []
   const extra = unique([...(input.personIds ?? []), ...guestMembers])
   const hasGuests = extra.some((id) => !hostIds.includes(id)) || guestHouseholds.length > 0
-  const hosted = !!holy || !!input.hosted || hasGuests
+  const guestOf = input.guestOf?.trim() || null
+  const hosted = !!holy || (!guestOf && (!!input.hosted || hasGuests))
   const typed = input.name?.trim()
-  const name =
-    typed ??
-    (await defaultName(
-      db,
-      actor,
-      input.date,
-      slot,
-      hosted,
-      def ? { name: def.name } : holy ? { name: SLOT_LABELS[slot] } : null,
-    ))
+  const autoName = await defaultName(
+    db,
+    actor,
+    input.date,
+    slot,
+    hosted,
+    def ? { name: def.name } : holy ? { name: SLOT_LABELS[slot] } : null,
+  )
+  const name = typed ?? (guestOf ? `${autoName} at ${guestOf}` : autoName)
   const [meal] = await db
     .insert(s.meals)
     .values({
@@ -811,6 +816,7 @@ export async function createMeal(db: Db, actor: Actor, input: CreateMealInput) {
       nameEdited: !!typed,
       slot,
       hosted,
+      guestOf,
       time,
       kind: input.kind ?? null,
     })
@@ -836,6 +842,8 @@ export interface UpdateMealInput {
   slot?: DaySlot
   /** Make the meal hosted (never un-hosts a Shabbat or Yom Tov meal). */
   hosted?: boolean
+  /** Guest at someone else's table ("the Blochs"); null makes it a meal we host again. */
+  guestOf?: string | null
   time?: string | number | null
   kind?: MealKind | null
   /** Replace the guest list. */
@@ -890,20 +898,29 @@ export async function updateMeal(db: Db, actor: Actor, mealId: string, input: Up
     patch.slot = input.slot
   }
   if (input.hosted !== undefined) patch.hosted = input.hosted
-  // While the name is still the automatic one, a new day or slot renames it.
+  if (input.guestOf !== undefined) patch.guestOf = input.guestOf?.trim() || null
+  // While the name is still the automatic one, a new day, slot or host renames it.
   if (
     input.name === undefined &&
     !meal.nameEdited &&
-    (patch.date !== undefined || patch.slot !== undefined || patch.hosted !== undefined)
+    (patch.date !== undefined ||
+      patch.slot !== undefined ||
+      patch.hosted !== undefined ||
+      input.guestOf !== undefined)
   ) {
     const date = patch.date ?? meal.date
     const slot = (patch.slot ?? meal.slot) as DaySlot
     const hosted = patch.hosted ?? meal.hosted
+    const guestOf = patch.guestOf !== undefined ? patch.guestOf : meal.guestOf
     const loc = await householdLocation(db, actor.householdId)
     const runs = hostedRuns(date, date, loc)
     const inRun = holyDateOfMeal({ date, slot }, holyDatesOf(runs)) !== null
-    if (!inRun)
-      patch.name = hosted ? autoMealName(calendarDays(date, date, loc)[0], slot) : SLOT_LABELS[slot]
+    if (!inRun) {
+      const base = hosted ? autoMealName(calendarDays(date, date, loc)[0], slot) : SLOT_LABELS[slot]
+      patch.name = guestOf ? `${base} at ${guestOf}` : base
+    } else if (guestOf && !meal.name.endsWith(` at ${guestOf}`)) {
+      patch.name = `${meal.name.replace(/ at .+$/, '')} at ${guestOf}`
+    } else if (!guestOf) patch.name = meal.name.replace(/ at .+$/, '')
   }
   if (input.time !== undefined) patch.time = parseTime(input.time)
   if (input.kind !== undefined) patch.kind = input.kind

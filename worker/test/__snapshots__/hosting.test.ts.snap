@@ -60,6 +60,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "create": null,
             "date": "2027-04-20",
             "guestHouseholds": 1,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 3,
@@ -112,6 +113,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "create": null,
             "date": "2027-04-21",
             "guestHouseholds": 2,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 5,
@@ -337,6 +339,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 "create": null,
                 "date": "2027-04-21",
                 "guestHouseholds": 2,
+                "guestOf": null,
                 "hasGuests": true,
                 "headcount": {
                   "adults": 5,
@@ -376,6 +379,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 "create": null,
                 "date": "2027-04-22",
                 "guestHouseholds": 1,
+                "guestOf": null,
                 "hasGuests": true,
                 "headcount": {
                   "adults": 3,
@@ -429,6 +433,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-22",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -470,6 +475,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-23",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -521,6 +527,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-23",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -562,6 +569,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-24",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -629,6 +637,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
               "tree nut-free meal",
             ],
             "guestHouseholds": 2,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 5,
@@ -893,6 +902,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
               "tree nut-free meal",
             ],
             "guestHouseholds": 1,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 3,
@@ -1064,6 +1074,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "disclaimer": "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest.",
             "foodNotes": [],
             "guestHouseholds": 0,
+            "guestOf": null,
             "hasGuests": false,
             "headcount": {
               "adults": 1,
@@ -1160,6 +1171,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "disclaimer": "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest.",
             "foodNotes": [],
             "guestHouseholds": 0,
+            "guestOf": null,
             "hasGuests": false,
             "headcount": {
               "adults": 1,
@@ -1264,6 +1276,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "disclaimer": "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest.",
             "foodNotes": [],
             "guestHouseholds": 0,
+            "guestOf": null,
             "hasGuests": false,
             "headcount": {
               "adults": 1,
@@ -1360,6 +1373,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "disclaimer": "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest.",
             "foodNotes": [],
             "guestHouseholds": 0,
+            "guestOf": null,
             "hasGuests": false,
             "headcount": {
               "adults": 1,
@@ -1513,6 +1527,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "disclaimer": "Tavshil helps you avoid serving the wrong thing, but it is not a guarantee. It's on the host: check labels, and confirm allergies with the guest.",
             "foodNotes": [],
             "guestHouseholds": 1,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 3,
@@ -1744,6 +1759,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "create": null,
             "date": "2027-04-20",
             "guestHouseholds": 1,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 3,
@@ -1796,6 +1812,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
             "create": null,
             "date": "2027-04-21",
             "guestHouseholds": 2,
+            "guestOf": null,
             "hasGuests": true,
             "headcount": {
               "adults": 5,
@@ -1975,6 +1992,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 "create": null,
                 "date": "2027-04-21",
                 "guestHouseholds": 2,
+                "guestOf": null,
                 "hasGuests": true,
                 "headcount": {
                   "adults": 5,
@@ -2014,6 +2032,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 "create": null,
                 "date": "2027-04-22",
                 "guestHouseholds": 1,
+                "guestOf": null,
                 "hasGuests": true,
                 "headcount": {
                   "adults": 3,
@@ -2067,6 +2086,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-22",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -2108,6 +2128,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-23",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -2159,6 +2180,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-23",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
@@ -2200,6 +2222,7 @@ exports[`plan and hosted views with several meals (parity) > gives the same plan
                 },
                 "date": "2027-04-24",
                 "guestHouseholds": 0,
+                "guestOf": null,
                 "hasGuests": false,
                 "headcount": {
                   "adults": 1,
