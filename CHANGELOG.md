@@ -1,3 +1,13 @@
+# [2.13.0](https://github.com/BeezyWorks/tavshil/compare/v2.12.0...v2.13.0) (2026-11-13)
+
+
+### Features
+
+* **app:** delete a recipe variation from the recipe page and MCP ([32953ae](https://github.com/BeezyWorks/tavshil/commit/32953ae8f8d3e88c453d6caa275ea906c008ef5e))
+* **app:** edit pen toggles the recipe editor, warning before discarding changes ([fa41ed5](https://github.com/BeezyWorks/tavshil/commit/fa41ed595af7fe417abe791bccf54bc5f34dd9aa))
+* **app:** guest meals and brought sides, plus kitchen screen ([e968dfc](https://github.com/BeezyWorks/tavshil/commit/e968dfc9aefabb37d30b7d41141fb7df58e0a3d1))
+* **app:** share recipe as a QR code with logo, share sheet, sharing-on switch ([4ba6a79](https://github.com/BeezyWorks/tavshil/commit/4ba6a793a63e7a236af3139cab1494135c12b713))
+
 # [2.12.0](https://github.com/BeezyWorks/tavshil/compare/v2.11.0...v2.12.0) (2026-11-10)
 
 
