@@ -98,8 +98,8 @@ export function ProblemsBox({ page }: { page: HostedPage }) {
           </View>
         )
       })}
-      {aiNotes.map((n) => (
-        <Text key={n.dishId} variant="small" color={colors.warn}>
+      {aiNotes.map((n, i) => (
+        <Text key={`${n.dishId}-${i}`} variant="small" color={colors.warn}>
           {n.text}
         </Text>
       ))}

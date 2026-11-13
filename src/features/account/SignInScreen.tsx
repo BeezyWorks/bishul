@@ -173,6 +173,10 @@ export function SignInScreen({
             />
           )}
         </View>
+        <View style={styles.links}>
+          <Button label="Privacy policy" variant="ghost" small href="/privacy" />
+          <Button label="About and support" variant="ghost" small href="/about" />
+        </View>
         {DEV_AUTH ? (
           <Button
             label="Continue as a dev user"

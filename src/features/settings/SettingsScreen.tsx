@@ -396,6 +396,9 @@ function AccountCard() {
         {user?.name && user?.email ? ` (${user.email})` : ''}.
       </Text>
       <Button label="Sign out" variant="secondary" onPress={() => void signOut()} />
+      <Button label="About and support" variant="ghost" href="/about" />
+      <Button label="Privacy policy" variant="ghost" href="/privacy" />
+      <Button label="Delete account and data" variant="danger" href="/delete-account" />
     </Card>
   )
 }

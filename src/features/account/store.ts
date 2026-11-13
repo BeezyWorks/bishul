@@ -177,6 +177,25 @@ export async function signOut() {
   set({ status: 'signedOut', user: null })
 }
 
+/**
+ * Deletes the account and its data (App Store 5.1.1(v)). The accounts service removes the login and tells Tavshil to
+ * erase the rest. Credential users send their password; others need a session created in the last 24 hours.
+ */
+export async function deleteAccount(password?: string) {
+  if (USE_MOCK) return
+  if (!tokenStore.get()?.startsWith('dev-')) {
+    try {
+      await auth('/delete-user', password ? { password } : {})
+    } catch (e) {
+      if (e instanceof Error && /SESSION_EXPIRED|fresh/i.test(e.message))
+        throw new Error('For your security, sign out, sign in again, then delete your account.')
+      throw e
+    }
+  }
+  tokenStore.set(null)
+  set({ status: 'signedOut', user: null })
+}
+
 /** The API said 401: the token is gone or expired. */
 export function expireSession() {
   if (USE_MOCK) return

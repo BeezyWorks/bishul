@@ -21,6 +21,11 @@ export function MoreScreen() {
           title="Settings"
           subtitle="Household, units, API keys and connecting your AI"
           href="/settings"
+        />
+        <ListRow
+          title="About and support"
+          subtitle="Contact us, the privacy policy and deleting your account"
+          href="/about"
           last
         />
       </Card>
