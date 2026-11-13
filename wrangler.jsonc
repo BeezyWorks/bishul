@@ -15,6 +15,8 @@
   },
   // Run the Worker next to its D1 database (EEUR) rather than next to the user: a request makes many
   // queries in a row, and each one would otherwise cross that distance.
+  // Daily purge of rows deleted more than 30 days ago (worker/services/purge.ts).
+  "triggers": { "crons": ["17 3 * * *"] },
   "placement": { "mode": "smart" },
   "d1_databases": [
     {

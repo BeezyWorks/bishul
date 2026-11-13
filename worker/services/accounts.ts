@@ -1,4 +1,6 @@
-import { and, eq, inArray, isNull, ne, notInArray } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, ne, notInArray, type SQL } from 'drizzle-orm'
+
+import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 
 import * as s from '../db/schema'
 import { chunks, type Db } from './ctx'
@@ -133,6 +135,43 @@ async function retireHousehold(db: Db, householdId: string, now: number) {
           .where(and(inArray(s.persons.id, ids), isNull(s.persons.deletedAt))),
       ])
     }
+    // Everything else the household held, so the routine purge (purge.ts) can erase it: it only erases what was retired.
+    const meals = db
+      .select({ id: s.meals.id })
+      .from(s.meals)
+      .where(inArray(s.meals.householdId, part))
+    const persons = db
+      .select({ id: s.persons.id })
+      .from(s.persons)
+      .where(inArray(s.persons.householdId, part))
+    const mine = (t: SQLiteTable & { deletedAt: any }, where: SQL) =>
+      [t, and(where, isNull(t.deletedAt))] as const
+    for (const [table, where] of [
+      mine(s.mealItems, inArray(s.mealItems.mealId, meals)),
+      mine(s.mealAttendees, inArray(s.mealAttendees.mealId, meals)),
+      mine(s.mealHouseholds, inArray(s.mealHouseholds.mealId, meals)),
+      mine(s.servedLog, inArray(s.servedLog.personId, persons)),
+      mine(s.servedLog, inArray(s.servedLog.layerHouseholdId, part)),
+      mine(s.reactions, inArray(s.reactions.personId, persons)),
+      mine(s.reactions, inArray(s.reactions.layerHouseholdId, part)),
+      mine(s.constraints, inArray(s.constraints.personId, persons)),
+      mine(s.constraints, inArray(s.constraints.layerHouseholdId, part)),
+      mine(s.personRules, inArray(s.personRules.personId, persons)),
+      mine(s.personRules, inArray(s.personRules.layerHouseholdId, part)),
+      mine(s.notes, inArray(s.notes.authorHouseholdId, part)),
+      mine(s.notes, inArray(s.notes.aboutPersonId, persons)),
+      mine(s.meals, inArray(s.meals.householdId, part)),
+      mine(s.pantryItems, inArray(s.pantryItems.householdId, part)),
+      mine(s.equipment, inArray(s.equipment.householdId, part)),
+      mine(s.shoppingList, inArray(s.shoppingList.householdId, part)),
+      mine(s.dimensions, inArray(s.dimensions.householdId, part)),
+      mine(s.ingredients, inArray(s.ingredients.householdId, part)),
+    ] as const)
+      await db
+        .update(table as typeof s.meals)
+        .set({ deletedAt: now })
+        .where(where)
+
     await db.batch([
       // Recipes that are public stay (readable, searchable, saveable); their author's profile is gone, so they
       // show as anonymous.
@@ -173,5 +212,21 @@ async function retireHousehold(db: Db, householdId: string, now: number) {
         .set({ deletedAt: now })
         .where(and(inArray(s.households.id, part), isNull(s.households.deletedAt))),
     ])
+    // The versions of the recipes just retired (public recipes were left alone, so theirs stay).
+    await db
+      .update(s.recipeVersions)
+      .set({ deletedAt: now })
+      .where(
+        and(
+          isNull(s.recipeVersions.deletedAt),
+          inArray(
+            s.recipeVersions.recipeId,
+            db
+              .select({ id: s.recipes.id })
+              .from(s.recipes)
+              .where(and(inArray(s.recipes.householdId, part), isNotNull(s.recipes.deletedAt))),
+          ),
+        ),
+      )
   }
 }

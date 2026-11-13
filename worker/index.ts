@@ -8,6 +8,7 @@ import { handleMcp } from './mcp'
 import { countBadSecret } from './ratelimit'
 import { eraseUserAccount } from './services/accounts'
 import { openDb, sha256Hex } from './services/ctx'
+import { purgeRetired } from './services/purge'
 
 export type { Env } from './env'
 
@@ -85,4 +86,15 @@ app.all('/v1/*', (c) => c.json({ error: { code: 'not_found', message: 'not found
 // Everything else is the exported Expo web app.
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
-export default app
+export default {
+  fetch: app.fetch,
+  // Daily (see `triggers` in wrangler.jsonc): erase what was deleted long enough ago (services/purge.ts).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      purgeRetired(env.DB).then(
+        (erased) => console.log('[purge]', JSON.stringify(erased)),
+        (e) => console.error('[purge] failed', e instanceof Error ? e.message : e),
+      ),
+    )
+  },
+}
