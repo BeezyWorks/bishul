@@ -108,6 +108,8 @@ export const useRecipe = (id: Id) =>
   useQuery({ queryKey: ['recipe', id], queryFn: () => api.getRecipe(id) })
 export const useVersion = (id: Id) =>
   useQuery({ queryKey: ['version', id], queryFn: () => api.getVersion(id) })
+export const useRecipeShares = () =>
+  useQuery({ queryKey: ['shares'], queryFn: () => api.getRecipeShares() })
 export const useCollections = () =>
   useQuery({ queryKey: ['collections'], queryFn: () => api.getCollections() })
 export const useHousehold = () =>

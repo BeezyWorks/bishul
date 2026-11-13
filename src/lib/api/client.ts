@@ -149,6 +149,8 @@ export interface TavshilApi {
   shareRecipe(recipeId: Id): Promise<RecipeShare>
   stopSharing(shareId: Id): Promise<void>
   /** Public: no sign-in needed. The recipe as the author has it now. */
+  /** The signed-in user's active recipe links. */
+  getRecipeShares(): Promise<RecipeShare[]>
   getShared(token: string): Promise<SharedRecipe>
   /** Copies the recipe, as it is now, into the signed-in user's cookbook. */
   saveShared(token: string): Promise<{ recipeId: Id }>

@@ -108,6 +108,8 @@ export interface Household {
 export interface RecipeShare {
   id: Id
   url: string
+  /** The shared recipe, when listing links. */
+  recipeId?: Id
 }
 
 export interface SharedVersion {

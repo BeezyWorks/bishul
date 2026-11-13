@@ -178,6 +178,13 @@ export const realApi: TavshilApi = {
     return { id: r.id, url: r.url }
   },
   stopSharing: async (shareId) => {
+  getRecipeShares: async () => {
+    const r =
+      await http.get<{ id: string; kind: string; targetId: string; url: string }[]>('/shares')
+    return r
+      .filter((x) => x.kind === 'dish')
+      .map((x) => ({ id: x.id, url: x.url, recipeId: x.targetId }))
+  },
     await http.delete(`/shares/${shareId}`)
   },
   getShared: async (token) => {

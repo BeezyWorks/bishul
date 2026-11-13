@@ -1206,6 +1206,7 @@ export const mockApi: TavshilApi = {
   listApiKeys: () => delay([]),
   shareRecipe: async () => demoOnly(),
   stopSharing: async () => demoOnly(),
+  getRecipeShares: () => delay([]),
   getShared: async () => demoOnly(),
   saveShared: async () => demoOnly(),
   createApiKey: async () => demoOnly(),

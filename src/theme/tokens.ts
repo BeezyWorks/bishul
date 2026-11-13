@@ -16,6 +16,7 @@ export const colors = {
   warnSoft: '#FBF1DC',
   info: '#1F4F86',
   infoSoft: '#E6EEF8',
+  scrim: 'rgba(29, 32, 28, 0.5)',
   // Cooking mode (dark)
   cookBg: '#151816',
   cookSurface: '#212622',
