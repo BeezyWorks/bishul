@@ -1,3 +1,11 @@
+# [2.14.0](https://github.com/BeezyWorks/tavshil/compare/v2.13.0...v2.14.0) (2026-11-13)
+
+
+### Features
+
+* **app:** privacy policy, about page and in-app account deletion ([02ed3d8](https://github.com/BeezyWorks/tavshil/commit/02ed3d84de05a87983402fe2785505b621dac682))
+* **worker:** daily purge of retired rows; account deletion retires the whole household ([5870e93](https://github.com/BeezyWorks/tavshil/commit/5870e93b51f32ca5b7fdc99d7d7875eb08d9b4b2))
+
 # [2.13.0](https://github.com/BeezyWorks/tavshil/compare/v2.12.0...v2.13.0) (2026-11-13)
 
 
