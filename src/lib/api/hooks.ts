@@ -346,6 +346,10 @@ export const useUpdatePlanMeal = () =>
     stale.plan,
   )
 
+/** Deletes one variation of a recipe (the page asks for confirmation first). */
+export const useDeleteVersion = () =>
+  useApiMutation((versionId: Id) => api.deleteVersion(versionId), stale.recipes)
+
 /** Soft-deletes the meal (the page asks for confirmation first). */
 export const useDeletePlanMeal = () =>
   useApiMutation((mealId: Id) => api.deleteMeal(mealId), stale.planMenu)

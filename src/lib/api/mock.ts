@@ -1214,6 +1214,7 @@ export const mockApi: TavshilApi = {
   importRecipe: async () => demoOnly(),
   saveVersion: async () => demoOnly(),
   createVariation: async () => demoOnly(),
+  deleteVersion: async () => demoOnly(),
   addPerson: async () => demoOnly(),
   setPersonBirth: async () => demoOnly(),
   setPersonSpicy: async () => demoOnly(),

@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useState } from 'react'
-import { Linking, Pressable, StyleSheet, View } from 'react-native'
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native'
 
 import {
   Badge,
@@ -16,7 +16,7 @@ import {
   Text,
   useLayout,
 } from '@/components'
-import { useHousehold, useRecipe, useRecordReaction } from '@/lib/api/hooks'
+import { useDeleteVersion, useHousehold, useRecipe, useRecordReaction } from '@/lib/api/hooks'
 
 import { AddEquipment } from './AddEquipment'
 import { AddTag } from './AddTag'
@@ -103,6 +103,30 @@ export function RecipeScreen() {
     null | 'edit' | 'variation' | 'link' | 'share' | 'steps' | 'ingredients'
   >(null)
   const [units, setUnits] = useUnits()
+  const router = useRouter()
+  const deleteVersion = useDeleteVersion()
+  /** Deletes the shown variation after asking; the last one takes the whole recipe with it. */
+  const removeVariation = (vid: string, label: string, last: boolean) => {
+    const msg = last
+      ? `"${label}" is the only variation, so the whole recipe will be deleted.`
+      : `Delete the variation "${label}"? The other variations stay.`
+    const run = () =>
+      deleteVersion.mutate(vid, {
+        onSuccess: () => {
+          setVersionId(null)
+          setEditing(null)
+          if (last) router.replace('/recipes' as never)
+        },
+      })
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) run()
+    } else {
+      Alert.alert('Delete variation?', msg, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: run },
+      ])
+    }
+  }
   if (isLoading || !recipe)
     return (
       <Screen>
@@ -176,6 +200,15 @@ export function RecipeScreen() {
             small
             onPress={() => setEditing('variation')}
           />
+          {recipe.versions.length > 1 ? (
+            <Button
+              label="Delete this variation"
+              icon="trash"
+              variant="ghost"
+              small
+              onPress={() => removeVariation(v.id, v.label, false)}
+            />
+          ) : null}
         </View>
       </View>
       <VersionView

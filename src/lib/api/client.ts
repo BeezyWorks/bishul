@@ -141,6 +141,8 @@ export interface TavshilApi {
   saveVersion(versionId: Id, edit: VersionEdit): Promise<void>
   /** Forks a version into a named variation and returns the new version's id. */
   createVariation(versionId: Id, label: string, edit?: VersionEdit): Promise<Id>
+  /** Deletes one variation (the recipe too, when it was the last one). */
+  deleteVersion(versionId: Id): Promise<void>
 
   // Sharing: a recipe link is live; a saved copy is independent
   /** The recipe's public link (the same one if it is already shared). */

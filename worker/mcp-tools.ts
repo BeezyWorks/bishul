@@ -444,6 +444,15 @@ export const TOOLS: Tool[] = [
       ok('Variation saved.', await recipes.saveVariation(c.db, c.actor, a as never)),
   }),
   tool({
+    name: 'delete_variation',
+    title: 'Delete a variation',
+    description:
+      'Remove one variation (a version, by versionId) of a recipe. The other variations stay. If it is the recipe’s only version, the whole recipe is deleted. Check get_recipe first so you delete the right one. Confirm with the host first.',
+    input: z.object({ versionId: S.id }),
+    run: async (c, a) =>
+      ok('Variation deleted.', await recipes.deleteVersion(c.db, c.actor, a.versionId)),
+  }),
+  tool({
     name: 'scale_recipe',
     title: 'Scale a recipe',
     description:

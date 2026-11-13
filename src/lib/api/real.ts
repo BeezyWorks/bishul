@@ -480,6 +480,10 @@ export const realApi: TavshilApi = {
     return r.version.id
   },
 
+  deleteVersion: async (versionId) => {
+    await http.delete(`/versions/${versionId}`)
+  },
+
   // ---- People ----
   // ---- Plan tab ----
   getWeek: (date) => http.get<PlanView>('/week', { date }),
